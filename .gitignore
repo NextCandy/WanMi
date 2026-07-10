@@ -16,3 +16,4 @@ test-results/
 *.sqlite-shm
 *.sqlite-wal
 .DS_Store
+.claude/

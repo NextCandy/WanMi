@@ -127,6 +127,12 @@ export function PublicPage() {
 
       <main>
         <section className="hero">
+          <div className="hero-backdrop" aria-hidden="true">
+            <span className="glow glow-a" />
+            <span className="glow glow-b" />
+            <span className="glow glow-c" />
+            <span className="hero-grid" />
+          </div>
           <div className="hero-eyebrow">DOMAIN COLLECTION</div>
           <h1>{settings?.site_description ?? "发现值得珍藏的域名"}</h1>
           <p>每一个好名字，都是新故事的起点。</p>
@@ -173,10 +179,10 @@ export function PublicPage() {
           {!loading && !error && pageData?.items.length === 0 && <div className="state-panel"><strong>没有匹配的域名</strong><span>换一个关键词或清除筛选试试。</span></div>}
           {!loading && !error && pageData && pageData.items.length > 0 && (
             <div className="domain-grid">
-              {pageData.items.map((domain) => {
+              {pageData.items.map((domain, index) => {
                 const long = domain.domain.length > 20 ? " domain-long" : domain.domain.length > 14 ? " domain-medium" : "";
                 return (
-                  <button className={`domain-card${domain.is_featured ? " featured" : ""}`} key={domain.id} onClick={() => void copyDomain(domain.domain)} title={`复制 ${domain.domain}`}>
+                  <button className={`domain-card${domain.is_featured ? " featured" : ""}`} key={domain.id} style={{ animationDelay: `${Math.min(index * 22, 420)}ms` }} onClick={() => void copyDomain(domain.domain)} title={`复制 ${domain.domain}`}>
                     <div className="domain-card-top">
                       {domain.is_featured ? <span className="featured-badge">精品</span> : <span />}
                       <span className="copy-hint">点击复制</span>
