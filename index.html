@@ -3,13 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f97316" />
+    <script>
+      // 首帧前解析主题：localStorage 显式选择优先，否则跟随系统，避免深色闪白
+      (function () {
+        try {
+          var stored = localStorage.getItem("wanmi-theme");
+          var theme = stored === "dark" || stored === "light"
+            ? stored
+            : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          document.documentElement.dataset.theme = theme;
+          document.cookie = "wanmi_theme=" + theme + "; path=/; max-age=31536000; SameSite=Lax";
+        } catch (e) { document.documentElement.dataset.theme = "light"; }
+      })();
+    </script>
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f97316" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1c1917" />
     <meta name="description" content="WanMi 域名展示与管理系统" />
     <meta property="og:title" content="WanMi" />
     <meta property="og:description" content="精选域名展示与安全管理" />
     <meta property="og:type" content="website" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
     <title>WanMi · 域名展示</title>
   </head>
   <body>

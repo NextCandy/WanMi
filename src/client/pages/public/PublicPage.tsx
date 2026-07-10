@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
+import { ThemeToggle } from "../../components/ThemeToggle";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { api } from "../../lib/api";
 
@@ -72,7 +73,7 @@ export function PublicPage() {
     api<SiteSettings>("/api/public/settings")
       .then((data) => {
         setSettings(data);
-        document.documentElement.style.setProperty("--accent", data.accent_color);
+        document.documentElement.style.setProperty("--brand", data.accent_color);
         document.title = `${data.site_name} · 域名展示`;
       })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "站点设置加载失败"));
@@ -122,6 +123,7 @@ export function PublicPage() {
         <nav>
           <a href="#domains">域名</a>
           {hasContact && <button className="text-button" onClick={() => setContactOpen(true)}>联系</button>}
+          <ThemeToggle />
           <a className="admin-link" href="/admin">管理后台</a>
         </nav>
       </header>
