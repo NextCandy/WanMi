@@ -4,7 +4,15 @@ import { ThemeToggle } from "../../components/ThemeToggle";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { ApiError, api, download } from "../../lib/api";
 
-type AdminView = "overview" | "domains" | "dns" | "registrars" | "settings" | "notifications" | "security" | "logs";
+type AdminView = "overview" | "domains" | "categories" | "leads" | "dns" | "registrars" | "settings" | "notifications" | "security" | "logs";
+
+const STATUS_TIPS: Record<string, string> = {
+  Listed: "已在市场正常挂牌，可被买家搜索到",
+  "Failed Compliance": "未通过市场合规审核，需在注册商侧处理后重新提交",
+  "Ownership Review": "市场正在验证域名所有权，期间不可交易",
+  "TLD Not Eligible": "该后缀不被市场支持，无法挂牌",
+  "Pending Verification": "等待验证，完成后自动挂牌",
+};
 
 interface AdminUser {
   id: number;
@@ -14,6 +22,9 @@ interface AdminUser {
 
 interface DashboardData {
   counts: { total: number; listed: number; hidden: number; featured: number };
+  kpis: { totalValue: number; avgPrice: number; totalViews: number; marketLeads: number; siteLeads: number; newSiteLeads: number };
+  topViews: Array<{ full_domain: string; views: number }>;
+  expiring90d: Array<{ full_domain: string; expires_at: string }>;
   tlds: Array<{ tld: string; count: number }>;
   listingStatuses: Array<{ status: string; count: number }>;
   recentImports: Array<Record<string, unknown>>;
@@ -95,7 +106,7 @@ function Panel({ title, description, actions, children }: { title: string; descr
   return <section className="admin-panel"><div className="panel-heading"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{actions && <div className="panel-actions">{actions}</div>}</div>{children}</section>;
 }
 
-function OverviewView() {
+function OverviewView({ onTldClick }: { onTldClick: (tld: string) => void }) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -106,11 +117,23 @@ function OverviewView() {
   const cards = [
     ["域名总数", data.counts.total], ["前台展示", data.counts.listed], ["已隐藏", data.counts.hidden], ["精品域名", data.counts.featured],
   ];
+  const money = (value: number) => `$${value.toLocaleString("en-US")}`;
+  const kpiCards: Array<[string, string, string]> = [
+    ["总市值", money(data.kpis.totalValue), "SUM(报价)"],
+    ["平均报价", money(data.kpis.avgPrice), "非零报价均值"],
+    ["累计 Views", data.kpis.totalViews.toLocaleString("en-US"), "市场浏览量"],
+    ["求购线索", `${data.kpis.siteLeads}`, `${data.kpis.newSiteLeads} 条未读 · 市场 ${data.kpis.marketLeads}`],
+  ];
   return <div className="admin-stack">
     <div className="stat-grid">{cards.map(([label, value]) => <div className="stat-card" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
+    <div className="stat-grid">{kpiCards.map(([label, value, hint]) => <div className="stat-card" key={label}><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>)}</div>
     <div className="admin-two-columns">
-      <Panel title="后缀分布" description="来自 D1 当前域名表"><div className="distribution-list">{data.tlds.slice(0, 12).map((item) => <div key={item.tld}><span>.{item.tld}</span><div><i style={{ width: `${Math.max(4, item.count / Math.max(data.counts.total, 1) * 100)}%` }} /></div><strong>{item.count}</strong></div>)}</div></Panel>
-      <Panel title="市场状态" description="CSV 市场数据，不决定前台展示"><div className="status-list">{data.listingStatuses.map((item) => <div key={item.status}><span>{item.status}</span><strong>{item.count}</strong></div>)}</div></Panel>
+      <Panel title="后缀分布" description="点击跳转到筛选后的域名管理"><div className="distribution-list">{data.tlds.slice(0, 12).map((item) => <a key={item.tld} onClick={() => onTldClick(item.tld)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onTldClick(item.tld); }}><span>.{item.tld}</span><div className="bar"><i style={{ width: `${Math.max(4, item.count / Math.max(data.counts.total, 1) * 100)}%` }} /></div><strong>{item.count}</strong></a>)}</div></Panel>
+      <Panel title="市场状态" description="CSV 市场数据，不决定前台展示"><div className="status-list">{data.listingStatuses.map((item) => <div key={item.status} title={STATUS_TIPS[item.status] ?? ""}><span>{item.status}</span><strong>{item.count}</strong></div>)}</div></Panel>
+    </div>
+    <div className="admin-two-columns">
+      <Panel title="热门域名（Views Top 5）"><div className="kpi-list">{data.topViews.length ? data.topViews.map((item) => <div key={item.full_domain}><span className="mono">{item.full_domain}</span><b>{item.views}</b></div>) : <div className="empty-inline">暂无浏览数据</div>}</div></Panel>
+      <Panel title="90 天内到期"><div className="kpi-list">{data.expiring90d.length ? data.expiring90d.map((item) => <div key={item.full_domain}><span className="mono">{item.full_domain}</span><b>{new Date(item.expires_at).toLocaleDateString("zh-CN")}</b></div>) : <div className="empty-inline">暂无 90 天内到期的域名（或尚无到期数据）</div>}</div></Panel>
     </div>
     <div className="admin-two-columns">
       <Panel title="最近操作"><div className="activity-list">{data.recentLogs.length ? data.recentLogs.map((log) => <div key={log.id}><span className={log.success ? "dot-success" : "dot-error"} /><div><strong>{log.message}</strong><small>{new Date(log.created_at).toLocaleString("zh-CN")}</small></div></div>) : <div className="empty-inline">暂无操作记录</div>}</div></Panel>
@@ -119,11 +142,33 @@ function OverviewView() {
   </div>;
 }
 
-function DomainsView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
+type DomainOrderBy = "domain" | "price" | "floor" | "views" | "leads" | "date_added";
+const OPTIONAL_COLUMNS: Array<[string, string]> = [
+  ["category", "分类"], ["status", "市场状态"], ["price", "报价"], ["floor", "Floor"],
+  ["views", "Views"], ["leads", "Leads"], ["date_added", "Date Added"], ["ns", "NS"],
+];
+const DEFAULT_COLUMNS = ["category", "status", "price"];
+
+function loadColumns(): Set<string> {
+  try {
+    const stored = JSON.parse(localStorage.getItem("wanmi-admin-columns") ?? "null") as string[] | null;
+    if (Array.isArray(stored)) return new Set(stored.filter((key) => OPTIONAL_COLUMNS.some(([k]) => k === key)));
+  } catch { /* 使用默认列 */ }
+  return new Set(DEFAULT_COLUMNS);
+}
+
+interface CategoryRow { id: number; name: string; domain_count: number }
+
+function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "success" | "error") => void; presetTld?: string }) {
   const [data, setData] = useState<AdminDomainPage | null>(null);
   const [q, setQ] = useState("");
   const [listed, setListed] = useState("");
+  const [tld, setTld] = useState(presetTld ?? "");
   const [page, setPage] = useState(1);
+  const [orderBy, setOrderBy] = useState<DomainOrderBy | null>(null);
+  const [dir, setDir] = useState<"asc" | "desc">("asc");
+  const [columns, setColumns] = useState<Set<string>>(loadColumns);
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -132,13 +177,45 @@ function DomainsView({ notify }: { notify: (text: string, tone?: "success" | "er
     const params = new URLSearchParams({ page: String(page), pageSize: "50" });
     if (q) params.set("q", q);
     if (listed) params.set("listed", listed);
+    if (tld) params.set("tld", tld);
+    if (orderBy) { params.set("orderBy", orderBy); params.set("dir", dir); }
     setLoading(true);
     api<AdminDomainPage>(`/api/admin/domains?${params}`)
       .then(setData)
       .catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "域名加载失败", "error"))
       .finally(() => setLoading(false));
-  }, [listed, notify, page, q]);
+  }, [dir, listed, notify, orderBy, page, q, tld]);
   useEffect(load, [load, refresh]);
+  useEffect(() => { api<CategoryRow[]>("/api/admin/categories").then(setCategories).catch(() => setCategories([])); }, [refresh]);
+
+  function toggleColumn(key: string) {
+    setColumns((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      localStorage.setItem("wanmi-admin-columns", JSON.stringify([...next]));
+      return next;
+    });
+  }
+
+  function toggleSort(key: DomainOrderBy) {
+    if (orderBy === key) setDir((current) => (current === "asc" ? "desc" : "asc"));
+    else { setOrderBy(key); setDir(key === "domain" ? "asc" : "desc"); }
+    setPage(1);
+  }
+  const arrow = (key: DomainOrderBy) => orderBy === key ? <span className="sort-arrow">{dir === "asc" ? "↑" : "↓"}</span> : null;
+
+  async function setCategoryFor(domain: AdminDomain, value: string) {
+    if (value === "__new__") {
+      const name = window.prompt("新分类名称");
+      if (!name?.trim()) return;
+      try {
+        await api("/api/admin/categories", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+        await patch(domain.id, { category: name.trim() }, `已归入新分类 ${name.trim()}`);
+      } catch (reason) { notify(reason instanceof Error ? reason.message : "新建分类失败", "error"); }
+      return;
+    }
+    await patch(domain.id, { category: value || null }, value ? "分类已更新" : "已清除分类");
+  }
 
   async function patch(id: number, body: Record<string, unknown>, message: string) {
     try {
@@ -154,12 +231,24 @@ function DomainsView({ notify }: { notify: (text: string, tone?: "success" | "er
     let category: string | null | undefined;
     if (action === "categorize") category = window.prompt("输入新分类；留空将清除分类") ?? undefined;
     if (action === "categorize" && category === undefined) return;
+    let price: string | null | undefined;
+    if (action === "price") {
+      const input = window.prompt("输入公开报价（纯数字，留空清除报价）");
+      if (input === null) return;
+      price = input.trim() || null;
+      if (price && !/^\d+(?:\.\d+)?$/.test(price)) { notify("报价必须是数字", "error"); return; }
+    }
     try {
-      const result = await api<{ changed: number }>("/api/admin/domains/bulk", { method: "POST", body: JSON.stringify({ ids: [...selected], action, category }) });
+      const result = await api<{ changed: number }>("/api/admin/domains/bulk", { method: "POST", body: JSON.stringify({ ids: [...selected], action, category, price }) });
       notify(`已更新 ${result.changed} 个域名`);
       setSelected(new Set());
       setRefresh((value) => value + 1);
     } catch (reason) { notify(reason instanceof Error ? reason.message : "批量操作失败", "error"); }
+  }
+
+  function exportSelected() {
+    if (!selected.size) return;
+    void download(`/api/admin/domains/export?ids=${[...selected].join(",")}`);
   }
 
   async function bulkDns() {
@@ -199,10 +288,104 @@ function DomainsView({ notify }: { notify: (text: string, tone?: "success" | "er
   }
 
   const allSelected = Boolean(data?.items.length) && data!.items.every((domain) => selected.has(domain.id));
-  return <Panel title="域名管理" description="前后台共享同一份 D1 数据" actions={<><button className="secondary-button" onClick={() => void download(`/api/admin/domains/export?q=${encodeURIComponent(q)}&listed=${listed}`)}>导出 CSV</button><label className="secondary-button file-button">导入 CSV<input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); event.currentTarget.value = ""; }} /></label><button className="primary-button" onClick={() => void addDomain()}>添加域名</button></>}>
-    <div className="admin-toolbar"><input value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="搜索完整域名" /><select value={listed} onChange={(event) => { setListed(event.target.value); setPage(1); }}><option value="">全部展示状态</option><option value="true">前台展示</option><option value="false">已隐藏</option></select><span>{loading ? "读取中…" : `共 ${data?.total ?? 0} 个`}</span></div>
-    {selected.size > 0 && <div className="bulk-bar"><strong>已选 {selected.size}</strong><button onClick={() => void bulk("feature")}>设为精品</button><button onClick={() => void bulk("unfeature")}>取消精品</button><button onClick={() => void bulk("list")}>上架</button><button onClick={() => void bulk("hide")}>隐藏</button><button onClick={() => void bulk("categorize")}>设置分类</button><button onClick={() => void bulkDns()}>批量 DNS</button><button className="danger-text" onClick={() => void bulk("delete")}>删除</button><button onClick={() => setSelected(new Set())}>清空选择</button></div>}
-    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(data?.items.map((domain) => domain.id)))} aria-label="全选当前页" /></th><th>域名</th><th>分类</th><th>市场状态</th><th>报价</th><th>精品</th><th>前台展示</th><th>操作</th></tr></thead><tbody>{data?.items.map((domain) => <tr key={domain.id}><td><input type="checkbox" checked={selected.has(domain.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(domain.id)) next.delete(domain.id); else next.add(domain.id); return next; })} /></td><td><strong>{domain.full_domain}</strong><small>{domain.fast_transfer || "无 Fast Transfer 数据"}</small></td><td><button className="table-link" onClick={() => { const category = window.prompt("设置分类；留空清除", domain.category ?? ""); if (category !== null) void patch(domain.id, { category: category || null }, "分类已更新"); }}>{domain.category || "未分类"}</button></td><td>{domain.listing_status || "—"}</td><td>{domain.buy_now_price || "—"}</td><td><button className={`switch ${domain.is_featured ? "on gold" : ""}`} onClick={() => void patch(domain.id, { isFeatured: !domain.is_featured }, domain.is_featured ? "已取消精品" : "已设为精品")}><i /></button></td><td><button className={`switch ${domain.is_listed ? "on" : ""}`} onClick={() => void patch(domain.id, { isListed: !domain.is_listed }, domain.is_listed ? "已从前台隐藏" : "已恢复展示")}><i /></button></td><td><details className="row-details"><summary>详情</summary><div><span>Floor：{domain.floor_price ?? "—"}</span><span>Min Offer：{domain.min_offer ?? "—"}</span><span>Views：{domain.views ?? "—"}</span><span>Leads：{domain.leads ?? "—"}</span><span>Date Added：{domain.date_added_at ?? "—"}</span><span>GoDaddy NS：{domain.godaddy_ns ?? "—"}</span></div></details></td></tr>)}</tbody></table></div>
+  const has = (key: string) => columns.has(key);
+  return <Panel title="域名管理" description="前后台共享同一份 D1 数据" actions={<><button className="secondary-button" onClick={() => void download(`/api/admin/domains/export?q=${encodeURIComponent(q)}&listed=${listed}${tld ? `&tld=${encodeURIComponent(tld)}` : ""}`)}>导出 CSV</button><label className="secondary-button file-button">导入 CSV<input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); event.currentTarget.value = ""; }} /></label><button className="primary-button" onClick={() => void addDomain()}>添加域名</button></>}>
+    <div className="admin-toolbar">
+      <input value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="搜索完整域名" />
+      <select value={listed} onChange={(event) => { setListed(event.target.value); setPage(1); }}><option value="">全部展示状态</option><option value="true">前台展示</option><option value="false">已隐藏</option></select>
+      {tld && <button className="table-link" onClick={() => { setTld(""); setPage(1); }}>后缀 .{tld} ×</button>}
+      <details className="column-picker"><summary>列显示 ▾</summary><div>{OPTIONAL_COLUMNS.map(([key, label]) => <label key={key}><input type="checkbox" checked={columns.has(key)} onChange={() => toggleColumn(key)} />{label}</label>)}</div></details>
+      <span>{loading ? "读取中…" : `共 ${data?.total ?? 0} 个`}</span>
+    </div>
+    {selected.size > 0 && <div className="bulk-bar"><strong>已选 {selected.size}</strong><button onClick={() => void bulk("feature")}>设为精品</button><button onClick={() => void bulk("unfeature")}>取消精品</button><button onClick={() => void bulk("list")}>上架</button><button onClick={() => void bulk("hide")}>隐藏</button><button onClick={() => void bulk("categorize")}>设置分类</button><button onClick={() => void bulk("price")}>设置报价</button><button onClick={() => exportSelected()}>导出选中</button><button onClick={() => void bulkDns()}>批量 DNS</button><button className="danger-text" onClick={() => void bulk("delete")}>删除</button><button onClick={() => setSelected(new Set())}>清空选择</button></div>}
+    <div className="admin-table-wrap"><table className="admin-table"><thead><tr>
+      <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(data?.items.map((domain) => domain.id)))} aria-label="全选当前页" /></th>
+      <th className="sortable" onClick={() => toggleSort("domain")}>域名{arrow("domain")}</th>
+      {has("category") && <th>分类</th>}
+      {has("status") && <th>市场状态</th>}
+      {has("price") && <th className="sortable" onClick={() => toggleSort("price")}>报价{arrow("price")}</th>}
+      {has("floor") && <th className="sortable" onClick={() => toggleSort("floor")}>Floor{arrow("floor")}</th>}
+      {has("views") && <th className="sortable" onClick={() => toggleSort("views")}>Views{arrow("views")}</th>}
+      {has("leads") && <th className="sortable" onClick={() => toggleSort("leads")}>Leads{arrow("leads")}</th>}
+      {has("date_added") && <th className="sortable" onClick={() => toggleSort("date_added")}>Date Added{arrow("date_added")}</th>}
+      {has("ns") && <th>NS</th>}
+      <th>精品</th><th>前台展示</th><th>操作</th>
+    </tr></thead><tbody>{data?.items.map((domain) => <tr key={domain.id}>
+      <td><input type="checkbox" checked={selected.has(domain.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(domain.id)) next.delete(domain.id); else next.add(domain.id); return next; })} /></td>
+      <td><strong>{domain.full_domain}</strong><small>{domain.fast_transfer || "无 Fast Transfer 数据"}</small></td>
+      {has("category") && <td><select className="table-link" value={domain.category && categories.some((item) => item.name === domain.category) ? domain.category : domain.category ?? ""} onChange={(event) => void setCategoryFor(domain, event.target.value)} aria-label={`${domain.full_domain} 分类`}>
+        <option value="">未分类</option>
+        {domain.category && !categories.some((item) => item.name === domain.category) && <option value={domain.category}>{domain.category}</option>}
+        {categories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
+        <option value="__new__">＋ 新建分类…</option>
+      </select></td>}
+      {has("status") && <td title={STATUS_TIPS[domain.listing_status ?? ""] ?? ""}>{domain.listing_status ? <span className={`badge-status ${domain.listing_status === "Listed" ? "badge-listed" : domain.listing_status === "Failed Compliance" ? "badge-danger" : "badge-warning"}`}>{domain.listing_status}</span> : "—"}</td>}
+      {has("price") && <td>{domain.buy_now_price || "—"}</td>}
+      {has("floor") && <td>{domain.floor_price || "—"}</td>}
+      {has("views") && <td>{domain.views ?? "—"}</td>}
+      {has("leads") && <td>{domain.leads ?? "—"}</td>}
+      {has("date_added") && <td>{domain.date_added_at ? new Date(domain.date_added_at).toLocaleDateString("zh-CN") : "—"}</td>}
+      {has("ns") && <td>{domain.godaddy_ns || "—"}</td>}
+      <td><button className={`switch ${domain.is_featured ? "on gold" : ""}`} onClick={() => void patch(domain.id, { isFeatured: !domain.is_featured }, domain.is_featured ? "已取消精品" : "已设为精品")}><i /></button></td>
+      <td><button className={`switch ${domain.is_listed ? "on" : ""}`} onClick={() => void patch(domain.id, { isListed: !domain.is_listed }, domain.is_listed ? "已从前台隐藏" : "已恢复展示")}><i /></button></td>
+      <td><details className="row-details"><summary>详情</summary><div><span>Floor：{domain.floor_price ?? "—"}</span><span>Min Offer：{domain.min_offer ?? "—"}</span><span>Views：{domain.views ?? "—"}</span><span>Leads：{domain.leads ?? "—"}</span><span>Date Added：{domain.date_added_at ?? "—"}</span><span>GoDaddy NS：{domain.godaddy_ns ?? "—"}</span></div></details></td>
+    </tr>)}</tbody></table></div>
+    {data && data.totalPages > 1 && <div className="pagination admin-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {data.totalPages} 页</span><button disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}
+  </Panel>;
+}
+
+function CategoriesView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [name, setName] = useState("");
+  const load = useCallback(() => { api<CategoryRow[]>("/api/admin/categories").then(setCategories).catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "分类加载失败", "error")); }, [notify]);
+  useEffect(load, [load]);
+  async function add(event: FormEvent) {
+    event.preventDefault();
+    if (!name.trim()) return;
+    try { await api("/api/admin/categories", { method: "POST", body: JSON.stringify({ name: name.trim() }) }); setName(""); notify("分类已创建"); load(); }
+    catch (reason) { notify(reason instanceof Error ? reason.message : "创建失败", "error"); }
+  }
+  async function remove(category: CategoryRow) {
+    if (!window.confirm(`删除分类「${category.name}」？其下 ${category.domain_count} 个域名将变为未分类。`)) return;
+    try { await api(`/api/admin/categories/${category.id}`, { method: "DELETE" }); notify("分类已删除"); load(); }
+    catch (reason) { notify(reason instanceof Error ? reason.message : "删除失败", "error"); }
+  }
+  return <Panel title="分类管理" description="分类作为标签作用于域名，删除分类会将关联域名置为未分类">
+    <div className="tag-grid">{categories.length ? categories.map((category) => <span className="tag-pill" key={category.id}>{category.name}<em>{category.domain_count}</em><button onClick={() => void remove(category)} title={`删除 ${category.name}`}>×</button></span>) : <div className="empty-inline">还没有分类，先创建一个。</div>}</div>
+    <form className="tag-form" onSubmit={(event) => void add(event)}><input value={name} onChange={(event) => setName(event.target.value)} placeholder="新分类名称" maxLength={80} required /><button className="primary-button">新建分类</button></form>
+  </Panel>;
+}
+
+interface LeadRow { id: number; full_domain: string; offer_amount: string | null; currency: string | null; contact: string; message: string | null; country: string | null; status: "new" | "read" | "archived"; created_at: string }
+function LeadsView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
+  const [data, setData] = useState<{ items: LeadRow[]; total: number; totalPages: number } | null>(null);
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const load = useCallback(() => {
+    const params = new URLSearchParams({ page: String(page), pageSize: "50" });
+    if (status) params.set("status", status);
+    api<{ items: LeadRow[]; total: number; totalPages: number }>(`/api/admin/leads?${params}`).then(setData).catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "线索加载失败", "error"));
+  }, [notify, page, status]);
+  useEffect(load, [load]);
+  async function setLeadStatus(lead: LeadRow, next: LeadRow["status"]) {
+    try { await api(`/api/admin/leads/${lead.id}`, { method: "PATCH", body: JSON.stringify({ status: next }) }); load(); }
+    catch (reason) { notify(reason instanceof Error ? reason.message : "更新失败", "error"); }
+  }
+  return <Panel title="求购线索" description="来自前台 Make Offer 表单，提交时已触发通知渠道">
+    <div className="admin-toolbar"><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">全部状态</option><option value="new">未读</option><option value="read">已读</option><option value="archived">已归档</option></select><span>共 {data?.total ?? 0} 条</span></div>
+    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>时间</th><th>域名</th><th>报价</th><th>联系方式</th><th>留言</th><th>地区</th><th>状态</th><th>操作</th></tr></thead><tbody>
+      {data?.items.map((lead) => <tr key={lead.id}>
+        <td>{new Date(lead.created_at).toLocaleString("zh-CN")}</td>
+        <td><strong>{lead.full_domain}</strong></td>
+        <td>{lead.offer_amount ? `${lead.offer_amount} ${lead.currency ?? ""}` : "—"}</td>
+        <td>{lead.contact}</td>
+        <td style={{ maxWidth: 220, wordBreak: "break-all" }}>{lead.message || "—"}</td>
+        <td>{lead.country ?? "—"}</td>
+        <td><span className={`lead-status lead-${lead.status}`}>{lead.status === "new" ? "未读" : lead.status === "read" ? "已读" : "已归档"}</span></td>
+        <td>{lead.status === "new" && <button className="table-link" onClick={() => void setLeadStatus(lead, "read")}>标为已读</button>}{lead.status !== "archived" && <button className="table-link" onClick={() => void setLeadStatus(lead, "archived")}>归档</button>}</td>
+      </tr>)}
+    </tbody></table></div>
+    {data && data.items.length === 0 && <div className="empty-inline">暂无求购线索</div>}
     {data && data.totalPages > 1 && <div className="pagination admin-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {data.totalPages} 页</span><button disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}
   </Panel>;
 }
@@ -235,7 +418,7 @@ function DnsView({ notify }: { notify: (text: string, tone?: "success" | "error"
 }
 
 interface SiteSettingsForm {
-  site_name: string; site_description: string; accent_color: string; display_density: "compact" | "comfortable" | "spacious";
+  site_name: string; site_description: string; site_bio: string | null; accent_color: string; display_density: "compact" | "comfortable" | "spacious";
   featured_first: number; show_prices: number; copyright_text: string | null; icp_number: string | null;
   contact_email: string | null; contact_wechat: string | null; contact_telegram: string | null;
   logo_url: string | null; favicon_url: string | null; wechat_qr_url: string | null;
@@ -248,7 +431,7 @@ function SettingsView({ notify }: { notify: (text: string, tone?: "success" | "e
   function field<K extends keyof SiteSettingsForm>(key: K, value: SiteSettingsForm[K]) { setForm((current) => current ? { ...current, [key]: value } : current); }
   async function save(event: FormEvent) { event.preventDefault(); const current = form; if (!current) return; try { await api("/api/admin/settings", { method: "PATCH", body: JSON.stringify({ ...current, featured_first: Boolean(current.featured_first), show_prices: Boolean(current.show_prices) }) }); notify("站点设置已保存并影响前台"); } catch (reason) { notify(reason instanceof Error ? reason.message : "保存失败", "error"); } }
   async function upload(file: File, target: "logo" | "favicon" | "wechatQr") { const body = new FormData(); body.set("file", file); body.set("target", target); try { const result = await api<{ url: string }>("/api/admin/uploads", { method: "POST", body }); field(target === "logo" ? "logo_url" : target === "favicon" ? "favicon_url" : "wechat_qr_url", result.url); notify("图片已上传到 R2"); } catch (reason) { notify(reason instanceof Error ? reason.message : "上传失败", "error"); } }
-  return <Panel title="站点设置" description="保存到 D1，前台刷新后生效"><form className="settings-form" onSubmit={(event) => void save(event)}><div className="form-grid"><label>站点名称<input value={form.site_name} onChange={(event) => field("site_name", event.target.value)} /></label><label>主题色<input type="color" value={form.accent_color} onChange={(event) => field("accent_color", event.target.value)} /></label><label className="wide">站点描述<input value={form.site_description} onChange={(event) => field("site_description", event.target.value)} /></label><label>页面密度<select value={form.display_density} onChange={(event) => field("display_density", event.target.value as SiteSettingsForm["display_density"])}><option value="compact">紧凑</option><option value="comfortable">舒适</option><option value="spacious">宽松</option></select></label><label>ICP 备案号<input value={form.icp_number ?? ""} onChange={(event) => field("icp_number", event.target.value || null)} /></label><label>公开联系邮箱<input type="email" value={form.contact_email ?? ""} onChange={(event) => field("contact_email", event.target.value || null)} /></label><label>微信<input value={form.contact_wechat ?? ""} onChange={(event) => field("contact_wechat", event.target.value || null)} /></label><label>Telegram<input value={form.contact_telegram ?? ""} onChange={(event) => field("contact_telegram", event.target.value || null)} /></label><label>版权文字<input value={form.copyright_text ?? ""} onChange={(event) => field("copyright_text", event.target.value || null)} placeholder="留空使用动态年份" /></label></div><div className="checkbox-row"><label><input type="checkbox" checked={Boolean(form.featured_first)} onChange={(event) => field("featured_first", event.target.checked ? 1 : 0)} />精品优先</label><label><input type="checkbox" checked={Boolean(form.show_prices)} onChange={(event) => field("show_prices", event.target.checked ? 1 : 0)} />显示已审核公开价格</label></div><div className="upload-grid">{(["logo", "favicon", "wechatQr"] as const).map((target) => <label className="upload-card" key={target}><span>{target === "logo" ? "Logo" : target === "favicon" ? "Favicon" : "微信二维码"}</span><small>PNG / JPEG / WebP，最大 2 MB</small><input type="file" accept="image/png,image/jpeg,image/webp,image/x-icon" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file, target); }} /></label>)}</div><button className="primary-button">保存设置</button></form></Panel>;
+  return <Panel title="站点设置" description="保存到 D1，前台刷新后生效"><form className="settings-form" onSubmit={(event) => void save(event)}><div className="form-grid"><label>站点名称<input value={form.site_name} onChange={(event) => field("site_name", event.target.value)} /></label><label>主题色<input type="color" value={form.accent_color} onChange={(event) => field("accent_color", event.target.value)} /></label><label className="wide">站点描述（前台 Slogan）<input value={form.site_description} onChange={(event) => field("site_description", event.target.value)} /></label><label className="wide">品牌简介 Bio（前台 Hero 副文案）<input value={form.site_bio ?? ""} onChange={(event) => field("site_bio", event.target.value || null)} maxLength={500} placeholder="一句话介绍你的域名收藏" /></label><label>页面密度<select value={form.display_density} onChange={(event) => field("display_density", event.target.value as SiteSettingsForm["display_density"])}><option value="compact">紧凑</option><option value="comfortable">舒适</option><option value="spacious">宽松</option></select></label><label>ICP 备案号<input value={form.icp_number ?? ""} onChange={(event) => field("icp_number", event.target.value || null)} /></label><label>公开联系邮箱<input type="email" value={form.contact_email ?? ""} onChange={(event) => field("contact_email", event.target.value || null)} /></label><label>微信<input value={form.contact_wechat ?? ""} onChange={(event) => field("contact_wechat", event.target.value || null)} /></label><label>Telegram<input value={form.contact_telegram ?? ""} onChange={(event) => field("contact_telegram", event.target.value || null)} /></label><label>版权文字<input value={form.copyright_text ?? ""} onChange={(event) => field("copyright_text", event.target.value || null)} placeholder="留空使用动态年份" /></label></div><div className="checkbox-row"><label><input type="checkbox" checked={Boolean(form.featured_first)} onChange={(event) => field("featured_first", event.target.checked ? 1 : 0)} />精品优先</label><label><input type="checkbox" checked={Boolean(form.show_prices)} onChange={(event) => field("show_prices", event.target.checked ? 1 : 0)} />显示已审核公开价格</label></div><div className="upload-grid">{(["logo", "favicon", "wechatQr"] as const).map((target) => <label className="upload-card" key={target}><span>{target === "logo" ? "Logo" : target === "favicon" ? "Favicon" : "微信二维码"}</span><small>PNG / JPEG / WebP，最大 2 MB</small><input type="file" accept="image/png,image/jpeg,image/webp,image/x-icon" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file, target); }} /></label>)}</div><button className="primary-button">保存设置</button></form></Panel>;
 }
 
 interface NotificationForm { reminder_days_json: string; email_enabled: number; telegram_enabled: number; bark_enabled: number; email_recipient: string | null; telegram_chat_id: string | null; timezone: string; bark_configured: number; }
@@ -261,24 +444,49 @@ function NotificationsView({ notify }: { notify: (text: string, tone?: "success"
   return <Panel title="到期提醒" description="Cloudflare Cron 每天 09:00（Asia/Shanghai）检查；没有到期数据时不会发送"><div className="notification-stack"><label>提醒天数（JSON）<input value={form.reminder_days_json} onChange={(event) => setForm({ ...form, reminder_days_json: event.target.value })} /></label><div className="channel-card"><label><input type="checkbox" checked={Boolean(form.email_enabled)} onChange={(event) => setForm({ ...form, email_enabled: event.target.checked ? 1 : 0 })} />Email</label><input type="email" value={form.email_recipient ?? ""} onChange={(event) => setForm({ ...form, email_recipient: event.target.value || null })} placeholder="收件邮箱" /><button onClick={() => void test("email")}>真实测试</button></div><div className="channel-card"><label><input type="checkbox" checked={Boolean(form.telegram_enabled)} onChange={(event) => setForm({ ...form, telegram_enabled: event.target.checked ? 1 : 0 })} />Telegram</label><input value={form.telegram_chat_id ?? ""} onChange={(event) => setForm({ ...form, telegram_chat_id: event.target.value || null })} placeholder="Chat ID" /><button onClick={() => void test("telegram")}>真实测试</button></div><div className="channel-card"><label><input type="checkbox" checked={Boolean(form.bark_enabled)} onChange={(event) => setForm({ ...form, bark_enabled: event.target.checked ? 1 : 0 })} />Bark</label><input type="password" value={barkKey} onChange={(event) => setBarkKey(event.target.value)} placeholder={form.bark_configured ? "已加密配置；留空不修改" : "设备密钥"} /><button onClick={() => void test("bark")}>真实测试</button></div><button className="primary-button align-start" onClick={() => void save()}>保存提醒设置</button></div></Panel>;
 }
 
-interface SessionRow { id: string; expires_at: string; created_at: string; last_seen_at: string; user_agent: string; is_current: number; }
+interface SessionRow { id: string; expires_at: string; created_at: string; last_seen_at: string; user_agent: string; ip_country: string | null; is_current: number; }
 function SecurityView({ user, notify }: { user: AdminUser; notify: (text: string, tone?: "success" | "error") => void }) {
   const [sessions, setSessions] = useState<SessionRow[]>([]); const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState("");
   const load = useCallback(() => { api<SessionRow[]>("/api/auth/sessions").then(setSessions).catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "会话加载失败", "error")); }, [notify]); useEffect(load, [load]);
   async function changePassword(event: FormEvent) { event.preventDefault(); try { await api("/api/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }); setCurrentPassword(""); setNewPassword(""); notify("密码已修改，其他旧会话已失效"); load(); } catch (reason) { notify(reason instanceof Error ? reason.message : "修改失败", "error"); } }
-  return <div className="admin-stack"><Panel title="账户安全" description={`当前管理员：${user.email}`}><form className="security-form" onSubmit={(event) => void changePassword(event)}><label>当前密码<input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label>新密码<input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="至少 12 位" /></label><button className="primary-button">修改密码</button></form></Panel><Panel title="当前会话" actions={<button className="secondary-button" onClick={() => void api<{ revoked: number }>("/api/auth/logout-others", { method: "POST" }).then((result) => { notify(`已退出其他 ${result.revoked} 个会话`); load(); })}>退出其他会话</button>}><div className="session-list">{sessions.map((session) => <div key={session.id}><div><strong>{session.is_current ? "当前设备" : "其他设备"}</strong><span>{session.user_agent}</span><small>最近活动 {new Date(session.last_seen_at).toLocaleString("zh-CN")} · 到期 {new Date(session.expires_at).toLocaleString("zh-CN")}</small></div>{!session.is_current && <button className="danger-text" onClick={() => void api(`/api/auth/sessions/${session.id}`, { method: "DELETE" }).then(() => { notify("会话已撤销"); load(); })}>撤销</button>}</div>)}</div></Panel></div>;
+  return <div className="admin-stack"><Panel title="账户安全" description={`当前管理员：${user.email}`}><form className="security-form" onSubmit={(event) => void changePassword(event)}><label>当前密码<input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label>新密码<input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="至少 12 位" /></label><button className="primary-button">修改密码</button></form></Panel><Panel title="当前会话" actions={<button className="secondary-button" onClick={() => void api<{ revoked: number }>("/api/auth/logout-others", { method: "POST" }).then((result) => { notify(`已退出其他 ${result.revoked} 个会话`); load(); })}>退出其他会话</button>}><div className="session-list">{sessions.map((session) => <div key={session.id}><div><strong>{session.is_current ? "当前设备" : "其他设备"}{session.ip_country ? ` · ${session.ip_country}` : ""}</strong><span>{session.user_agent}</span><small>最近活动 {new Date(session.last_seen_at).toLocaleString("zh-CN")} · 到期 {new Date(session.expires_at).toLocaleString("zh-CN")}</small></div>{!session.is_current && <button className="danger-text" onClick={() => void api(`/api/auth/sessions/${session.id}`, { method: "DELETE" }).then(() => { notify("会话已撤销"); load(); })}>撤销</button>}</div>)}</div></Panel></div>;
 }
 
 interface LogPage { items: Array<{ id: number; level: string; action: string; resource_type: string; message: string; success: number; created_at: string }>; total: number; }
-function LogsView() { const [data, setData] = useState<LogPage | null>(null); useEffect(() => { void api<LogPage>("/api/admin/logs?pageSize=100").then(setData); }, []); return <Panel title="操作日志" description="日志来自 D1，不记录密码、Token 或完整凭据"><div className="log-table">{data?.items.map((log) => <div key={log.id}><span className={log.success ? "dot-success" : "dot-error"} /><time>{new Date(log.created_at).toLocaleString("zh-CN")}</time><strong>{log.action}</strong><span>{log.message}</span></div>) ?? <div className="empty-inline">正在读取日志…</div>}</div></Panel>; }
+function LogsView() {
+  const [data, setData] = useState<LogPage | null>(null);
+  const [level, setLevel] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const params = useCallback(() => {
+    const search = new URLSearchParams({ pageSize: "100" });
+    if (level) search.set("level", level);
+    if (keyword.trim()) search.set("q", keyword.trim());
+    if (from) search.set("from", from);
+    if (to) search.set("to", to);
+    return search;
+  }, [from, keyword, level, to]);
+  useEffect(() => { void api<LogPage>(`/api/admin/logs?${params()}`).then(setData).catch(() => setData({ items: [], total: 0 })); }, [params]);
+  return <Panel title="操作日志" description="日志来自 D1，不记录密码、Token 或完整凭据；90 天前的日志由 Cron 自动清理" actions={<button className="secondary-button" onClick={() => void download(`/api/admin/logs/export?${params()}`)}>导出 CSV</button>}>
+    <div className="log-filter">
+      <select value={level} onChange={(event) => setLevel(event.target.value)} aria-label="级别筛选"><option value="">全部级别</option><option value="info">info</option><option value="warning">warning</option><option value="error">error</option></select>
+      <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="关键字（消息或动作）" aria-label="日志关键字" />
+      <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="开始日期" />
+      <input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="结束日期" />
+    </div>
+    <div className="log-table">{data ? (data.items.length ? data.items.map((log) => <div key={log.id}><span className={log.success ? "dot-success" : "dot-error"} /><time>{new Date(log.created_at).toLocaleString("zh-CN")}</time><strong>{log.action}</strong><span>{log.message}</span></div>) : <div className="empty-inline">没有匹配的日志</div>) : <div className="empty-inline">正在读取日志…</div>}</div>
+  </Panel>;
+}
 
 export function AdminApp() {
   const [user, setUser] = useState<AdminUser | null>(null); const [checking, setChecking] = useState(true); const [view, setView] = useState<AdminView>("overview"); const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [domainsPresetTld, setDomainsPresetTld] = useState<string | undefined>(undefined);
   const notify = useCallback((text: string, tone: "success" | "error" = "success") => setToast({ id: Date.now(), text, tone }), []);
   useEffect(() => { api<AdminUser>("/api/auth/me").then(setUser).catch((reason: unknown) => { if (!(reason instanceof ApiError) || reason.status !== 401) notify(reason instanceof Error ? reason.message : "会话检查失败", "error"); }).finally(() => setChecking(false)); }, [notify]);
   if (checking) return <div className="app-loading"><span className="brand-mark">W</span><p>正在验证 WanMi 会话…</p></div>;
   if (!user) return <LoginPage onLogin={(loggedIn) => { setUser(loggedIn); setView("overview"); }} />;
-  const nav: Array<[AdminView, string, string]> = [["overview", "概览", "⌂"], ["domains", "域名管理", "◇"], ["dns", "DNS 解析", "◎"], ["registrars", "注册商", "▦"], ["settings", "站点设置", "⚙"], ["notifications", "到期提醒", "◷"], ["security", "账户安全", "⌾"], ["logs", "操作日志", "≡"]];
+  const nav: Array<[AdminView, string, string]> = [["overview", "概览", "⌂"], ["domains", "域名管理", "◇"], ["categories", "分类", "⊞"], ["leads", "线索", "✉"], ["dns", "DNS 解析", "◎"], ["registrars", "注册商", "▦"], ["settings", "站点设置", "⚙"], ["notifications", "到期提醒", "◷"], ["security", "账户安全", "⌾"], ["logs", "操作日志", "≡"]];
   async function logout() { try { await api("/api/auth/logout", { method: "POST" }); } finally { setUser(null); } }
-  return <div className="admin-shell"><aside className="admin-sidebar"><a href="/" className="brand admin-brand"><span className="brand-mark">W</span><span>WanMi</span></a><nav>{nav.map(([key, label, icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => setView(key)}><span>{icon}</span>{label}</button>)}</nav><div className="sidebar-user"><div><strong>{user.email}</strong><span>管理员</span></div><button onClick={() => void logout()} title="退出登录">↪</button></div></aside><div className="admin-main"><header className="admin-header"><div><span>WanMi 管理后台</span><h1>{nav.find(([key]) => key === view)?.[1]}</h1></div><div className="admin-header-actions"><ThemeToggle /><a href="/" target="_blank">查看前台 ↗</a></div></header><main>{view === "overview" && <OverviewView />}{view === "domains" && <DomainsView notify={notify} />}{view === "dns" && <DnsView notify={notify} />}{view === "registrars" && <RegistrarsView notify={notify} />}{view === "settings" && <SettingsView notify={notify} />}{view === "notifications" && <NotificationsView notify={notify} />}{view === "security" && <SecurityView user={user} notify={notify} />}{view === "logs" && <LogsView />}</main></div><Toast message={toast} onClose={() => setToast(null)} /></div>;
+  return <div className="admin-shell"><aside className="admin-sidebar"><a href="/" className="brand admin-brand"><span className="brand-mark">W</span><span>WanMi</span></a><nav>{nav.map(([key, label, icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => setView(key)}><span>{icon}</span>{label}</button>)}</nav><div className="sidebar-user"><div><strong>{user.email}</strong><span>管理员</span></div><button onClick={() => void logout()} title="退出登录">↪</button></div></aside><div className="admin-main"><header className="admin-header"><div><span>WanMi 管理后台</span><h1>{nav.find(([key]) => key === view)?.[1]}</h1></div><div className="admin-header-actions"><ThemeToggle /><a href="/" target="_blank">查看前台 ↗</a></div></header><main>{view === "overview" && <OverviewView onTldClick={(tld) => { setDomainsPresetTld(tld); setView("domains"); }} />}{view === "domains" && <DomainsView key={domainsPresetTld ?? "all"} notify={notify} presetTld={domainsPresetTld} />}{view === "categories" && <CategoriesView notify={notify} />}{view === "leads" && <LeadsView notify={notify} />}{view === "dns" && <DnsView notify={notify} />}{view === "registrars" && <RegistrarsView notify={notify} />}{view === "settings" && <SettingsView notify={notify} />}{view === "notifications" && <NotificationsView notify={notify} />}{view === "security" && <SecurityView user={user} notify={notify} />}{view === "logs" && <LogsView />}</main></div><Toast message={toast} onClose={() => setToast(null)} /></div>;
 }

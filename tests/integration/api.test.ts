@@ -10,6 +10,12 @@ import { app } from "../../src/worker";
 import type { Env } from "../../src/worker/types";
 import { SqliteD1Database } from "./sqlite-d1";
 
+async function readAllMigrations(): Promise<string> {
+  const entries = (await fs.readdir("migrations")).filter((name) => name.endsWith(".sql")).sort();
+  const contents = await Promise.all(entries.map((name) => fs.readFile(`migrations/${name}`, "utf8")));
+  return contents.join("\n");
+}
+
 describe.sequential("WanMi API 集成", () => {
   let directory: string;
   let env: Env;
@@ -22,7 +28,7 @@ describe.sequential("WanMi API 集成", () => {
   beforeAll(async () => {
     directory = await fs.mkdtemp(path.join(os.tmpdir(), "wanmi-api-"));
     const databasePath = path.join(directory, "wanmi.sqlite");
-    const [migration, source] = await Promise.all([fs.readFile("migrations/0001_initial_schema.sql", "utf8"), fs.readFile("data/source/domains-1783619533.csv", "utf8")]);
+    const [migration, source] = await Promise.all([readAllMigrations(), fs.readFile("data/source/domains-1783619533.csv", "utf8")]);
     execFileSync("sqlite3", [databasePath], { input: migration });
     const records = parseDomainCsv(source).records;
     execFileSync("sqlite3", [databasePath], { input: statementsToSql(buildImportStatements(records, { importId: "api-import" })), maxBuffer: 50 * 1024 * 1024 });

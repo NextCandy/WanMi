@@ -113,9 +113,14 @@ app.onError((error, c) => {
   return fail(c, 500, "INTERNAL_ERROR", "服务器内部错误");
 });
 
+async function cleanupOperationLogs(env: Env): Promise<void> {
+  await env.DB.prepare("DELETE FROM operation_logs WHERE created_at < datetime('now', '-90 days')").run();
+}
+
 export default {
   fetch: app.fetch,
   scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): void {
     ctx.waitUntil(runExpirationReminders(env));
+    ctx.waitUntil(cleanupOperationLogs(env));
   },
 };

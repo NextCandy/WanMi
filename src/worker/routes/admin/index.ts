@@ -3,9 +3,11 @@ import { Hono } from "hono";
 import { requireAuth, requireCsrf } from "../../middleware/auth";
 import type { AppBindings } from "../../types";
 import { activityRoutes } from "./activity";
+import { categoryRoutes } from "./categories";
 import { dashboardRoutes } from "./dashboard";
 import { domainAdminRoutes } from "./domains";
 import { dnsRoutes } from "./dns";
+import { leadRoutes } from "./leads";
 import { registrarRoutes } from "./registrars";
 import { settingsRoutes } from "./settings";
 
@@ -18,3 +20,5 @@ adminRoutes.route("/", registrarRoutes);
 adminRoutes.route("/", dnsRoutes);
 adminRoutes.route("/", settingsRoutes);
 adminRoutes.route("/", activityRoutes);
+adminRoutes.route("/", categoryRoutes);
+adminRoutes.route("/", leadRoutes);

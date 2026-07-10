@@ -42,6 +42,36 @@ export const adminDomainQuerySchema = publicDomainQuerySchema.extend({
   listingStatus: z.string().trim().max(120).optional(),
   fastTransfer: z.string().trim().max(120).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
+  orderBy: z.enum(["domain", "price", "floor", "views", "leads", "date_added"]).optional(),
+  dir: z.enum(["asc", "desc"]).default("asc"),
+  ids: z
+    .string()
+    .regex(/^\d+(,\d+)*$/)
+    .optional(),
+});
+
+export const categoryInputSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+
+export const leadsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).default(50),
+  status: z.enum(["new", "read", "archived"]).optional(),
+});
+
+export const leadPatchSchema = z.object({
+  status: z.enum(["new", "read", "archived"]),
+});
+
+export const logsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).default(50),
+  level: z.enum(["info", "warning", "error"]).optional(),
+  action: z.string().trim().max(120).optional(),
+  q: z.string().trim().max(200).optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export const domainInputSchema = z.object({
@@ -60,14 +90,20 @@ export const domainPatchSchema = domainInputSchema.partial().omit({ fullDomain: 
 
 export const bulkDomainSchema = z.object({
   ids: z.array(z.number().int().positive()).min(1).max(500),
-  action: z.enum(["delete", "feature", "unfeature", "list", "hide", "categorize"]),
+  action: z.enum(["delete", "feature", "unfeature", "list", "hide", "categorize", "price"]),
   category: z.string().trim().max(80).nullable().optional(),
+  price: z
+    .string()
+    .regex(/^\d+(?:\.\d+)?$/)
+    .nullable()
+    .optional(),
 });
 
 export const settingsPatchSchema = z
   .object({
     site_name: z.string().trim().min(1).max(80),
     site_description: z.string().trim().max(240),
+    site_bio: z.string().trim().max(500).nullable(),
     accent_color: z.string().regex(/^#[0-9a-f]{6}$/i),
     display_density: z.enum(["compact", "comfortable", "spacious"]),
     featured_first: z.boolean(),

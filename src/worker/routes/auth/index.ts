@@ -133,7 +133,7 @@ authRoutes.post("/change-password", async (c) => {
 authRoutes.get("/sessions", async (c) => {
   const user = c.get("authUser");
   const result = await c.env.DB.prepare(
-    `SELECT id, expires_at, created_at, last_seen_at, user_agent,
+    `SELECT id, expires_at, created_at, last_seen_at, user_agent, ip_country,
       CASE WHEN id = ? THEN 1 ELSE 0 END AS is_current
      FROM admin_sessions
      WHERE user_id = ? AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP

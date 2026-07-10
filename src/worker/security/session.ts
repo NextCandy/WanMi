@@ -58,8 +58,8 @@ export async function createSession(
   ]);
   await c.env.DB.prepare(
     `INSERT INTO admin_sessions (
-      id, user_id, token_hash, csrf_token_hash, password_version, expires_at, ip_hash, user_agent
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, user_id, token_hash, csrf_token_hash, password_version, expires_at, ip_hash, user_agent, ip_country
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       sessionId,
@@ -70,6 +70,7 @@ export async function createSession(
       expiresAt,
       ipHash,
       (c.req.header("user-agent") ?? "unknown").slice(0, 500),
+      c.req.header("cf-ipcountry") ?? null,
     )
     .run();
 

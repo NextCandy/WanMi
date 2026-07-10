@@ -7,6 +7,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parseDomainCsv } from "../../src/shared/csv";
 import { buildImportStatements, statementsToSql } from "../../src/shared/import-plan";
 
+async function readAllMigrations(): Promise<string> {
+  const entries = (await fs.readdir("migrations")).filter((name) => name.endsWith(".sql")).sort();
+  const contents = await Promise.all(entries.map((name) => fs.readFile(`migrations/${name}`, "utf8")));
+  return contents.join("\n");
+}
+
 describe("D1 schema 与 CSV 幂等导入", () => {
   let directory: string;
   let databasePath: string;
@@ -16,7 +22,7 @@ describe("D1 schema 与 CSV 幂等导入", () => {
     directory = await fs.mkdtemp(path.join(os.tmpdir(), "wanmi-d1-"));
     databasePath = path.join(directory, "wanmi.sqlite");
     const [migration, source] = await Promise.all([
-      fs.readFile("migrations/0001_initial_schema.sql", "utf8"),
+      readAllMigrations(),
       fs.readFile("data/source/domains-1783619533.csv", "utf8"),
     ]);
     execFileSync("sqlite3", [databasePath], { input: migration });

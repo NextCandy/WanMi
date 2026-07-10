@@ -62,7 +62,29 @@ function adminFilters(query: ReturnType<typeof adminDomainQuerySchema.parse>): {
     clauses.push("m.fast_transfer = ?");
     params.push(query.fastTransfer);
   }
+  if (query.ids) {
+    const ids = query.ids.split(",").map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 500);
+    if (ids.length > 0) clauses.push(`d.id IN (${ids.join(",")})`);
+  }
   return { where: clauses.join(" AND "), params };
+}
+
+const ADMIN_PRICE_SQL = "CAST(replace(replace(COALESCE(m.buy_now_price, d.public_price, ''), '$', ''), ',', '') AS REAL)";
+const ADMIN_FLOOR_SQL = "CAST(replace(replace(COALESCE(m.floor_price, ''), '$', ''), ',', '') AS REAL)";
+
+function adminOrderBy(query: ReturnType<typeof adminDomainQuerySchema.parse>): string {
+  const direction = query.dir === "desc" ? "DESC" : "ASC";
+  const column =
+    query.orderBy === "domain" ? "d.normalized_domain"
+    : query.orderBy === "price" ? ADMIN_PRICE_SQL
+    : query.orderBy === "floor" ? ADMIN_FLOOR_SQL
+    : query.orderBy === "views" ? "m.views"
+    : query.orderBy === "leads" ? "m.leads"
+    : query.orderBy === "date_added" ? "m.date_added_at"
+    : null;
+  if (column) return `${column} IS NULL, ${column} ${direction}, d.normalized_domain ASC`;
+  if (query.sort === "domain_desc") return "d.normalized_domain DESC";
+  return "d.is_featured DESC, length(replace(d.name, '.', '')) ASC, d.normalized_domain ASC";
 }
 
 const DETAIL_SELECT = `SELECT
@@ -83,7 +105,7 @@ domainAdminRoutes.get("/", async (c) => {
   const query = parsed.data;
   const { where, params } = adminFilters(query);
   const offset = (query.page - 1) * query.pageSize;
-  const sort = query.sort === "domain_desc" ? "d.normalized_domain DESC" : "d.is_featured DESC, length(replace(d.name, '.', '')) ASC, d.normalized_domain ASC";
+  const sort = adminOrderBy(query);
   const [countResult, rowsResult] = await c.env.DB.batch([
     c.env.DB.prepare(`SELECT COUNT(DISTINCT d.id) AS total FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id WHERE ${where}`).bind(...params),
     c.env.DB.prepare(`${DETAIL_SELECT} WHERE ${where} ORDER BY ${sort} LIMIT ? OFFSET ?`).bind(...params, query.pageSize, offset),
@@ -241,7 +263,7 @@ domainAdminRoutes.get("/import-errors/:id", async (c) => {
 domainAdminRoutes.post("/bulk", async (c) => {
   const parsed = bulkDomainSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return fail(c, 422, "INVALID_BULK_ACTION", "批量操作参数无效", parsed.error.issues);
-  const { ids, action, category } = parsed.data;
+  const { ids, action, category, price } = parsed.data;
   const placeholders = ids.map(() => "?").join(",");
   let sql: string;
   let params: Array<string | number | null> = ids;
@@ -250,7 +272,11 @@ domainAdminRoutes.post("/bulk", async (c) => {
   else if (action === "unfeature") sql = `UPDATE domains SET is_featured = 0, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
   else if (action === "list") sql = `UPDATE domains SET is_listed = 1, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
   else if (action === "hide") sql = `UPDATE domains SET is_listed = 0, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
-  else {
+  else if (action === "price") {
+    // 设置公开报价并自动过审；price 为 null 时清除报价
+    sql = `UPDATE domains SET public_price = ?, public_price_approved = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
+    params = [price ?? null, price ? 1 : 0, ...ids];
+  } else {
     sql = `UPDATE domains SET category = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
     params = [category ?? null, ...ids];
   }
