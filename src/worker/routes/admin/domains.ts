@@ -1,0 +1,329 @@
+import { Hono } from "hono";
+
+import { parseDomainCsv } from "../../../shared/csv";
+import { normalizeDomain } from "../../../shared/domain";
+import { buildImportStatements } from "../../../shared/import-plan";
+import {
+  adminDomainQuerySchema,
+  bulkDomainSchema,
+  domainInputSchema,
+  domainPatchSchema,
+} from "../../../shared/schemas/api";
+import { fail, ok, writeOperationLog } from "../../http";
+import type { AppBindings } from "../../types";
+
+const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+const MAX_IMPORT_RECORDS = 900;
+
+function csvCell(value: unknown): string {
+  const text = value === null || value === undefined
+    ? ""
+    : typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+      ? String(value)
+      : JSON.stringify(value);
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function adminFilters(query: ReturnType<typeof adminDomainQuerySchema.parse>): {
+  where: string;
+  params: Array<string | number>;
+} {
+  const clauses = ["1 = 1"];
+  const params: Array<string | number> = [];
+  if (query.q) {
+    clauses.push("d.normalized_domain LIKE ? ESCAPE '\\'");
+    params.push(`%${query.q.toLowerCase().replaceAll("%", "\\%").replaceAll("_", "\\_")}%`);
+  }
+  if (query.tld) {
+    clauses.push("d.tld = ?");
+    params.push(query.tld.toLowerCase().replace(/^\./, ""));
+  }
+  if (query.length) {
+    clauses.push("length(replace(d.name, '.', '')) = ?");
+    params.push(query.length);
+  }
+  if (query.category) {
+    clauses.push("d.category = ?");
+    params.push(query.category);
+  }
+  if (query.featured) {
+    clauses.push("d.is_featured = ?");
+    params.push(query.featured === "true" ? 1 : 0);
+  }
+  if (query.listed) {
+    clauses.push("d.is_listed = ?");
+    params.push(query.listed === "true" ? 1 : 0);
+  }
+  if (query.listingStatus) {
+    clauses.push("m.listing_status = ?");
+    params.push(query.listingStatus);
+  }
+  if (query.fastTransfer) {
+    clauses.push("m.fast_transfer = ?");
+    params.push(query.fastTransfer);
+  }
+  return { where: clauses.join(" AND "), params };
+}
+
+const DETAIL_SELECT = `SELECT
+  d.*, m.source_name, m.source_file, m.buy_now_price, m.floor_price, m.min_offer,
+  m.price_currency, m.lease_to_own, m.max_lease_period, m.sale_lander,
+  m.show_buy_now_option, m.show_lease_to_own_option, m.show_make_offer_option,
+  m.hidden AS marketplace_hidden, m.listing_status, m.fast_transfer, m.views, m.leads,
+  m.unique_searches_30d, m.unique_searches_90d, m.unique_searches_365d,
+  m.total_searches_30d, m.total_searches_90d, m.total_searches_365d,
+  m.godaddy_ns, m.date_added_at, m.raw_metadata_json
+  FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id`;
+
+export const domainAdminRoutes = new Hono<AppBindings>();
+
+domainAdminRoutes.get("/", async (c) => {
+  const parsed = adminDomainQuerySchema.safeParse(c.req.query());
+  if (!parsed.success) return fail(c, 422, "INVALID_QUERY", "筛选参数无效", parsed.error.issues);
+  const query = parsed.data;
+  const { where, params } = adminFilters(query);
+  const offset = (query.page - 1) * query.pageSize;
+  const sort = query.sort === "domain_desc" ? "d.normalized_domain DESC" : "d.is_featured DESC, length(replace(d.name, '.', '')) ASC, d.normalized_domain ASC";
+  const [countResult, rowsResult] = await c.env.DB.batch([
+    c.env.DB.prepare(`SELECT COUNT(DISTINCT d.id) AS total FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id WHERE ${where}`).bind(...params),
+    c.env.DB.prepare(`${DETAIL_SELECT} WHERE ${where} ORDER BY ${sort} LIMIT ? OFFSET ?`).bind(...params, query.pageSize, offset),
+  ]);
+  const total = Number((countResult.results[0] as { total?: number } | undefined)?.total ?? 0);
+  return ok(c, {
+    items: rowsResult.results,
+    page: query.page,
+    pageSize: query.pageSize,
+    total,
+    totalPages: Math.ceil(total / query.pageSize),
+  });
+});
+
+domainAdminRoutes.post("/", async (c) => {
+  const parsed = domainInputSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return fail(c, 422, "INVALID_DOMAIN", "域名数据无效", parsed.error.issues);
+  let domain;
+  try {
+    domain = normalizeDomain(parsed.data.fullDomain, parsed.data.tld);
+  } catch (error) {
+    return fail(c, 422, "INVALID_DOMAIN", error instanceof Error ? error.message : "域名无效");
+  }
+  try {
+    const result = await c.env.DB.prepare(
+      `INSERT INTO domains (
+        full_domain, normalized_domain, name, tld, category, is_featured, is_listed,
+        public_price, public_price_currency, public_price_approved, notes, source
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual')`,
+    )
+      .bind(
+        domain.fullDomain,
+        domain.normalizedDomain,
+        domain.name,
+        domain.tld,
+        parsed.data.category ?? null,
+        parsed.data.isFeatured ? 1 : 0,
+        parsed.data.isListed === false ? 0 : 1,
+        parsed.data.publicPrice ?? null,
+        parsed.data.publicPriceCurrency?.toUpperCase() ?? null,
+        parsed.data.publicPriceApproved ? 1 : 0,
+        parsed.data.notes ?? null,
+      )
+      .run();
+    const user = c.get("authUser");
+    await writeOperationLog(c.env.DB, {
+      action: "domains.create",
+      resourceType: "domain",
+      resourceId: result.meta.last_row_id,
+      message: `添加域名 ${domain.normalizedDomain}`,
+      actorUserId: user.id,
+      success: true,
+    });
+    return ok(c, { id: result.meta.last_row_id, ...domain }, 201);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("UNIQUE")) return fail(c, 409, "DOMAIN_EXISTS", "域名已存在");
+    throw error;
+  }
+});
+
+domainAdminRoutes.get("/export", async (c) => {
+  const parsed = adminDomainQuerySchema.safeParse({ ...c.req.query(), page: 1, pageSize: 200 });
+  if (!parsed.success) return fail(c, 422, "INVALID_QUERY", "筛选参数无效");
+  const { where, params } = adminFilters(parsed.data);
+  const result = await c.env.DB.prepare(`${DETAIL_SELECT} WHERE ${where} ORDER BY d.normalized_domain ASC`).bind(...params).all();
+  const headers = [
+    "Domain", "TLD", "Category", "Featured", "Listed", "Notes", "Buy Now Price", "Floor Price",
+    "Min Offer", "Price Currency", "Lease to Own", "Max Lease Period", "Sale Lander",
+    "Show Buy Now Option", "Show Lease to Own Option", "Show Make Offer Option", "Hidden",
+    "Listing Status", "Fast Transfer", "Views", "Leads", "30-day Unique Searches",
+    "90-day Unique Searches", "365-day Unique Searches", "30-day Total Searches",
+    "90-day Total Searches", "365-day Total Searches", "GoDaddy NS", "Date Added (UTC)", "Source",
+  ];
+  const lines = [headers.map(csvCell).join(",")];
+  for (const raw of result.results) {
+    const row = raw;
+    lines.push([
+      row.full_domain, row.tld, row.category, row.is_featured, row.is_listed, row.notes,
+      row.buy_now_price, row.floor_price, row.min_offer, row.price_currency, row.lease_to_own,
+      row.max_lease_period, row.sale_lander, row.show_buy_now_option, row.show_lease_to_own_option,
+      row.show_make_offer_option, row.marketplace_hidden, row.listing_status, row.fast_transfer,
+      row.views, row.leads, row.unique_searches_30d, row.unique_searches_90d,
+      row.unique_searches_365d, row.total_searches_30d, row.total_searches_90d,
+      row.total_searches_365d, row.godaddy_ns, row.date_added_at, row.source,
+    ].map(csvCell).join(","));
+  }
+  const user = c.get("authUser");
+  await writeOperationLog(c.env.DB, {
+    action: "domains.export",
+    resourceType: "domain",
+    message: `导出 ${result.results.length} 个域名`,
+    details: { count: result.results.length },
+    actorUserId: user.id,
+    success: true,
+  });
+  const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  return new Response(`\uFEFF${lines.join("\r\n")}\r\n`, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="WanMi-domains-${date}.csv"`,
+      "Cache-Control": "no-store",
+    },
+  });
+});
+
+domainAdminRoutes.post("/import", async (c) => {
+  const form = await c.req.parseBody();
+  const file = form.file;
+  if (!(file instanceof File)) return fail(c, 422, "CSV_REQUIRED", "请选择 CSV 文件");
+  if (file.size > MAX_IMPORT_BYTES) return fail(c, 413, "CSV_TOO_LARGE", "CSV 文件不能超过 5 MB");
+  if (!file.name.toLowerCase().endsWith(".csv")) return fail(c, 422, "CSV_TYPE_INVALID", "仅支持 CSV 文件");
+  const result = parseDomainCsv(await file.text(), file.name.replace(/[^a-zA-Z0-9._-]/g, "_"));
+  if (result.records.length === 0) return fail(c, 422, "CSV_EMPTY", "CSV 中没有可导入的合法域名", result.report.issues);
+  if (result.records.length > MAX_IMPORT_RECORDS) return fail(c, 413, "CSV_TOO_MANY_ROWS", `单次最多导入 ${MAX_IMPORT_RECORDS} 条`);
+  const dryRun = form.dryRun === "true";
+  if (dryRun) return ok(c, { dryRun: true, report: result.report });
+  const importId = crypto.randomUUID();
+  const statements = buildImportStatements(result.records, { importId });
+  await c.env.DB.batch(statements.map((statement) => c.env.DB.prepare(statement.sql).bind(...statement.params)));
+  if (result.report.issues.length > 0) {
+    const insert = c.env.DB.prepare(
+      "INSERT INTO domain_import_errors (import_id, row_number, domain, code, reason) VALUES (?, ?, ?, ?, ?)",
+    );
+    await c.env.DB.batch(
+      result.report.issues.map((issue) =>
+        insert.bind(importId, issue.rowNumber, issue.domain || null, issue.code, issue.reason),
+      ),
+    );
+  }
+  return ok(c, {
+    importId,
+    imported: result.records.length,
+    errorCount: result.report.issues.length,
+    report: result.report,
+    errorDownloadUrl: result.report.issues.length > 0 ? `/api/admin/domains/import-errors/${importId}` : null,
+  });
+});
+
+domainAdminRoutes.get("/import-errors/:id", async (c) => {
+  const result = await c.env.DB.prepare(
+    "SELECT row_number, domain, code, reason FROM domain_import_errors WHERE import_id = ? ORDER BY row_number",
+  )
+    .bind(c.req.param("id"))
+    .all();
+  if (result.results.length === 0) return fail(c, 404, "IMPORT_ERRORS_NOT_FOUND", "未找到导入错误");
+  const lines = ["Row,Domain,Code,Reason", ...result.results.map((raw) => {
+    const row = raw;
+    return [row.row_number, row.domain, row.code, row.reason].map(csvCell).join(",");
+  })];
+  return new Response(`\uFEFF${lines.join("\r\n")}\r\n`, {
+    headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="WanMi-import-errors-${c.req.param("id")}.csv"` },
+  });
+});
+
+domainAdminRoutes.post("/bulk", async (c) => {
+  const parsed = bulkDomainSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return fail(c, 422, "INVALID_BULK_ACTION", "批量操作参数无效", parsed.error.issues);
+  const { ids, action, category } = parsed.data;
+  const placeholders = ids.map(() => "?").join(",");
+  let sql: string;
+  let params: Array<string | number | null> = ids;
+  if (action === "delete") sql = `DELETE FROM domains WHERE id IN (${placeholders})`;
+  else if (action === "feature") sql = `UPDATE domains SET is_featured = 1, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
+  else if (action === "unfeature") sql = `UPDATE domains SET is_featured = 0, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
+  else if (action === "list") sql = `UPDATE domains SET is_listed = 1, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
+  else if (action === "hide") sql = `UPDATE domains SET is_listed = 0, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
+  else {
+    sql = `UPDATE domains SET category = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
+    params = [category ?? null, ...ids];
+  }
+  const result = await c.env.DB.prepare(sql).bind(...params).run();
+  const user = c.get("authUser");
+  await writeOperationLog(c.env.DB, {
+    action: `domains.bulk.${action}`,
+    resourceType: "domain",
+    message: `批量操作 ${action}，影响 ${result.meta.changes} 个域名`,
+    details: { count: result.meta.changes },
+    actorUserId: user.id,
+    success: true,
+  });
+  return ok(c, { changed: result.meta.changes });
+});
+
+domainAdminRoutes.get("/:id", async (c) => {
+  const row = await c.env.DB.prepare(`${DETAIL_SELECT} WHERE d.id = ?`).bind(Number(c.req.param("id"))).first();
+  if (!row) return fail(c, 404, "DOMAIN_NOT_FOUND", "域名不存在");
+  return ok(c, row);
+});
+
+domainAdminRoutes.patch("/:id", async (c) => {
+  const parsed = domainPatchSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return fail(c, 422, "INVALID_DOMAIN", "域名设置无效", parsed.error.issues);
+  const fields: string[] = [];
+  const values: Array<string | number | null> = [];
+  const mapping: Array<[keyof typeof parsed.data, string, (value: unknown) => string | number | null]> = [
+    ["category", "category", (value) => value as string | null],
+    ["isFeatured", "is_featured", (value) => (value ? 1 : 0)],
+    ["isListed", "is_listed", (value) => (value ? 1 : 0)],
+    ["publicPrice", "public_price", (value) => value as string | null],
+    ["publicPriceCurrency", "public_price_currency", (value) => typeof value === "string" ? value.toUpperCase() : null],
+    ["publicPriceApproved", "public_price_approved", (value) => (value ? 1 : 0)],
+    ["notes", "notes", (value) => value as string | null],
+  ];
+  for (const [key, column, convert] of mapping) {
+    if (parsed.data[key] !== undefined) {
+      fields.push(`${column} = ?`);
+      values.push(convert(parsed.data[key]));
+    }
+  }
+  if (fields.length === 0) return fail(c, 422, "NO_CHANGES", "没有可保存的修改");
+  values.push(Number(c.req.param("id")));
+  const result = await c.env.DB.prepare(`UPDATE domains SET ${fields.join(", ")}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+    .bind(...values)
+    .run();
+  if (result.meta.changes === 0) return fail(c, 404, "DOMAIN_NOT_FOUND", "域名不存在");
+  const user = c.get("authUser");
+  await writeOperationLog(c.env.DB, {
+    action: "domains.update",
+    resourceType: "domain",
+    resourceId: c.req.param("id"),
+    message: "更新域名设置",
+    actorUserId: user.id,
+    success: true,
+  });
+  return ok(c, { changed: true });
+});
+
+domainAdminRoutes.delete("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const domain = await c.env.DB.prepare("SELECT normalized_domain FROM domains WHERE id = ?").bind(id).first<{ normalized_domain: string }>();
+  if (!domain) return fail(c, 404, "DOMAIN_NOT_FOUND", "域名不存在");
+  await c.env.DB.prepare("DELETE FROM domains WHERE id = ?").bind(id).run();
+  const user = c.get("authUser");
+  await writeOperationLog(c.env.DB, {
+    action: "domains.delete",
+    resourceType: "domain",
+    resourceId: id,
+    message: `删除域名 ${domain.normalized_domain}`,
+    actorUserId: user.id,
+    success: true,
+  });
+  return ok(c, { deleted: true });
+});
