@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { api } from "../../lib/api";
@@ -36,6 +36,11 @@ interface DomainPage {
   totalPages: number;
 }
 
+interface DomainFacets {
+  tlds: string[];
+  categories: string[];
+}
+
 function initialFilters() {
   const params = new URLSearchParams(window.location.search);
   return {
@@ -50,6 +55,7 @@ function initialFilters() {
 
 export function PublicPage() {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [facets, setFacets] = useState<DomainFacets>({ tlds: [], categories: [] });
   const [pageData, setPageData] = useState<DomainPage | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const [draftSearch, setDraftSearch] = useState(filters.q);
@@ -70,6 +76,9 @@ export function PublicPage() {
         document.title = `${data.site_name} · 域名展示`;
       })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "站点设置加载失败"));
+    api<DomainFacets>("/api/public/facets")
+      .then(setFacets)
+      .catch(() => setFacets({ tlds: [], categories: [] }));
   }, []);
 
   useEffect(() => {
@@ -87,14 +96,6 @@ export function PublicPage() {
       .finally(() => setLoading(false));
   }, [filters]);
 
-  const tlds = useMemo(
-    () => [...new Set(pageData?.items.map((domain) => domain.tld) ?? [])].sort(),
-    [pageData],
-  );
-  const categories = useMemo(
-    () => [...new Set(pageData?.items.map((domain) => domain.category).filter(Boolean) as string[])] .sort(),
-    [pageData],
-  );
   const hasContact = Boolean(settings?.contact_email || settings?.contact_wechat || settings?.contact_telegram);
 
   function submitSearch(event: FormEvent) {
@@ -126,23 +127,6 @@ export function PublicPage() {
       </header>
 
       <main>
-        <section className="hero">
-          <div className="hero-backdrop" aria-hidden="true">
-            <span className="glow glow-a" />
-            <span className="glow glow-b" />
-            <span className="glow glow-c" />
-            <span className="hero-grid" />
-          </div>
-          <div className="hero-eyebrow">DOMAIN COLLECTION</div>
-          <h1>{settings?.site_description ?? "发现值得珍藏的域名"}</h1>
-          <p>每一个好名字，都是新故事的起点。</p>
-          <form className="search-box" onSubmit={submitSearch}>
-            <span aria-hidden="true">⌕</span>
-            <input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="搜索完整域名，例如 wanmi.org" aria-label="搜索域名" />
-            <button type="submit">搜索</button>
-          </form>
-        </section>
-
         <section className="domain-section" id="domains">
           <div className="section-heading">
             <div>
@@ -153,18 +137,25 @@ export function PublicPage() {
           </div>
 
           <div className="filter-bar">
+            <form className="filter-search" onSubmit={submitSearch}>
+              <span aria-hidden="true">⌕</span>
+              <input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="搜索完整域名，例如 wanmi.org" aria-label="搜索域名" />
+              <button type="submit">搜索</button>
+            </form>
             <select value={filters.tld} onChange={(event) => setFilters((current) => ({ ...current, tld: event.target.value, page: 1 }))} aria-label="后缀筛选">
               <option value="">全部后缀</option>
-              {tlds.map((tld) => <option key={tld} value={tld}>.{tld}</option>)}
+              {facets.tlds.map((tld) => <option key={tld} value={tld}>.{tld}</option>)}
             </select>
             <select value={filters.length} onChange={(event) => setFilters((current) => ({ ...current, length: event.target.value, page: 1 }))} aria-label="字符位数筛选">
               <option value="">全部位数</option>
               {[1, 2, 3, 4, 5, 6, 7, 8].map((length) => <option key={length} value={length}>{length} 位</option>)}
             </select>
-            <select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value, page: 1 }))} aria-label="分类筛选">
-              <option value="">全部分类</option>
-              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-            </select>
+            {facets.categories.length > 0 && (
+              <select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value, page: 1 }))} aria-label="分类筛选">
+                <option value="">全部分类</option>
+                {facets.categories.map((category) => <option key={category} value={category}>{category}</option>)}
+              </select>
+            )}
             <label className="featured-toggle">
               <input type="checkbox" checked={filters.featured === "true"} onChange={(event) => setFilters((current) => ({ ...current, featured: event.target.checked ? "true" : "", page: 1 }))} />
               只看精品

@@ -50,6 +50,19 @@ publicRoutes.get("/settings", async (c) => {
   });
 });
 
+publicRoutes.get("/facets", async (c) => {
+  const [tldResult, categoryResult] = await c.env.DB.batch([
+    c.env.DB.prepare("SELECT DISTINCT tld FROM domains WHERE is_listed = 1 ORDER BY tld"),
+    c.env.DB.prepare(
+      "SELECT DISTINCT category FROM domains WHERE is_listed = 1 AND category IS NOT NULL AND category != '' ORDER BY category",
+    ),
+  ]);
+  return ok(c, {
+    tlds: (tldResult.results as unknown as Array<{ tld: string }>).map((row) => row.tld),
+    categories: (categoryResult.results as unknown as Array<{ category: string }>).map((row) => row.category),
+  });
+});
+
 publicRoutes.get("/domains", async (c) => {
   const parsed = publicDomainQuerySchema.safeParse(c.req.query());
   if (!parsed.success) return fail(c, 422, "INVALID_QUERY", "筛选参数无效", parsed.error.issues);

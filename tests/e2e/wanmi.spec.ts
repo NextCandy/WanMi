@@ -39,7 +39,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByRole("button", { name: "搜索", exact: true }).click();
     await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
     await page.getByRole("button", { name: "清除筛选" }).click();
-    const orgOption = page.getByRole("option", { name: ".org" });
+    const orgOption = page.getByRole("option", { name: ".org", exact: true });
     await expect(orgOption).toBeAttached();
     await page.getByLabel("后缀筛选").selectOption("org");
     await expect(page.getByText(/共 141 个域名/)).toBeVisible();
