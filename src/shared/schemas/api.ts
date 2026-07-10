@@ -16,9 +16,25 @@ export const publicDomainQuerySchema = z.object({
   length: z.coerce.number().int().min(1).max(253).optional(),
   category: z.string().trim().max(80).optional(),
   featured: z.enum(["true", "false"]).optional(),
+  kind: z.enum(["digits", "letters"]).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(60),
-  sort: z.enum(["default", "domain_asc", "domain_desc"]).default("default"),
+  sort: z
+    .enum(["default", "domain_asc", "domain_desc", "price_desc", "price_asc", "views_desc", "added_desc", "length_asc"])
+    .default("default"),
+});
+
+export const offerInputSchema = z.object({
+  domain: z.string().trim().min(3).max(253),
+  contact: z.string().trim().min(3).max(200),
+  amount: z
+    .string()
+    .trim()
+    .regex(/^\d+(?:\.\d+)?$/, "报价必须是数字")
+    .nullable()
+    .optional(),
+  currency: z.string().trim().length(3).toUpperCase().nullable().optional(),
+  message: z.string().trim().max(1000).nullable().optional(),
 });
 
 export const adminDomainQuerySchema = publicDomainQuerySchema.extend({

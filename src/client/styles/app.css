@@ -290,7 +290,10 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(135deg, color-mix(in oklab, var(--premium) 80%, oklch(100% 0 0)), var(--premium));
   box-shadow: inset 0 1px 0 color-mix(in oklab, oklch(100% 0 0) 50%, transparent);
 }
+.card-cover { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
 .domain-card-top { display: flex; justify-content: flex-start; align-items: center; min-height: 20px; }
+.domain-card .copy-button, .domain-card .card-stats { position: relative; z-index: 2; }
+.domain-card .card-stats { position: absolute; }
 .copy-button {
   margin-left: auto; border: 0; background: transparent; cursor: pointer;
   width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center;
