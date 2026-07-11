@@ -119,15 +119,38 @@ export const settingsPatchSchema = z
   })
   .partial();
 
+const webhookUrl = (hosts: string[]) =>
+  z
+    .string()
+    .trim()
+    .url()
+    .max(1000)
+    .refine((value) => {
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:" && hosts.some((host) => url.hostname === host);
+      } catch {
+        return false;
+      }
+    }, `Webhook 必须是 https 且属于 ${hosts.join(" / ")}`);
+
 export const notificationPatchSchema = z
   .object({
     reminder_days: z.array(z.number().int().min(1).max(365)).min(1).max(20),
     email_enabled: z.boolean(),
     telegram_enabled: z.boolean(),
     bark_enabled: z.boolean(),
+    serverchan_enabled: z.boolean(),
+    wecom_enabled: z.boolean(),
+    feishu_enabled: z.boolean(),
+    discord_enabled: z.boolean(),
     email_recipient: z.union([z.string().trim().email(), z.literal("")]).nullable(),
     telegram_chat_id: z.string().trim().max(120).nullable(),
     bark_device_key: z.string().trim().max(500).nullable(),
+    serverchan_key: z.string().trim().regex(/^[A-Za-z0-9_-]{8,120}$/, "SendKey 格式无效").nullable(),
+    wecom_webhook: webhookUrl(["qyapi.weixin.qq.com"]).nullable(),
+    feishu_webhook: webhookUrl(["open.feishu.cn", "open.larksuite.com"]).nullable(),
+    discord_webhook: webhookUrl(["discord.com", "discordapp.com"]).nullable(),
     timezone: z.literal("Asia/Shanghai"),
   })
   .partial();

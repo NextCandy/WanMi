@@ -3,7 +3,12 @@ import { Hono } from "hono";
 import { notificationPatchSchema, settingsPatchSchema } from "../../../shared/schemas/api";
 import { fail, ok, writeOperationLog } from "../../http";
 import { encryptCredentials } from "../../security/crypto";
-import { sendTestNotification } from "../../services/notifications";
+import {
+  NOTIFICATION_CHANNELS,
+  sendTestNotification,
+  type NotificationChannel,
+  type NotificationSettingsRow,
+} from "../../services/notifications";
 import type { AppBindings } from "../../types";
 
 const IMAGE_TYPES: Record<string, string> = {
@@ -89,27 +94,44 @@ settingsRoutes.delete("/uploads/*", async (c) => {
 settingsRoutes.get("/notifications", async (c) => {
   const settings = await c.env.DB.prepare(
     `SELECT reminder_days_json, email_enabled, telegram_enabled, bark_enabled,
+      serverchan_enabled, wecom_enabled, feishu_enabled, discord_enabled,
       email_recipient, telegram_chat_id, timezone,
-      CASE WHEN bark_device_key_encrypted IS NOT NULL THEN 1 ELSE 0 END AS bark_configured
+      CASE WHEN bark_device_key_encrypted IS NOT NULL THEN 1 ELSE 0 END AS bark_configured,
+      CASE WHEN serverchan_key_encrypted IS NOT NULL THEN 1 ELSE 0 END AS serverchan_configured,
+      CASE WHEN wecom_webhook_encrypted IS NOT NULL THEN 1 ELSE 0 END AS wecom_configured,
+      CASE WHEN feishu_webhook_encrypted IS NOT NULL THEN 1 ELSE 0 END AS feishu_configured,
+      CASE WHEN discord_webhook_encrypted IS NOT NULL THEN 1 ELSE 0 END AS discord_configured
      FROM notification_settings WHERE id = 1`,
   ).first();
   return ok(c, settings);
 });
+
+// 加密入库的渠道密钥：patch 字段 → [加密列前缀, 凭据字段名]
+const SECRET_FIELDS: Array<[string, string, string]> = [
+  ["bark_device_key", "bark_device_key", "deviceKey"],
+  ["serverchan_key", "serverchan_key", "sendKey"],
+  ["wecom_webhook", "wecom_webhook", "webhookUrl"],
+  ["feishu_webhook", "feishu_webhook", "webhookUrl"],
+  ["discord_webhook", "discord_webhook", "webhookUrl"],
+];
 
 settingsRoutes.patch("/notifications", async (c) => {
   const parsed = notificationPatchSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return fail(c, 422, "INVALID_NOTIFICATION_SETTINGS", "通知设置无效", parsed.error.issues);
   const fields: string[] = [];
   const values: Array<string | number | null> = [];
+  const secretKeys = new Set(SECRET_FIELDS.map(([key]) => key));
   for (const [key, value] of Object.entries(parsed.data)) {
-    if (key === "bark_device_key") continue;
+    if (secretKeys.has(key)) continue;
     const column = key === "reminder_days" ? "reminder_days_json" : key;
     fields.push(`${column} = ?`);
     values.push(Array.isArray(value) ? JSON.stringify([...new Set(value)].sort((a, b) => b - a)) : typeof value === "boolean" ? (value ? 1 : 0) : value ?? null);
   }
-  if (parsed.data.bark_device_key) {
-    const encrypted = await encryptCredentials({ deviceKey: parsed.data.bark_device_key }, c.env.CREDENTIALS_ENCRYPTION_KEY);
-    fields.push("bark_device_key_encrypted = ?", "bark_device_key_iv = ?");
+  for (const [patchKey, columnPrefix, credentialField] of SECRET_FIELDS) {
+    const secret = (parsed.data as Record<string, unknown>)[patchKey];
+    if (typeof secret !== "string" || !secret) continue;
+    const encrypted = await encryptCredentials({ [credentialField]: secret }, c.env.CREDENTIALS_ENCRYPTION_KEY);
+    fields.push(`${columnPrefix}_encrypted = ?`, `${columnPrefix}_iv = ?`);
     values.push(encrypted.encrypted, encrypted.iv);
   }
   if (fields.length === 0) return fail(c, 422, "NO_CHANGES", "没有可保存的通知设置");
@@ -130,20 +152,12 @@ settingsRoutes.patch("/notifications", async (c) => {
 
 settingsRoutes.post("/notifications/test", async (c) => {
   const body = (await c.req.json().catch(() => null)) as { channel?: unknown } | null;
-  if (!body || !["email", "telegram", "bark"].includes(String(body.channel))) {
+  if (!body || !NOTIFICATION_CHANNELS.includes(String(body.channel) as NotificationChannel)) {
     return fail(c, 422, "CHANNEL_INVALID", "通知渠道无效");
   }
-  const settings = await c.env.DB.prepare(
-    `SELECT email_recipient, telegram_chat_id, bark_device_key_encrypted, bark_device_key_iv
-     FROM notification_settings WHERE id = 1`,
-  ).first<{
-    email_recipient: string | null;
-    telegram_chat_id: string | null;
-    bark_device_key_encrypted: string | null;
-    bark_device_key_iv: string | null;
-  }>();
+  const settings = await c.env.DB.prepare("SELECT * FROM notification_settings WHERE id = 1").first<NotificationSettingsRow>();
   if (!settings) return fail(c, 503, "SETTINGS_UNAVAILABLE", "通知设置尚未初始化");
-  const channel = body.channel as "email" | "telegram" | "bark";
+  const channel = body.channel as NotificationChannel;
   const user = c.get("authUser");
   try {
     const result = await sendTestNotification(c.env, channel, settings);

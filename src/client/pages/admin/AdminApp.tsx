@@ -409,12 +409,128 @@ function RegistrarsView({ notify }: { notify: (text: string, tone?: "success" | 
 }
 
 interface DnsRecordView { id: string; type: string; name: string; content: string; ttl: number | null; priority: number | null; proxied: boolean | null; }
+
+interface TemplateRecord { type: string; name: string; content: string; ttl: number; priority?: number | null; proxied?: boolean | null }
+interface DnsTemplate {
+  key: string;
+  label: string;
+  variable?: { prompt: string; example: string };
+  build: (domain: string, variable: string) => TemplateRecord[];
+}
+const DNS_TEMPLATES: DnsTemplate[] = [
+  {
+    key: "cloudflare-proxy", label: "Cloudflare Proxy（A + www）",
+    variable: { prompt: "源站服务器 IP", example: "203.0.113.10" },
+    build: (domain, ip) => [
+      { type: "A", name: "@", content: ip, ttl: 300, proxied: true },
+      { type: "CNAME", name: "www", content: domain, ttl: 300, proxied: true },
+    ],
+  },
+  {
+    key: "vercel", label: "Vercel",
+    build: () => [
+      { type: "A", name: "@", content: "76.76.21.21", ttl: 300 },
+      { type: "CNAME", name: "www", content: "cname.vercel-dns.com", ttl: 300 },
+    ],
+  },
+  {
+    key: "github-pages", label: "GitHub Pages",
+    variable: { prompt: "GitHub 用户名", example: "octocat" },
+    build: (domain, username) => [
+      { type: "A", name: "@", content: "185.199.108.153", ttl: 3600 },
+      { type: "A", name: "@", content: "185.199.109.153", ttl: 3600 },
+      { type: "A", name: "@", content: "185.199.110.153", ttl: 3600 },
+      { type: "A", name: "@", content: "185.199.111.153", ttl: 3600 },
+      { type: "CNAME", name: "www", content: `${username}.github.io`, ttl: 3600 },
+    ],
+  },
+  {
+    key: "tencent-mx", label: "腾讯企业邮箱 MX",
+    build: () => [
+      { type: "MX", name: "@", content: "mxbiz1.qq.com", ttl: 3600, priority: 5 },
+      { type: "MX", name: "@", content: "mxbiz2.qq.com", ttl: 3600, priority: 10 },
+    ],
+  },
+];
+
+interface DiffPlanItem extends TemplateRecord { conflict: DnsRecordView | null }
+
 function DnsView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
   const [query, setQuery] = useState(""); const [domain, setDomain] = useState<AdminDomain | null>(null); const [records, setRecords] = useState<DnsRecordView[]>([]); const [loading, setLoading] = useState(false); const [record, setRecord] = useState({ type: "A", name: "@", content: "", ttl: 600, priority: "" });
+  const [templateKey, setTemplateKey] = useState(DNS_TEMPLATES[0].key);
+  const [plan, setPlan] = useState<{ template: string; items: DiffPlanItem[] } | null>(null);
+  const [applying, setApplying] = useState(false);
+
+  function previewTemplate() {
+    if (!domain) return;
+    const template = DNS_TEMPLATES.find((item) => item.key === templateKey);
+    if (!template) return;
+    let variable = "";
+    if (template.variable) {
+      const input = window.prompt(`${template.variable.prompt}（例如 ${template.variable.example}）`);
+      if (!input?.trim()) return;
+      variable = input.trim();
+    }
+    const root = domain.full_domain.toLowerCase();
+    const normalizeName = (value: string) => {
+      const trimmed = value.toLowerCase().replace(/\.$/, "");
+      if (trimmed === root || trimmed === "@" || trimmed === "") return "@";
+      return trimmed.endsWith(`.${root}`) ? trimmed.slice(0, -(root.length + 1)) : trimmed;
+    };
+    const items = template.build(domain.full_domain, variable).map((item): DiffPlanItem => ({
+      ...item,
+      conflict: records.find((existing) => existing.type === item.type && normalizeName(existing.name) === normalizeName(item.name)) ?? null,
+    }));
+    setPlan({ template: template.label, items });
+  }
+
+  async function applyPlan() {
+    if (!domain || !plan) return;
+    setApplying(true);
+    let successes = 0; let failures = 0;
+    for (const item of plan.items) {
+      try {
+        const created = await api<DnsRecordView>(`/api/admin/domains/${domain.id}/dns`, {
+          method: "POST",
+          body: JSON.stringify({ type: item.type, name: item.name, content: item.content, ttl: item.ttl, priority: item.priority ?? null, proxied: item.proxied ?? null }),
+        });
+        setRecords((current) => [...current, created]);
+        successes += 1;
+      } catch { failures += 1; }
+    }
+    setApplying(false);
+    setPlan(null);
+    notify(`模板写入完成：成功 ${successes}，失败 ${failures}`, failures ? "error" : "success");
+  }
   async function find(event: FormEvent) { event.preventDefault(); try { const page = await api<AdminDomainPage>(`/api/admin/domains?q=${encodeURIComponent(query)}&pageSize=50`); const exact = page.items.find((item) => item.full_domain.toLowerCase() === query.trim().toLowerCase()) ?? page.items[0]; if (!exact) throw new Error("未找到域名"); setDomain(exact); setLoading(true); const remote = await api<DnsRecordView[]>(`/api/admin/domains/${exact.id}/dns`); setRecords(remote); notify(`已从真实注册商读取 ${remote.length} 条 DNS 记录`); } catch (reason) { notify(reason instanceof Error ? reason.message : "DNS 读取失败", "error"); setRecords([]); } finally { setLoading(false); } }
   async function add(event: FormEvent) { event.preventDefault(); if (!domain) return; try { const created = await api<DnsRecordView>(`/api/admin/domains/${domain.id}/dns`, { method: "POST", body: JSON.stringify({ type: record.type, name: record.name, content: record.content, ttl: record.ttl, priority: record.priority ? Number(record.priority) : null }) }); setRecords((current) => [...current, created]); setRecord((current) => ({ ...current, content: "" })); notify("远端 DNS 创建成功，本地缓存已更新"); } catch (reason) { notify(reason instanceof Error ? reason.message : "DNS 创建失败", "error"); } }
   async function remove(id: string) { if (!domain || !window.confirm("确认从远端注册商删除这条 DNS 记录？")) return; try { await api(`/api/admin/domains/${domain.id}/dns/${encodeURIComponent(id)}`, { method: "DELETE" }); setRecords((current) => current.filter((item) => item.id !== id)); notify("远端 DNS 已删除"); } catch (reason) { notify(reason instanceof Error ? reason.message : "删除失败", "error"); } }
-  return <div className="admin-stack"><Panel title="DNS 解析" description="所有读写都直接调用关联注册商；远端成功后才更新 D1 缓存"><form className="dns-search" onSubmit={(event) => void find(event)}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入完整域名" required /><button className="primary-button">读取远端记录</button></form>{domain && <div className="dns-domain-meta"><strong>{domain.full_domain}</strong><span>{loading ? "正在连接注册商…" : `${records.length} 条远端记录`}</span></div>}<div className="admin-table-wrap"><table className="admin-table dns-table"><thead><tr><th>类型</th><th>主机</th><th>记录值</th><th>TTL</th><th>优先级</th><th>代理</th><th>操作</th></tr></thead><tbody>{records.map((item) => <tr key={item.id}><td><strong>{item.type}</strong></td><td>{item.name}</td><td className="record-content">{item.content}</td><td>{item.ttl ?? "—"}</td><td>{item.priority ?? "—"}</td><td>{item.proxied === null ? "—" : item.proxied ? "是" : "否"}</td><td><button className="table-link danger-text" onClick={() => void remove(item.id)}>删除</button></td></tr>)}</tbody></table></div></Panel>{domain && <Panel title="添加 DNS 记录"><form className="dns-form" onSubmit={(event) => void add(event)}><label>类型<select value={record.type} onChange={(event) => setRecord({ ...record, type: event.target.value })}>{["A","AAAA","CNAME","MX","TXT","NS","CAA","SRV"].map((type) => <option key={type}>{type}</option>)}</select></label><label>主机<input value={record.name} onChange={(event) => setRecord({ ...record, name: event.target.value })} /></label><label className="record-value">记录值<input value={record.content} onChange={(event) => setRecord({ ...record, content: event.target.value })} required /></label><label>TTL<input type="number" value={record.ttl} onChange={(event) => setRecord({ ...record, ttl: Number(event.target.value) })} /></label><label>优先级<input type="number" value={record.priority} onChange={(event) => setRecord({ ...record, priority: event.target.value })} /></label><button className="primary-button">提交到远端</button></form></Panel>}</div>;
+  return <div className="admin-stack"><Panel title="DNS 解析" description="所有读写都直接调用关联注册商；远端成功后才更新 D1 缓存"><form className="dns-search" onSubmit={(event) => void find(event)}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入完整域名" required /><button className="primary-button">读取远端记录</button></form>{domain && <div className="dns-domain-meta"><strong>{domain.full_domain}</strong><span>{loading ? "正在连接注册商…" : `${records.length} 条远端记录`}</span></div>}{domain && <div className="dns-template-bar"><span>常用模板</span><select value={templateKey} onChange={(event) => setTemplateKey(event.target.value)} aria-label="DNS 模板">{DNS_TEMPLATES.map((template) => <option key={template.key} value={template.key}>{template.label}</option>)}</select><button className="secondary-button" onClick={() => previewTemplate()}>预览写入</button></div>}<div className="admin-table-wrap"><table className="admin-table dns-table"><thead><tr><th>类型</th><th>主机</th><th>记录值</th><th>TTL</th><th>优先级</th><th>代理</th><th>操作</th></tr></thead><tbody>{records.map((item) => <tr key={item.id}><td><strong>{item.type}</strong></td><td>{item.name}</td><td className="record-content">{item.content}</td><td>{item.ttl ?? "—"}</td><td>{item.priority ?? "—"}</td><td>{item.proxied === null ? "—" : item.proxied ? "是" : "否"}</td><td><button className="table-link danger-text" onClick={() => void remove(item.id)}>删除</button></td></tr>)}</tbody></table></div></Panel>{domain && <Panel title="添加 DNS 记录"><form className="dns-form" onSubmit={(event) => void add(event)}><label>类型<select value={record.type} onChange={(event) => setRecord({ ...record, type: event.target.value })}>{["A","AAAA","CNAME","MX","TXT","NS","CAA","SRV"].map((type) => <option key={type}>{type}</option>)}</select></label><label>主机<input value={record.name} onChange={(event) => setRecord({ ...record, name: event.target.value })} /></label><label className="record-value">记录值<input value={record.content} onChange={(event) => setRecord({ ...record, content: event.target.value })} required /></label><label>TTL<input type="number" value={record.ttl} onChange={(event) => setRecord({ ...record, ttl: Number(event.target.value) })} /></label><label>优先级<input type="number" value={record.priority} onChange={(event) => setRecord({ ...record, priority: event.target.value })} /></label><button className="primary-button">提交到远端</button></form></Panel>}{plan && domain && (
+    <div className="modal-backdrop" onMouseDown={() => !applying && setPlan(null)}>
+      <div className="contact-modal diff-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="DNS 模板写入预览">
+        <button className="modal-close" onClick={() => setPlan(null)} disabled={applying}>×</button>
+        <span className="section-kicker">DIFF 预览</span>
+        <h2>{plan.template}</h2>
+        <p>将写入 <strong>{domain.full_domain}</strong> 的远端注册商，共 {plan.items.length} 条记录。</p>
+        <div className="diff-list">
+          {plan.items.map((item, index) => (
+            <div key={index} className={item.conflict ? "diff-conflict" : ""}>
+              <span className={`badge-status ${item.conflict ? "badge-warning" : "badge-listed"}`}>{item.conflict ? "冲突" : "新增"}</span>
+              <b>{item.type}</b>
+              <em>{item.name}</em>
+              <code>{item.content}{item.priority ? ` (优先级 ${item.priority})` : ""}{item.proxied ? " · Proxy" : ""}</code>
+              {item.conflict && <small>已有同名 {item.conflict.type} 记录：{item.conflict.content}</small>}
+            </div>
+          ))}
+        </div>
+        {plan.items.some((item) => item.conflict) && <p className="diff-warning">存在冲突记录：确认写入会新增记录而非覆盖，可能产生重复解析，建议先删除旧记录。</p>}
+        <div className="diff-actions">
+          <button className="secondary-button" onClick={() => setPlan(null)} disabled={applying}>取消</button>
+          <button className="primary-button" onClick={() => void applyPlan()} disabled={applying}>{applying ? "正在写入…" : "确认写入远端"}</button>
+        </div>
+      </div>
+    </div>
+  )}</div>;
 }
 
 interface SiteSettingsForm {
@@ -434,14 +550,70 @@ function SettingsView({ notify }: { notify: (text: string, tone?: "success" | "e
   return <Panel title="站点设置" description="保存到 D1，前台刷新后生效"><form className="settings-form" onSubmit={(event) => void save(event)}><div className="form-grid"><label>站点名称<input value={form.site_name} onChange={(event) => field("site_name", event.target.value)} /></label><label>主题色<input type="color" value={form.accent_color} onChange={(event) => field("accent_color", event.target.value)} /></label><label className="wide">站点描述（前台 Slogan）<input value={form.site_description} onChange={(event) => field("site_description", event.target.value)} /></label><label className="wide">品牌简介 Bio（前台 Hero 副文案）<input value={form.site_bio ?? ""} onChange={(event) => field("site_bio", event.target.value || null)} maxLength={500} placeholder="一句话介绍你的域名收藏" /></label><label>页面密度<select value={form.display_density} onChange={(event) => field("display_density", event.target.value as SiteSettingsForm["display_density"])}><option value="compact">紧凑</option><option value="comfortable">舒适</option><option value="spacious">宽松</option></select></label><label>ICP 备案号<input value={form.icp_number ?? ""} onChange={(event) => field("icp_number", event.target.value || null)} /></label><label>公开联系邮箱<input type="email" value={form.contact_email ?? ""} onChange={(event) => field("contact_email", event.target.value || null)} /></label><label>微信<input value={form.contact_wechat ?? ""} onChange={(event) => field("contact_wechat", event.target.value || null)} /></label><label>Telegram<input value={form.contact_telegram ?? ""} onChange={(event) => field("contact_telegram", event.target.value || null)} /></label><label>版权文字<input value={form.copyright_text ?? ""} onChange={(event) => field("copyright_text", event.target.value || null)} placeholder="留空使用动态年份" /></label></div><div className="checkbox-row"><label><input type="checkbox" checked={Boolean(form.featured_first)} onChange={(event) => field("featured_first", event.target.checked ? 1 : 0)} />精品优先</label><label><input type="checkbox" checked={Boolean(form.show_prices)} onChange={(event) => field("show_prices", event.target.checked ? 1 : 0)} />显示已审核公开价格</label></div><div className="upload-grid">{(["logo", "favicon", "wechatQr"] as const).map((target) => <label className="upload-card" key={target}><span>{target === "logo" ? "Logo" : target === "favicon" ? "Favicon" : "微信二维码"}</span><small>PNG / JPEG / WebP，最大 2 MB</small><input type="file" accept="image/png,image/jpeg,image/webp,image/x-icon" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file, target); }} /></label>)}</div><button className="primary-button">保存设置</button></form></Panel>;
 }
 
-interface NotificationForm { reminder_days_json: string; email_enabled: number; telegram_enabled: number; bark_enabled: number; email_recipient: string | null; telegram_chat_id: string | null; timezone: string; bark_configured: number; }
+interface NotificationForm {
+  reminder_days_json: string; timezone: string;
+  email_enabled: number; telegram_enabled: number; bark_enabled: number;
+  serverchan_enabled: number; wecom_enabled: number; feishu_enabled: number; discord_enabled: number;
+  email_recipient: string | null; telegram_chat_id: string | null;
+  bark_configured: number; serverchan_configured: number; wecom_configured: number; feishu_configured: number; discord_configured: number;
+}
+type SecretChannel = "bark" | "serverchan" | "wecom" | "feishu" | "discord";
+const SECRET_CHANNELS: Array<{ key: SecretChannel; label: string; placeholder: string; patchKey: string }> = [
+  { key: "bark", label: "Bark", placeholder: "设备密钥", patchKey: "bark_device_key" },
+  { key: "serverchan", label: "Server 酱", placeholder: "SendKey（sctapi.ftqq.com）", patchKey: "serverchan_key" },
+  { key: "wecom", label: "企业微信机器人", placeholder: "Webhook URL（qyapi.weixin.qq.com）", patchKey: "wecom_webhook" },
+  { key: "feishu", label: "飞书机器人", placeholder: "Webhook URL（open.feishu.cn）", patchKey: "feishu_webhook" },
+  { key: "discord", label: "Discord", placeholder: "Webhook URL（discord.com）", patchKey: "discord_webhook" },
+];
+
 function NotificationsView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
-  const [form, setForm] = useState<NotificationForm | null>(null); const [barkKey, setBarkKey] = useState("");
+  const [form, setForm] = useState<NotificationForm | null>(null);
+  const [secrets, setSecrets] = useState<Record<SecretChannel, string>>({ bark: "", serverchan: "", wecom: "", feishu: "", discord: "" });
   useEffect(() => { api<NotificationForm>("/api/admin/notifications").then(setForm).catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "通知设置加载失败", "error")); }, [notify]);
   if (!form) return <div className="state-panel">正在读取通知设置…</div>;
-  async function save() { const current = form; if (!current) return; try { const reminderDays: unknown = JSON.parse(current.reminder_days_json); if (!Array.isArray(reminderDays) || !reminderDays.every((value) => Number.isInteger(value))) throw new Error("提醒天数必须是整数 JSON 数组"); await api("/api/admin/notifications", { method: "PATCH", body: JSON.stringify({ reminder_days: reminderDays, email_enabled: Boolean(current.email_enabled), telegram_enabled: Boolean(current.telegram_enabled), bark_enabled: Boolean(current.bark_enabled), email_recipient: current.email_recipient, telegram_chat_id: current.telegram_chat_id, bark_device_key: barkKey || undefined, timezone: "Asia/Shanghai" }) }); notify("通知设置已保存"); setBarkKey(""); } catch (reason) { notify(reason instanceof Error ? reason.message : "保存失败", "error"); } }
-  async function test(channel: "email" | "telegram" | "bark") { try { await api("/api/admin/notifications/test", { method: "POST", body: JSON.stringify({ channel }) }); notify(`${channel} 测试通知已真实发送`); } catch (reason) { notify(reason instanceof Error ? reason.message : "通知发送失败", "error"); } }
-  return <Panel title="到期提醒" description="Cloudflare Cron 每天 09:00（Asia/Shanghai）检查；没有到期数据时不会发送"><div className="notification-stack"><label>提醒天数（JSON）<input value={form.reminder_days_json} onChange={(event) => setForm({ ...form, reminder_days_json: event.target.value })} /></label><div className="channel-card"><label><input type="checkbox" checked={Boolean(form.email_enabled)} onChange={(event) => setForm({ ...form, email_enabled: event.target.checked ? 1 : 0 })} />Email</label><input type="email" value={form.email_recipient ?? ""} onChange={(event) => setForm({ ...form, email_recipient: event.target.value || null })} placeholder="收件邮箱" /><button onClick={() => void test("email")}>真实测试</button></div><div className="channel-card"><label><input type="checkbox" checked={Boolean(form.telegram_enabled)} onChange={(event) => setForm({ ...form, telegram_enabled: event.target.checked ? 1 : 0 })} />Telegram</label><input value={form.telegram_chat_id ?? ""} onChange={(event) => setForm({ ...form, telegram_chat_id: event.target.value || null })} placeholder="Chat ID" /><button onClick={() => void test("telegram")}>真实测试</button></div><div className="channel-card"><label><input type="checkbox" checked={Boolean(form.bark_enabled)} onChange={(event) => setForm({ ...form, bark_enabled: event.target.checked ? 1 : 0 })} />Bark</label><input type="password" value={barkKey} onChange={(event) => setBarkKey(event.target.value)} placeholder={form.bark_configured ? "已加密配置；留空不修改" : "设备密钥"} /><button onClick={() => void test("bark")}>真实测试</button></div><button className="primary-button align-start" onClick={() => void save()}>保存提醒设置</button></div></Panel>;
+  const enabledOf = (key: SecretChannel) => Boolean(form[`${key}_enabled` as keyof NotificationForm]);
+  const configuredOf = (key: SecretChannel) => Boolean(form[`${key}_configured` as keyof NotificationForm]);
+  function setEnabled(key: SecretChannel, value: boolean) { setForm((current) => current ? { ...current, [`${key}_enabled`]: value ? 1 : 0 } : current); }
+  async function save() {
+    const current = form; if (!current) return;
+    try {
+      const reminderDays: unknown = JSON.parse(current.reminder_days_json);
+      if (!Array.isArray(reminderDays) || !reminderDays.every((value) => Number.isInteger(value))) throw new Error("提醒天数必须是整数 JSON 数组");
+      const body: Record<string, unknown> = {
+        reminder_days: reminderDays,
+        email_enabled: Boolean(current.email_enabled),
+        telegram_enabled: Boolean(current.telegram_enabled),
+        bark_enabled: Boolean(current.bark_enabled),
+        serverchan_enabled: Boolean(current.serverchan_enabled),
+        wecom_enabled: Boolean(current.wecom_enabled),
+        feishu_enabled: Boolean(current.feishu_enabled),
+        discord_enabled: Boolean(current.discord_enabled),
+        email_recipient: current.email_recipient,
+        telegram_chat_id: current.telegram_chat_id,
+        timezone: "Asia/Shanghai",
+      };
+      for (const { key, patchKey } of SECRET_CHANNELS) { if (secrets[key]) body[patchKey] = secrets[key]; }
+      await api("/api/admin/notifications", { method: "PATCH", body: JSON.stringify(body) });
+      notify("通知设置已保存");
+      setSecrets({ bark: "", serverchan: "", wecom: "", feishu: "", discord: "" });
+    } catch (reason) { notify(reason instanceof Error ? reason.message : "保存失败", "error"); }
+  }
+  async function test(channel: string) { try { await api("/api/admin/notifications/test", { method: "POST", body: JSON.stringify({ channel }) }); notify(`${channel} 测试通知已真实发送`); } catch (reason) { notify(reason instanceof Error ? reason.message : "通知发送失败", "error"); } }
+  return <Panel title="到期提醒与通知渠道" description="Cloudflare Cron 每天 09:00（Asia/Shanghai）检查；渠道同时用于前台求购线索推送；密钥/Webhook 一律 AES-GCM 加密存储">
+    <div className="notification-stack">
+      <label>提醒天数（JSON）<input value={form.reminder_days_json} onChange={(event) => setForm({ ...form, reminder_days_json: event.target.value })} /></label>
+      <div className="channel-card"><label><input type="checkbox" checked={Boolean(form.email_enabled)} onChange={(event) => setForm({ ...form, email_enabled: event.target.checked ? 1 : 0 })} />Email</label><input type="email" value={form.email_recipient ?? ""} onChange={(event) => setForm({ ...form, email_recipient: event.target.value || null })} placeholder="收件邮箱" /><button onClick={() => void test("email")}>真实测试</button></div>
+      <div className="channel-card"><label><input type="checkbox" checked={Boolean(form.telegram_enabled)} onChange={(event) => setForm({ ...form, telegram_enabled: event.target.checked ? 1 : 0 })} />Telegram</label><input value={form.telegram_chat_id ?? ""} onChange={(event) => setForm({ ...form, telegram_chat_id: event.target.value || null })} placeholder="Chat ID" /><button onClick={() => void test("telegram")}>真实测试</button></div>
+      {SECRET_CHANNELS.map(({ key, label, placeholder }) => (
+        <div className="channel-card" key={key}>
+          <label><input type="checkbox" checked={enabledOf(key)} onChange={(event) => setEnabled(key, event.target.checked)} />{label}</label>
+          <input type="password" value={secrets[key]} onChange={(event) => setSecrets((current) => ({ ...current, [key]: event.target.value }))} placeholder={configuredOf(key) ? "已加密配置；留空不修改" : placeholder} autoComplete="off" />
+          <button onClick={() => void test(key)}>真实测试</button>
+        </div>
+      ))}
+      <button className="primary-button align-start" onClick={() => void save()}>保存提醒设置</button>
+    </div>
+  </Panel>;
 }
 
 interface SessionRow { id: string; expires_at: string; created_at: string; last_seen_at: string; user_agent: string; ip_country: string | null; is_current: number; }

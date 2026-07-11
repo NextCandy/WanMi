@@ -1,18 +1,11 @@
 import { writeOperationLog } from "../http";
-import { sendNotification } from "./notifications";
+import { enabledChannels, sendNotification, type NotificationSettingsRow } from "./notifications";
 import type { Env } from "../types";
 
-interface SettingsRow {
+type SettingsRow = NotificationSettingsRow & Record<string, unknown> & {
   reminder_days_json: string;
-  email_enabled: number;
-  telegram_enabled: number;
-  bark_enabled: number;
-  email_recipient: string | null;
-  telegram_chat_id: string | null;
-  bark_device_key_encrypted: string | null;
-  bark_device_key_iv: string | null;
   timezone: string;
-}
+};
 
 interface ExpiringDomainRow {
   id: number;
@@ -39,10 +32,7 @@ export async function runExpirationReminders(env: Env): Promise<void> {
   )
     .bind(...days)
     .all<ExpiringDomainRow>();
-  const channels: Array<"email" | "telegram" | "bark"> = [];
-  if (settings.email_enabled === 1) channels.push("email");
-  if (settings.telegram_enabled === 1) channels.push("telegram");
-  if (settings.bark_enabled === 1) channels.push("bark");
+  const channels = enabledChannels(settings);
   const scheduledDate = new Date().toISOString().slice(0, 10);
 
   for (const domain of result.results) {
