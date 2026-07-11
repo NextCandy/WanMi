@@ -48,8 +48,28 @@ describe("CSV 边界条件", () => {
     expect(result.report.issues.map((issue) => issue.code)).toEqual(["duplicate_domain", "empty_domain", "tld_mismatch"]);
   });
 
-  it("拒绝缺失和重复表头", () => {
+  it("拒绝重复表头；缺市场表头但含 Domain 列时走最小模式；完全无法识别时报错", () => {
     expect(() => parseDomainCsv("Domain,TLD,TLD\nexample.com,com,com")).toThrow(/重复表头/);
-    expect(() => parseDomainCsv("Domain,TLD\nexample.com,com")).toThrow(/缺少表头/);
+    expect(parseDomainCsv("Domain,TLD\nexample.com,com").records).toHaveLength(1);
+    expect(() => parseDomainCsv("Foo,Bar\nx,y")).toThrow(/缺少表头/);
+  });
+});
+
+describe("最小模式：只导入域名", () => {
+  it("解析含 Domain 列的简单 CSV，忽略其余列且市场字段置空", () => {
+    const result = parseDomainCsv("Domain,备注\nwanmi.org,好名字\nexample.com,\n", "simple.csv");
+    expect(result.records).toHaveLength(2);
+    expect(result.records[0].normalizedDomain).toBe("wanmi.org");
+    expect(result.records[0].buyNowPrice).toBeNull();
+    expect(result.records[0].dateAddedAt).toBeNull();
+    expect(result.records[0].listingStatus).toBeNull();
+    expect(result.report.parsedCount).toBe(2);
+  });
+
+  it("解析无表头的纯域名列表并报告重复与非法行", () => {
+    const result = parseDomainCsv("wanmi.org\nWANMI.ORG\nnot a domain\nexample.com\n", "list.csv");
+    expect(result.records.map((record) => record.normalizedDomain)).toEqual(["wanmi.org", "example.com"]);
+    expect(result.report.duplicateCount).toBe(1);
+    expect(result.report.invalidCount).toBe(1);
   });
 });

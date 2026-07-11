@@ -71,6 +71,122 @@ function rawRow(headers: string[], values: string[]): RawDomainCsvRow {
   return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""])) as RawDomainCsvRow;
 }
 
+function looksLikeDomain(value: string): boolean {
+  try {
+    normalizeDomain(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 最小模式：只需要域名。支持含 Domain/域名 表头的任意 CSV（其余列忽略），
+ * 或没有表头的纯域名列表（每行一个）。市场字段全部置空。
+ */
+function parseMinimalDomainCsv(
+  matrix: string[][],
+  headers: string[],
+  sourceFile: string,
+): DomainCsvParseResult | null {
+  const domainColumn = headers.findIndex((header) => /^(domain(\s*name)?|域名)$/i.test(header));
+  const headerless = domainColumn === -1 && headers.length >= 1 && looksLikeDomain(headers[0]);
+  if (domainColumn === -1 && !headerless) return null;
+
+  const issues: DomainCsvIssue[] = [];
+  const records: ParsedDomainRecord[] = [];
+  const seen = new Set<string>();
+  const tldDistribution: Record<string, number> = {};
+  let emptyLineCount = 0;
+  let nonEmptyDomainCount = 0;
+
+  const startRow = headerless ? 0 : 1;
+  const column = headerless ? 0 : domainColumn;
+  for (let index = startRow; index < matrix.length; index += 1) {
+    const values = matrix[index];
+    const rowNumber = index + 1;
+    if (values.every((value) => value.trim() === "")) {
+      emptyLineCount += 1;
+      continue;
+    }
+    const rawDomain = (values[column] ?? "").trim();
+    if (!rawDomain) {
+      issues.push({ rowNumber, domain: "", code: "empty_domain", reason: "域名为空" });
+      continue;
+    }
+    nonEmptyDomainCount += 1;
+    try {
+      const normalized = normalizeDomain(rawDomain);
+      if (seen.has(normalized.normalizedDomain)) {
+        issues.push({ rowNumber, domain: rawDomain, code: "duplicate_domain", reason: "标准化后域名重复" });
+        continue;
+      }
+      seen.add(normalized.normalizedDomain);
+      increment(tldDistribution, normalized.tld);
+      records.push({
+        ...normalized,
+        rowNumber,
+        isListed: true,
+        sourceFile,
+        buyNowPrice: null,
+        floorPrice: null,
+        minOffer: null,
+        priceCurrency: null,
+        leaseToOwn: null,
+        maxLeasePeriod: null,
+        saleLander: null,
+        showBuyNowOption: null,
+        showLeaseToOwnOption: null,
+        showMakeOfferOption: null,
+        hidden: null,
+        listingStatus: null,
+        fastTransfer: null,
+        views: null,
+        leads: null,
+        uniqueSearches30d: null,
+        uniqueSearches90d: null,
+        uniqueSearches365d: null,
+        totalSearches30d: null,
+        totalSearches90d: null,
+        totalSearches365d: null,
+        godaddyNs: null,
+        dateAddedAt: null,
+        rawMetadataJson: JSON.stringify({ Domain: rawDomain }),
+      });
+    } catch (error) {
+      const isDomainError = error instanceof DomainValidationError;
+      issues.push({
+        rowNumber,
+        domain: rawDomain,
+        code: isDomainError ? error.code : "invalid_field",
+        reason: error instanceof Error ? error.message : "未知解析错误",
+      });
+    }
+  }
+
+  const duplicateCount = issues.filter((issue) => issue.code === "duplicate_domain").length;
+  return {
+    records,
+    report: {
+      sourceFile,
+      headers: headerless ? ["Domain"] : headers,
+      rawRecordCount: matrix.length - startRow - emptyLineCount,
+      nonEmptyDomainCount,
+      parsedCount: records.length,
+      validCount: records.length,
+      uniqueCount: seen.size,
+      duplicateCount,
+      invalidCount: issues.length - duplicateCount,
+      emptyLineCount,
+      hiddenDistribution: {},
+      listingStatusDistribution: {},
+      tldDistribution,
+      issues,
+      generatedAt: new Date().toISOString(),
+    },
+  };
+}
+
 export function parseDomainCsv(
   csvText: string,
   sourceFile = "domains-1783619533.csv",
@@ -78,17 +194,22 @@ export function parseDomainCsv(
   const matrix = parse(csvText, {
     bom: true,
     columns: false,
-    relax_column_count: false,
+    relax_column_count: true,
     skip_empty_lines: false,
     trim: false,
   });
 
   if (matrix.length === 0) throw new Error("CSV 文件为空");
   const headers = matrix[0].map((header) => header.trim().replace(/^\uFEFF/, ""));
-  const duplicateHeaders = headers.filter((header, index) => headers.indexOf(header) !== index);
+  const duplicateHeaders = headers.filter((header, index) => header !== "" && headers.indexOf(header) !== index);
   if (duplicateHeaders.length > 0) throw new Error(`CSV 存在重复表头：${[...new Set(duplicateHeaders)].join("、")}`);
   const missingHeaders = DOMAIN_CSV_HEADERS.filter((header) => !headers.includes(header));
-  if (missingHeaders.length > 0) throw new Error(`CSV 缺少表头：${missingHeaders.join("、")}`);
+  if (missingHeaders.length > 0) {
+    // 非完整市场 CSV：走"只导入域名"最小模式（任意含 Domain/域名 列的 CSV，或无表头纯域名列表）
+    const minimal = parseMinimalDomainCsv(matrix, headers, sourceFile);
+    if (minimal) return minimal;
+    throw new Error(`CSV 缺少表头：${missingHeaders.join("、")}（或改为提供仅含域名的列表）`);
+  }
 
   const issues: DomainCsvIssue[] = [];
   const records: ParsedDomainRecord[] = [];

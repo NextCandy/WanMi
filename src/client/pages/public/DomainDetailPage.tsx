@@ -126,7 +126,6 @@ export function DomainDetailPage({ name }: { name: string }) {
               <span className="chip chip-brand">.{domain.tld}</span>
               <span className="chip">{domain.name.length} 位</span>
               {domain.is_featured && <span className="chip" style={{ background: "color-mix(in oklab, var(--premium) 18%, transparent)", borderColor: "color-mix(in oklab, var(--premium) 45%, transparent)", color: "var(--premium-fg)" }}>精品</span>}
-              {domain.is_market_listed && <span className="badge-status badge-listed">Listed</span>}
               {domain.category && <span className="chip">{domain.category}</span>}
             </div>
             <div className="detail-grid">

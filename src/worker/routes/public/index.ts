@@ -6,7 +6,7 @@ import type { PublicDomain } from "../../../shared/types/api";
 import { fail, ok, writeOperationLog } from "../../http";
 import { hmacSha256 } from "../../security/crypto";
 import { requestIp } from "../../security/session";
-import { sendNotification } from "../../services/notifications";
+import { enabledChannels, sendNotification, type NotificationSettingsRow } from "../../services/notifications";
 import type { AppBindings } from "../../types";
 
 interface PublicDomainRow {
@@ -18,12 +18,6 @@ interface PublicDomainRow {
   is_featured: number;
   public_price: string | null;
   public_price_currency: string | null;
-  buy_now_price: string | null;
-  floor_price: string | null;
-  min_offer: string | null;
-  listing_status: string | null;
-  views: number | null;
-  date_added_at: string | null;
 }
 
 interface SettingsRow {
@@ -46,8 +40,7 @@ interface SettingsRow {
 
 const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.category, d.is_featured,
   CASE WHEN d.public_price_approved = 1 THEN d.public_price ELSE NULL END AS public_price,
-  CASE WHEN d.public_price_approved = 1 THEN d.public_price_currency ELSE NULL END AS public_price_currency,
-  m.buy_now_price, m.floor_price, m.min_offer, m.listing_status, m.views, m.date_added_at
+  CASE WHEN d.public_price_approved = 1 THEN d.public_price_currency ELSE NULL END AS public_price_currency
   FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id`;
 
 // 报价文本可能带 $ 与千分位，统一转 REAL 排序
@@ -64,12 +57,7 @@ function serializePublic(row: PublicDomainRow, showPrices: boolean): PublicDomai
     tld: row.tld,
     category: row.category,
     is_featured: row.is_featured === 1,
-    is_market_listed: row.listing_status === "Listed",
-    views: row.views,
-    date_added_at: row.date_added_at,
-    ...(showPrices
-      ? { public_price: row.public_price, floor_price: row.floor_price, min_offer: row.min_offer }
-      : {}),
+    ...(showPrices ? { public_price: row.public_price } : {}),
   };
 }
 
@@ -97,8 +85,7 @@ publicRoutes.get("/facets", async (c) => {
       "SELECT DISTINCT category FROM domains WHERE is_listed = 1 AND category IS NOT NULL AND category != '' ORDER BY category",
     ),
     c.env.DB.prepare(
-      `SELECT COUNT(*) AS total, COUNT(DISTINCT d.tld) AS tld_count, MAX(m.date_added_at) AS latest_added
-       FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id WHERE d.is_listed = 1`,
+      "SELECT COUNT(*) AS total, COUNT(DISTINCT tld) AS tld_count, MAX(updated_at) AS latest_added FROM domains WHERE is_listed = 1",
     ),
   ]);
   const stats = (statsResult.results[0] ?? {}) as { total?: number; tld_count?: number; latest_added?: string | null };
@@ -159,7 +146,7 @@ publicRoutes.get("/domains", async (c) => {
     : query.sort === "price_desc" ? `${PRICE_SQL} IS NULL, ${PRICE_SQL} DESC, d.normalized_domain ASC`
     : query.sort === "price_asc" ? `${PRICE_SQL} IS NULL, ${PRICE_SQL} ASC, d.normalized_domain ASC`
     : query.sort === "views_desc" ? "m.views IS NULL, m.views DESC, d.normalized_domain ASC"
-    : query.sort === "added_desc" ? "m.date_added_at IS NULL, m.date_added_at DESC, d.normalized_domain ASC"
+    : query.sort === "added_desc" ? "d.created_at DESC, d.normalized_domain ASC"
     : query.sort === "length_asc" ? "length(replace(d.name, '.', '')) ASC, d.normalized_domain ASC"
     : defaultSort;
   const [countResult, dataResult] = await c.env.DB.batch([
@@ -316,30 +303,15 @@ publicRoutes.post("/offers", async (c) => {
   });
   // 尽力通知，不阻塞响应也不影响结果
   const notify = async () => {
-    const settings = await c.env.DB.prepare(
-      `SELECT email_enabled, telegram_enabled, bark_enabled, email_recipient, telegram_chat_id,
-        bark_device_key_encrypted, bark_device_key_iv
-       FROM notification_settings WHERE id = 1`,
-    ).first<{
-      email_enabled: number;
-      telegram_enabled: number;
-      bark_enabled: number;
-      email_recipient: string | null;
-      telegram_chat_id: string | null;
-      bark_device_key_encrypted: string | null;
-      bark_device_key_iv: string | null;
-    }>();
+    const settings = await c.env.DB.prepare("SELECT * FROM notification_settings WHERE id = 1").first<
+      NotificationSettingsRow & Record<string, unknown>
+    >();
     if (!settings) return;
     const message = {
       title: `WanMi 求购线索：${domain.full_domain}`,
       content: `联系方式：${parsed.data.contact}${parsed.data.amount ? `\n报价：${parsed.data.amount} ${parsed.data.currency ?? ""}` : ""}${parsed.data.message ? `\n留言：${parsed.data.message}` : ""}`,
     };
-    const channels = [
-      settings.email_enabled ? ("email" as const) : null,
-      settings.telegram_enabled ? ("telegram" as const) : null,
-      settings.bark_enabled ? ("bark" as const) : null,
-    ].filter((channel): channel is "email" | "telegram" | "bark" => channel !== null);
-    await Promise.allSettled(channels.map((channel) => sendNotification(c.env, channel, settings, message)));
+    await Promise.allSettled(enabledChannels(settings).map((channel) => sendNotification(c.env, channel, settings, message)));
   };
   c.executionCtx.waitUntil(notify());
   return ok(c, { received: true }, 201);

@@ -30,15 +30,14 @@ interface DomainFacets {
   latestAddedAt: string | null;
 }
 
-type SortKey = "default" | "added_desc" | "price_desc" | "length_asc" | "views_desc";
+type SortKey = "default" | "added_desc" | "length_asc" | "domain_asc";
 type GroupKey = "all" | "featured" | "two" | "three" | "digits";
 
 const SORTS: Array<[SortKey, string]> = [
   ["default", "默认"],
   ["added_desc", "最新添加"],
-  ["price_desc", "报价"],
   ["length_asc", "位数"],
-  ["views_desc", "热度"],
+  ["domain_asc", "字母序"],
 ];
 const GROUPS: Array<[GroupKey, string]> = [
   ["all", "全部"],
@@ -166,10 +165,6 @@ export function PublicPage() {
       <main>
         <section className="hero-brand">
           {settings?.logo_url ? <img className="hero-logo" src={settings.logo_url} alt="" /> : <span className="brand-mark">W</span>}
-          <div className="hero-copy">
-            <h1>{settings?.site_description ?? "发现值得珍藏的域名"}</h1>
-            {settings?.site_bio && <p>{settings.site_bio}</p>}
-          </div>
           {facets && (
             <div className="hero-stats">
               <span><strong>{facets.total}</strong> 域名</span>
@@ -177,17 +172,10 @@ export function PublicPage() {
               {latestAdded && <span>更新于 <strong>{latestAdded}</strong></span>}
             </div>
           )}
+          <span className="result-count">{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span>
         </section>
 
         <section className="domain-section" id="domains">
-          <div className="section-heading">
-            <div>
-              <span className="section-kicker">WANMI DOMAINS</span>
-              <h2>域名收藏</h2>
-            </div>
-            <span className="result-count">{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span>
-          </div>
-
           <div className="group-tabs" role="tablist" aria-label="分组视图">
             {GROUPS.map(([key, label]) => (
               <button key={key} role="tab" aria-selected={filters.group === key} className={filters.group === key ? "active" : ""}
@@ -231,7 +219,6 @@ export function PublicPage() {
             <div className="domain-grid">
               {pageData.items.map((domain, index) => {
                 const long = domain.domain.length > 20 ? " domain-long" : domain.domain.length > 14 ? " domain-medium" : "";
-                const hasStats = Boolean(domain.floor_price || domain.min_offer || domain.views || domain.date_added_at);
                 return (
                   <div className={`domain-card${domain.is_featured ? " featured" : ""}`} key={domain.id} style={{ animationDelay: `${Math.min(index * 22, 420)}ms` }}>
                     {domain.is_featured && <span className="premium-corner">精品</span>}
@@ -243,17 +230,7 @@ export function PublicPage() {
                     <div className="domain-meta">
                       <span className="chip chip-brand">.{domain.tld}</span>
                       <span className="chip">{domain.name.length} 位</span>
-                      {domain.is_market_listed && <span className="badge-status badge-listed">Listed</span>}
-                      {settings?.show_prices && domain.public_price && <span className="public-price">{domain.public_price}</span>}
                     </div>
-                    {hasStats && (
-                      <div className="card-stats" aria-hidden="true">
-                        {domain.floor_price && <div>Floor<b>{domain.floor_price}</b></div>}
-                        {domain.min_offer && <div>Min Offer<b>{domain.min_offer}</b></div>}
-                        {domain.views !== null && <div>Views<b>{domain.views}</b></div>}
-                        {domain.date_added_at && <div>Date Added<b>{new Date(domain.date_added_at).toLocaleDateString("zh-CN")}</b></div>}
-                      </div>
-                    )}
                   </div>
                 );
               })}

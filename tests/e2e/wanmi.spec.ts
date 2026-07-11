@@ -29,7 +29,6 @@ function localCredentials(): { email: string; password: string } {
 test.describe.serial("WanMi 生产流程", () => {
   test("前台读取 D1、搜索和后缀筛选", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "域名收藏" })).toBeVisible();
     await expect(page.getByText("共 662 个域名")).toBeVisible();
     const search = page.getByRole("textbox", { name: "搜索域名" });
     await search.fill("wanmi.org");
