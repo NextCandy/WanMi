@@ -54,14 +54,6 @@ function adminFilters(query: ReturnType<typeof adminDomainQuerySchema.parse>): {
     clauses.push("d.is_listed = ?");
     params.push(query.listed === "true" ? 1 : 0);
   }
-  if (query.listingStatus) {
-    clauses.push("m.listing_status = ?");
-    params.push(query.listingStatus);
-  }
-  if (query.fastTransfer) {
-    clauses.push("m.fast_transfer = ?");
-    params.push(query.fastTransfer);
-  }
   if (query.ids) {
     const ids = query.ids.split(",").map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 500);
     if (ids.length > 0) clauses.push(`d.id IN (${ids.join(",")})`);
@@ -69,33 +61,17 @@ function adminFilters(query: ReturnType<typeof adminDomainQuerySchema.parse>): {
   return { where: clauses.join(" AND "), params };
 }
 
-const ADMIN_PRICE_SQL = "CAST(replace(replace(COALESCE(m.buy_now_price, d.public_price, ''), '$', ''), ',', '') AS REAL)";
-const ADMIN_FLOOR_SQL = "CAST(replace(replace(COALESCE(m.floor_price, ''), '$', ''), ',', '') AS REAL)";
-
 function adminOrderBy(query: ReturnType<typeof adminDomainQuerySchema.parse>): string {
   const direction = query.dir === "desc" ? "DESC" : "ASC";
   const column =
     query.orderBy === "domain" ? "d.normalized_domain"
-    : query.orderBy === "price" ? ADMIN_PRICE_SQL
-    : query.orderBy === "floor" ? ADMIN_FLOOR_SQL
-    : query.orderBy === "views" ? "m.views"
-    : query.orderBy === "leads" ? "m.leads"
-    : query.orderBy === "date_added" ? "m.date_added_at"
     : null;
   if (column) return `${column} IS NULL, ${column} ${direction}, d.normalized_domain ASC`;
   if (query.sort === "domain_desc") return "d.normalized_domain DESC";
   return "d.is_featured DESC, length(replace(d.name, '.', '')) ASC, d.normalized_domain ASC";
 }
 
-const DETAIL_SELECT = `SELECT
-  d.*, m.source_name, m.source_file, m.buy_now_price, m.floor_price, m.min_offer,
-  m.price_currency, m.lease_to_own, m.max_lease_period, m.sale_lander,
-  m.show_buy_now_option, m.show_lease_to_own_option, m.show_make_offer_option,
-  m.hidden AS marketplace_hidden, m.listing_status, m.fast_transfer, m.views, m.leads,
-  m.unique_searches_30d, m.unique_searches_90d, m.unique_searches_365d,
-  m.total_searches_30d, m.total_searches_90d, m.total_searches_365d,
-  m.godaddy_ns, m.date_added_at, m.raw_metadata_json
-  FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id`;
+const DETAIL_SELECT = "SELECT d.* FROM domains d";
 
 export const domainAdminRoutes = new Hono<AppBindings>();
 
@@ -107,7 +83,7 @@ domainAdminRoutes.get("/", async (c) => {
   const offset = (query.page - 1) * query.pageSize;
   const sort = adminOrderBy(query);
   const [countResult, rowsResult] = await c.env.DB.batch([
-    c.env.DB.prepare(`SELECT COUNT(DISTINCT d.id) AS total FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id WHERE ${where}`).bind(...params),
+    c.env.DB.prepare(`SELECT COUNT(DISTINCT d.id) AS total FROM domains d WHERE ${where}`).bind(...params),
     c.env.DB.prepare(`${DETAIL_SELECT} WHERE ${where} ORDER BY ${sort} LIMIT ? OFFSET ?`).bind(...params, query.pageSize, offset),
   ]);
   const total = Number((countResult.results[0] as { total?: number } | undefined)?.total ?? 0);
@@ -174,7 +150,6 @@ domainAdminRoutes.get("/export", async (c) => {
     `SELECT d.full_domain, d.created_at AS registered_at, d.expires_at,
       COALESCE(r.display_name, r.provider, '') AS registrar, d.tld
      FROM domains d
-     LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id
      LEFT JOIN registrar_accounts r ON r.id = d.registrar_account_id
      WHERE ${where}
      ORDER BY d.normalized_domain ASC`,

@@ -17,8 +17,8 @@ const stdout = execFileSync(
 const payload = JSON.parse(stdout) as Array<{ results?: Array<Record<string, number>> }>;
 const row = payload[0]?.results?.[0];
 if (!row) throw new Error(`无法读取 D1 验证结果：${stdout}`);
-const expected = ["domains", "listings", "public_domains"] as const;
-const mismatches = expected.filter((key) => row[key] !== EXPECTED_DOMAIN_COUNT);
+const mismatches = ["domains", "public_domains"].filter((key) => row[key] !== EXPECTED_DOMAIN_COUNT);
+if (row.listings !== 0) mismatches.push("listings");
 if (row.has_wanmi_org !== 1 || row.has_02cloud !== 1) mismatches.push("domains");
 if (mismatches.length > 0) throw new Error(`D1 域名验收失败：${JSON.stringify(row)}`);
-console.log(`D1 验证通过：域名 ${row.domains}，市场记录 ${row.listings}，公开展示 ${row.public_domains}。`);
+console.log(`D1 验证通过：域名 ${row.domains}，售卖平台记录 ${row.listings}，公开展示 ${row.public_domains}。`);

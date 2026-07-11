@@ -33,14 +33,13 @@ describe("D1 schema 与 CSV 幂等导入", () => {
 
   function rows<T>(sql: string): T[] { const output = execFileSync("sqlite3", ["-json", databasePath, sql], { encoding: "utf8" }).trim(); return output ? JSON.parse(output) as T[] : []; }
 
-  it("首次导入得到 662/662/662", () => {
-    expect(rows<{ domains: number; listings: number; public_domains: number }>("SELECT (SELECT COUNT(*) FROM domains) domains, (SELECT COUNT(*) FROM domain_marketplace_listings) listings, (SELECT COUNT(*) FROM domains WHERE is_listed=1) public_domains")[0]).toEqual({ domains: 662, listings: 662, public_domains: 662 });
+  it("首次导入得到 662 个域名且不写入售卖平台数据", () => {
+    expect(rows<{ domains: number; listings: number; public_domains: number }>("SELECT (SELECT COUNT(*) FROM domains) domains, (SELECT COUNT(*) FROM domain_marketplace_listings) listings, (SELECT COUNT(*) FROM domains WHERE is_listed=1) public_domains")[0]).toEqual({ domains: 662, listings: 0, public_domains: 662 });
   });
 
-  it("保留全部市场字段和真实状态分布", () => {
-    const statuses = rows<{ listing_status: string; count: number }>("SELECT listing_status, COUNT(*) count FROM domain_marketplace_listings GROUP BY listing_status ORDER BY count DESC");
-    expect(Object.fromEntries(statuses.map((item) => [item.listing_status, item.count]))).toEqual({ Listed: 656, "Ownership Review": 3, "Failed Compliance": 3 });
-    expect(rows<{ raw_count: number }>("SELECT COUNT(*) raw_count FROM domain_marketplace_listings WHERE raw_metadata_json IS NOT NULL")[0].raw_count).toBe(662);
+  it("仅保存域名和后缀，不保存 CSV 售卖元数据", () => {
+    expect(rows<{ count: number }>("SELECT COUNT(*) count FROM domain_marketplace_listings")[0].count).toBe(0);
+    expect(rows<{ source: string }>("SELECT DISTINCT source FROM domains")).toEqual([{ source: "domain-list" }]);
   });
 
   it("重复导入仍为 662 且保留管理员字段", () => {

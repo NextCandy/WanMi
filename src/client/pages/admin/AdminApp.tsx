@@ -6,14 +6,6 @@ import { ApiError, api, download } from "../../lib/api";
 
 type AdminView = "overview" | "domains" | "categories" | "leads" | "dns" | "registrars" | "settings" | "notifications" | "security" | "logs";
 
-const STATUS_TIPS: Record<string, string> = {
-  Listed: "已在市场正常挂牌，可被买家搜索到",
-  "Failed Compliance": "未通过市场合规审核，需在注册商侧处理后重新提交",
-  "Ownership Review": "市场正在验证域名所有权，期间不可交易",
-  "TLD Not Eligible": "该后缀不被市场支持，无法挂牌",
-  "Pending Verification": "等待验证，完成后自动挂牌",
-};
-
 interface AdminUser {
   id: number;
   email: string;
@@ -22,13 +14,9 @@ interface AdminUser {
 
 interface DashboardData {
   counts: { total: number; listed: number; hidden: number; featured: number };
-  kpis: { totalViews: number; marketLeads: number; siteLeads: number; newSiteLeads: number };
-  topViews: Array<{ full_domain: string; views: number }>;
+  kpis: { siteLeads: number; newSiteLeads: number };
   expiring90d: Array<{ full_domain: string; expires_at: string }>;
   tlds: Array<{ tld: string; count: number }>;
-  listingStatuses: Array<{ status: string; count: number }>;
-  recentImports: Array<Record<string, unknown>>;
-  recentSyncs: Array<Record<string, unknown>>;
   recentLogs: Array<{ id: number; level: string; action: string; message: string; success: number; created_at: string }>;
   registrarCount: number;
   hasExpirationData: boolean;
@@ -43,12 +31,6 @@ interface AdminDomain {
   is_featured: number;
   is_listed: number;
   notes: string | null;
-  listing_status: string | null;
-  fast_transfer: string | null;
-  date_added_at: string | null;
-  views: number | null;
-  leads: number | null;
-  godaddy_ns: string | null;
 }
 
 interface AdminDomainPage {
@@ -114,19 +96,12 @@ function OverviewView({ onTldClick }: { onTldClick: (tld: string) => void }) {
   const cards = [
     ["域名总数", data.counts.total], ["前台展示", data.counts.listed], ["已隐藏", data.counts.hidden], ["精品域名", data.counts.featured],
   ];
-  const kpiCards: Array<[string, string, string]> = [
-    ["累计 Views", data.kpis.totalViews.toLocaleString("en-US"), "市场浏览量"],
-    ["求购线索", `${data.kpis.siteLeads}`, `${data.kpis.newSiteLeads} 条未读 · 市场 ${data.kpis.marketLeads}`],
-  ];
+  const kpiCards: Array<[string, string, string]> = [["求购线索", `${data.kpis.siteLeads}`, `${data.kpis.newSiteLeads} 条未读`]];
   return <div className="admin-stack">
     <div className="stat-grid">{cards.map(([label, value]) => <div className="stat-card" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <div className="stat-grid">{kpiCards.map(([label, value, hint]) => <div className="stat-card" key={label}><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>)}</div>
+    <Panel title="后缀分布" description="点击跳转到筛选后的域名管理"><div className="distribution-list">{data.tlds.slice(0, 12).map((item) => <a key={item.tld} onClick={() => onTldClick(item.tld)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onTldClick(item.tld); }}><span>.{item.tld}</span><div className="bar"><i style={{ width: `${Math.max(4, item.count / Math.max(data.counts.total, 1) * 100)}%` }} /></div><strong>{item.count}</strong></a>)}</div></Panel>
     <div className="admin-two-columns">
-      <Panel title="后缀分布" description="点击跳转到筛选后的域名管理"><div className="distribution-list">{data.tlds.slice(0, 12).map((item) => <a key={item.tld} onClick={() => onTldClick(item.tld)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onTldClick(item.tld); }}><span>.{item.tld}</span><div className="bar"><i style={{ width: `${Math.max(4, item.count / Math.max(data.counts.total, 1) * 100)}%` }} /></div><strong>{item.count}</strong></a>)}</div></Panel>
-      <Panel title="市场状态" description="CSV 市场数据，不决定前台展示"><div className="status-list">{data.listingStatuses.map((item) => <div key={item.status} title={STATUS_TIPS[item.status] ?? ""}><span>{item.status}</span><strong>{item.count}</strong></div>)}</div></Panel>
-    </div>
-    <div className="admin-two-columns">
-      <Panel title="热门域名（Views Top 5）"><div className="kpi-list">{data.topViews.length ? data.topViews.map((item) => <div key={item.full_domain}><span className="mono">{item.full_domain}</span><b>{item.views}</b></div>) : <div className="empty-inline">暂无浏览数据</div>}</div></Panel>
       <Panel title="90 天内到期"><div className="kpi-list">{data.expiring90d.length ? data.expiring90d.map((item) => <div key={item.full_domain}><span className="mono">{item.full_domain}</span><b>{new Date(item.expires_at).toLocaleDateString("zh-CN")}</b></div>) : <div className="empty-inline">暂无 90 天内到期的域名（或尚无到期数据）</div>}</div></Panel>
     </div>
     <div className="admin-two-columns">
@@ -136,12 +111,9 @@ function OverviewView({ onTldClick }: { onTldClick: (tld: string) => void }) {
   </div>;
 }
 
-type DomainOrderBy = "domain" | "views" | "leads" | "date_added";
-const OPTIONAL_COLUMNS: Array<[string, string]> = [
-  ["category", "分类"], ["status", "市场状态"],
-  ["views", "Views"], ["leads", "Leads"], ["date_added", "Date Added"], ["ns", "NS"],
-];
-const DEFAULT_COLUMNS = ["category", "status"];
+type DomainOrderBy = "domain";
+const OPTIONAL_COLUMNS: Array<[string, string]> = [["category", "人工分类"]];
+const DEFAULT_COLUMNS = ["category"];
 
 function loadColumns(): Set<string> {
   try {
@@ -266,6 +238,15 @@ function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "suc
     } catch (reason) { notify(reason instanceof Error ? reason.message : "添加失败", "error"); }
   }
 
+  async function removeDomain(domain: AdminDomain) {
+    if (!window.confirm(`确认删除 ${domain.full_domain}？此操作不可撤销。`)) return;
+    try {
+      await api(`/api/admin/domains/${domain.id}`, { method: "DELETE" });
+      notify(`已删除 ${domain.full_domain}`);
+      setRefresh((value) => value + 1);
+    } catch (reason) { notify(reason instanceof Error ? reason.message : "删除失败", "error"); }
+  }
+
   async function importCsv(file: File) {
     try {
       const dryForm = new FormData(); dryForm.set("file", file); dryForm.set("dryRun", "true");
@@ -294,29 +275,19 @@ function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "suc
       <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(data?.items.map((domain) => domain.id)))} aria-label="全选当前页" /></th>
       <th className="sortable" onClick={() => toggleSort("domain")}>域名{arrow("domain")}</th>
       {has("category") && <th>分类</th>}
-      {has("status") && <th>市场状态</th>}
-      {has("views") && <th className="sortable" onClick={() => toggleSort("views")}>Views{arrow("views")}</th>}
-      {has("leads") && <th className="sortable" onClick={() => toggleSort("leads")}>Leads{arrow("leads")}</th>}
-      {has("date_added") && <th className="sortable" onClick={() => toggleSort("date_added")}>Date Added{arrow("date_added")}</th>}
-      {has("ns") && <th>NS</th>}
       <th>精品</th><th>前台展示</th><th>操作</th>
     </tr></thead><tbody>{data?.items.map((domain) => <tr key={domain.id}>
       <td><input type="checkbox" checked={selected.has(domain.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(domain.id)) next.delete(domain.id); else next.add(domain.id); return next; })} /></td>
-      <td><strong>{domain.full_domain}</strong><small>{domain.fast_transfer || "无 Fast Transfer 数据"}</small></td>
+      <td><strong>{domain.full_domain}</strong><small>.{domain.tld}</small></td>
       {has("category") && <td><select className="table-link" value={domain.category && categories.some((item) => item.name === domain.category) ? domain.category : domain.category ?? ""} onChange={(event) => void setCategoryFor(domain, event.target.value)} aria-label={`${domain.full_domain} 分类`}>
         <option value="">未分类</option>
         {domain.category && !categories.some((item) => item.name === domain.category) && <option value={domain.category}>{domain.category}</option>}
         {categories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
         <option value="__new__">＋ 新建分类…</option>
       </select></td>}
-      {has("status") && <td title={STATUS_TIPS[domain.listing_status ?? ""] ?? ""}>{domain.listing_status ? <span className={`badge-status ${domain.listing_status === "Listed" ? "badge-listed" : domain.listing_status === "Failed Compliance" ? "badge-danger" : "badge-warning"}`}>{domain.listing_status}</span> : "—"}</td>}
-      {has("views") && <td>{domain.views ?? "—"}</td>}
-      {has("leads") && <td>{domain.leads ?? "—"}</td>}
-      {has("date_added") && <td>{domain.date_added_at ? new Date(domain.date_added_at).toLocaleDateString("zh-CN") : "—"}</td>}
-      {has("ns") && <td>{domain.godaddy_ns || "—"}</td>}
       <td><button className={`switch ${domain.is_featured ? "on gold" : ""}`} onClick={() => void patch(domain.id, { isFeatured: !domain.is_featured }, domain.is_featured ? "已取消精品" : "已设为精品")}><i /></button></td>
       <td><button className={`switch ${domain.is_listed ? "on" : ""}`} onClick={() => void patch(domain.id, { isListed: !domain.is_listed }, domain.is_listed ? "已从前台隐藏" : "已恢复展示")}><i /></button></td>
-      <td><details className="row-details"><summary>详情</summary><div><span>Views：{domain.views ?? "—"}</span><span>Leads：{domain.leads ?? "—"}</span><span>Date Added：{domain.date_added_at ?? "—"}</span><span>GoDaddy NS：{domain.godaddy_ns ?? "—"}</span></div></details></td>
+      <td><button className="table-link danger-text" onClick={() => void removeDomain(domain)}>删除</button></td>
     </tr>)}</tbody></table></div>
     {data && data.totalPages > 1 && <div className="pagination admin-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {data.totalPages} 页</span><button disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}
   </Panel>;

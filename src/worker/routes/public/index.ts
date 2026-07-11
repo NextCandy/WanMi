@@ -35,8 +35,7 @@ interface SettingsRow {
   wechat_qr_url: string | null;
 }
 
-const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.category, d.is_featured
-  FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id`;
+const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.category, d.is_featured FROM domains d`;
 
 function serializePublic(row: PublicDomainRow): PublicDomain & Record<string, unknown> {
   return {
@@ -137,12 +136,11 @@ publicRoutes.get("/domains", async (c) => {
   const sortSql =
     query.sort === "domain_asc" ? "d.normalized_domain ASC"
     : query.sort === "domain_desc" ? "d.normalized_domain DESC"
-    : query.sort === "views_desc" ? "m.views IS NULL, m.views DESC, d.normalized_domain ASC"
     : query.sort === "added_desc" ? "d.created_at DESC, d.normalized_domain ASC"
     : query.sort === "length_asc" ? "length(replace(d.name, '.', '')) ASC, d.normalized_domain ASC"
     : defaultSort;
   const [countResult, dataResult] = await c.env.DB.batch([
-    c.env.DB.prepare(`SELECT COUNT(*) AS total FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id WHERE ${where}`).bind(...params),
+    c.env.DB.prepare(`SELECT COUNT(*) AS total FROM domains d WHERE ${where}`).bind(...params),
     c.env.DB.prepare(`${PUBLIC_SELECT} WHERE ${where} ORDER BY ${sortSql} LIMIT ? OFFSET ?`).bind(...params, query.pageSize, offset),
   ]);
   const total = Number((countResult.results[0] as { total?: number } | undefined)?.total ?? 0);

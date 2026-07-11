@@ -170,13 +170,6 @@ export function PublicPage() {
 
       <main>
         <section className="domain-section" id="domains">
-          <div className="group-tabs" role="tablist" aria-label="分组视图">
-            {GROUPS.map(([key, label]) => (
-              <button key={key} role="tab" aria-selected={filters.group === key} className={filters.group === key ? "active" : ""}
-                onClick={() => setFilters((current) => ({ ...current, group: key, page: 1 }))}>{label}</button>
-            ))}
-          </div>
-
           <div className="filter-bar">
             <form className="filter-search" onSubmit={submitSearch}>
               <span aria-hidden="true">⌕</span>

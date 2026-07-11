@@ -9,9 +9,10 @@ describe("D1 导入计划", () => {
     const source = await fs.readFile("data/source/domains-1783619533.csv", "utf8");
     const records = parseDomainCsv(source).records;
     const statements = buildImportStatements(records, { importId: "test-import" });
-    expect(statements).toHaveLength(669);
+    expect(statements).toHaveLength(668);
     expect(statements.length).toBeLessThanOrEqual(1000);
     expect(statements.filter((statement) => statement.sql.startsWith("INSERT INTO domain_import_staging"))).toHaveLength(662);
+    expect(statements.some((statement) => statement.sql.includes("domain_marketplace_listings"))).toBe(false);
     expect(buildRemoteQueryBody(statements)).toEqual({ batch: statements });
   });
 

@@ -23,7 +23,7 @@
 
 源：`data/source/domains-1783619533.csv`
 
-原始 662、解析 662、唯一 662、重复 0、无效 0、D1 域名 662、市场记录 662、初始公开 662。Listing Status：Listed 656、Ownership Review 3、Failed Compliance 3。
+原始 662、解析 662、唯一 662、重复 0、无效 0、D1 域名 662、售卖平台记录 0、公开展示 662。导入仅使用域名和后缀。
 
 ## D1 表
 
