@@ -211,21 +211,51 @@ interface RdapResponse {
   nameservers?: Array<{ ldhName?: string }>;
 }
 
+const RDAP_HEADERS = {
+  Accept: "application/rdap+json",
+  "User-Agent": "WanMi-DomainShowcase/1.0 (+https://wanmi.1n.workers.dev)",
+};
+
+interface RdapBootstrap { services?: Array<[string[], string[]]> }
+
+// IANA bootstrap：TLD → 权威 RDAP 服务；边缘缓存 24h，避免每次拉全量文件
+async function rdapBaseFor(tld: string): Promise<string | null> {
+  const response = await fetch("https://data.iana.org/rdap/dns.json", {
+    headers: RDAP_HEADERS,
+    signal: AbortSignal.timeout(8000),
+    cf: { cacheTtl: 86400, cacheEverything: true },
+  });
+  if (!response.ok) return null;
+  const bootstrap: RdapBootstrap = await response.json();
+  for (const [tlds, urls] of bootstrap.services ?? []) {
+    if (tlds.includes(tld)) return urls.find((url) => url.startsWith("https://")) ?? urls[0] ?? null;
+  }
+  return null;
+}
+
 publicRoutes.get("/rdap/:name", async (c) => {
   const name = c.req.param("name").trim().toLowerCase();
   if (!/^[a-z0-9.-]{3,253}$/.test(name)) return fail(c, 422, "INVALID_DOMAIN", "域名无效");
-  let payload: RdapResponse;
-  try {
-    const response = await fetch(`https://rdap.org/domain/${encodeURIComponent(name)}`, {
-      headers: { Accept: "application/rdap+json" },
+  let payload: RdapResponse | null = null;
+  // 优先权威 RDAP（rdap.org 会拒绝部分数据中心出口），失败再兜底 rdap.org
+  const tld = name.split(".").pop() ?? "";
+  const base = await rdapBaseFor(tld).catch(() => null);
+  const endpoints = [
+    ...(base ? [`${base.replace(/\/$/, "")}/domain/${encodeURIComponent(name)}`] : []),
+    `https://rdap.org/domain/${encodeURIComponent(name)}`,
+  ];
+  for (const endpoint of endpoints) {
+    const response = await fetch(endpoint, {
+      headers: RDAP_HEADERS,
       signal: AbortSignal.timeout(8000),
       redirect: "follow",
-    });
-    if (!response.ok) return fail(c, 502, "RDAP_UNAVAILABLE", `RDAP 查询失败（${response.status}）`);
-    payload = (await response.json());
-  } catch {
-    return fail(c, 502, "RDAP_UNAVAILABLE", "RDAP 服务暂时不可用");
+    }).catch(() => null);
+    if (response?.ok) {
+      payload = (await response.json().catch(() => null)) as RdapResponse | null;
+      if (payload) break;
+    }
   }
+  if (!payload) return fail(c, 502, "RDAP_UNAVAILABLE", "RDAP 服务暂时不可用");
   const events = payload.events ?? [];
   const eventDate = (action: string) => events.find((event) => event.eventAction === action)?.eventDate ?? null;
   const registrarEntity = (payload.entities ?? []).find((entity) => entity.roles?.includes("registrar"));
