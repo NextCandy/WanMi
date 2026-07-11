@@ -48,7 +48,7 @@ export async function runExpirationReminders(env: Env): Promise<void> {
       if (inserted.meta.changes === 0) continue;
       try {
         const response = await sendNotification(env, channel, settings, {
-          title: "WanMi 域名到期提醒",
+          title: "玩米域名到期提醒",
           content: `${domain.normalized_domain} 将在 ${domain.days_remaining} 天后到期。`,
         });
         await env.DB.prepare(

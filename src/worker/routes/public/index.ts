@@ -308,7 +308,7 @@ publicRoutes.post("/offers", async (c) => {
     >();
     if (!settings) return;
     const message = {
-      title: `WanMi 求购线索：${domain.full_domain}`,
+      title: `玩米求购线索：${domain.full_domain}`,
       content: `联系方式：${parsed.data.contact}${parsed.data.amount ? `\n报价：${parsed.data.amount} ${parsed.data.currency ?? ""}` : ""}${parsed.data.message ? `\n留言：${parsed.data.message}` : ""}`,
     };
     await Promise.allSettled(enabledChannels(settings).map((channel) => sendNotification(c.env, channel, settings, message)));
@@ -325,7 +325,7 @@ publicRoutes.get("/og/:name", async (c) => {
     accent_color: string;
   }>();
   const accent = /^#[0-9a-f]{6}$/i.test(settings?.accent_color ?? "") ? settings!.accent_color : "#f97316";
-  const site = (settings?.site_name ?? "WanMi").replace(/[<>&"]/g, "");
+  const site = (settings?.site_name ?? "玩米").replace(/[<>&"]/g, "");
   const safeName = name.replace(/[<>&"]/g, "");
   const fontSize = safeName.length > 24 ? 56 : safeName.length > 14 ? 76 : 96;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
@@ -340,7 +340,7 @@ publicRoutes.get("/og/:name", async (c) => {
   <rect width="1200" height="630" fill="url(#bg)"/>
   <rect width="1200" height="630" fill="url(#glow)"/>
   <rect x="80" y="88" width="72" height="72" rx="18" fill="${accent}"/>
-  <text x="116" y="139" font-family="Arial, sans-serif" font-size="44" font-weight="800" fill="#ffffff" text-anchor="middle">W</text>
+  <text x="116" y="140" font-family="Kaiti SC, STKaiti, KaiTi, serif" font-size="42" fill="#ffffff" text-anchor="middle">玩</text>
   <text x="176" y="138" font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#ffffff">${site}</text>
   <text x="600" y="360" font-family="'Courier New', monospace" font-size="${fontSize}" font-weight="700" fill="#ffffff" text-anchor="middle">${safeName}</text>
   <text x="600" y="430" font-family="Arial, sans-serif" font-size="26" fill="${accent}" text-anchor="middle">This domain is for sale · 域名出售中</text>

@@ -63,7 +63,7 @@ app.get("/d/:name", async (c) => {
     c.env.DB.prepare("SELECT site_name, show_prices FROM site_settings WHERE id = 1").first<{ site_name: string; show_prices: number }>(),
   ]);
   if (!domainRow) return shell;
-  const site = settingsRow?.site_name ?? "WanMi";
+  const site = settingsRow?.site_name ?? "玩米";
   const title = `${domainRow.full_domain} 域名出售 · ${site}`;
   const description = `${domainRow.full_domain} 正在 ${site} 出售，支持 Make Offer 求购。优质 .${domainRow.tld} 域名，即刻联系获取报价。`;
   const showPrice = settingsRow?.show_prices === 1 && domainRow.public_price_approved === 1 && domainRow.public_price;

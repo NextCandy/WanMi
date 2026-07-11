@@ -1,7 +1,7 @@
 {
-  "name": "WanMi",
-  "short_name": "WanMi",
-  "description": "WanMi 域名展示与管理系统",
+  "name": "玩米",
+  "short_name": "玩米",
+  "description": "玩米域名展示与管理系统",
   "lang": "zh-CN",
   "start_url": "/",
   "display": "standalone",

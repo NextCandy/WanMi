@@ -150,11 +150,18 @@ export function PublicPage() {
   return (
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
       <header className="public-header">
-        <a className="brand" href="/" aria-label="WanMi 首页">
-          {settings?.logo_url ? <img src={settings.logo_url} alt="WanMi Logo" /> : <span className="brand-mark">W</span>}
-          <span>{settings?.site_name ?? "WanMi"}</span>
+        <a className="brand" href="/" aria-label="玩米首页">
+          {settings?.logo_url ? <img src={settings.logo_url} alt="玩米 Logo" /> : <span className="brand-mark">玩</span>}
+          <span>{settings?.site_name ?? "玩米"}</span>
         </a>
         <nav>
+          {facets && (
+            <div className="header-stats" aria-label="站点统计">
+              <span><strong>{facets.total}</strong> 域名</span>
+              <span><strong>{facets.tldCount}</strong> 后缀</span>
+              {latestAdded && <span>更新于 <strong>{latestAdded}</strong></span>}
+            </div>
+          )}
           <a href="#domains">域名</a>
           {hasContact && <button className="text-button" onClick={() => setContactOpen(true)}>联系</button>}
           <ThemeToggle />
@@ -163,18 +170,6 @@ export function PublicPage() {
       </header>
 
       <main>
-        <section className="hero-brand">
-          {settings?.logo_url ? <img className="hero-logo" src={settings.logo_url} alt="" /> : <span className="brand-mark">W</span>}
-          {facets && (
-            <div className="hero-stats">
-              <span><strong>{facets.total}</strong> 域名</span>
-              <span><strong>{facets.tldCount}</strong> 种后缀</span>
-              {latestAdded && <span>更新于 <strong>{latestAdded}</strong></span>}
-            </div>
-          )}
-          <span className="result-count">{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span>
-        </section>
-
         <section className="domain-section" id="domains">
           <div className="group-tabs" role="tablist" aria-label="分组视图">
             {GROUPS.map(([key, label]) => (
@@ -210,6 +205,7 @@ export function PublicPage() {
               <button key={key} className={filters.sort === key ? "active" : ""}
                 onClick={() => setFilters((current) => ({ ...current, sort: key, page: 1 }))}>{label}</button>
             ))}
+            <span className="result-count">{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span>
           </div>
 
           {error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button onClick={() => setFilters((current) => ({ ...current }))}>重试</button></div>}
@@ -247,23 +243,23 @@ export function PublicPage() {
       </main>
 
       <footer className="public-footer">
-        <div className="brand footer-brand"><span className="brand-mark">W</span><span>{settings?.site_name ?? "WanMi"}</span></div>
-        <span>{settings?.copyright_text || `© ${new Date().getFullYear()} WanMi`}</span>
+        <div className="brand footer-brand"><span className="brand-mark">玩</span><span>{settings?.site_name ?? "玩米"}</span></div>
+        <span>{settings?.copyright_text || `© ${new Date().getFullYear()} ${settings?.site_name ?? "玩米"}`}</span>
         {settings?.icp_number && <span>{settings.icp_number}</span>}
       </footer>
 
       {contactOpen && settings && (
         <div className="modal-backdrop" onMouseDown={() => setContactOpen(false)}>
-          <div className="contact-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="联系 WanMi">
+          <div className="contact-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="联系玩米">
             <button className="modal-close" onClick={() => setContactOpen(false)}>×</button>
             <span className="section-kicker">CONTACT</span>
-            <h2>联系 WanMi</h2>
+            <h2>联系玩米</h2>
             <p>请附上你感兴趣的完整域名。</p>
             <div className="contact-list">
               {settings.contact_email && <a href={`mailto:${settings.contact_email}`}>邮箱 <strong>{settings.contact_email}</strong></a>}
               {settings.contact_telegram && <a href={`https://t.me/${settings.contact_telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">Telegram <strong>{settings.contact_telegram}</strong></a>}
               {settings.contact_wechat && <button onClick={() => void copyText(settings.contact_wechat!).then((ok) => notify(ok ? "微信号已复制" : "复制失败", ok ? "success" : "error"))}>微信 <strong>{settings.contact_wechat}</strong></button>}
-              {settings.wechat_qr_url && <img className="qr-code" src={settings.wechat_qr_url} alt="WanMi 微信二维码" />}
+              {settings.wechat_qr_url && <img className="qr-code" src={settings.wechat_qr_url} alt="玩米微信二维码" />}
             </div>
           </div>
         </div>

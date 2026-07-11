@@ -104,8 +104,8 @@ export function DomainDetailPage({ name }: { name: string }) {
     <div className="public-shell">
       <header className="public-header">
         <a className="brand" href="/" aria-label="返回首页">
-          <span className="brand-mark">W</span>
-          <span>WanMi</span>
+          <span className="brand-mark">玩</span>
+          <span>玩米</span>
         </a>
         <nav>
           <a href="/">全部域名</a>
