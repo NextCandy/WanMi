@@ -170,21 +170,21 @@ domainAdminRoutes.get("/export", async (c) => {
   const parsed = adminDomainQuerySchema.safeParse({ ...c.req.query(), page: 1, pageSize: 200 });
   if (!parsed.success) return fail(c, 422, "INVALID_QUERY", "筛选参数无效");
   const { where, params } = adminFilters(parsed.data);
-  const result = await c.env.DB.prepare(`${DETAIL_SELECT} WHERE ${where} ORDER BY d.normalized_domain ASC`).bind(...params).all();
-  const headers = [
-    "Domain", "TLD", "Category", "Featured", "Listed", "Notes", "Listing Status",
-    "Fast Transfer", "Views", "Leads", "30-day Unique Searches",
-    "90-day Unique Searches", "365-day Unique Searches", "30-day Total Searches",
-    "90-day Total Searches", "365-day Total Searches", "GoDaddy NS", "Date Added (UTC)", "Source",
-  ];
+  const result = await c.env.DB.prepare(
+    `SELECT d.full_domain, d.created_at AS registered_at, d.expires_at,
+      COALESCE(r.display_name, r.provider, '') AS registrar, d.tld
+     FROM domains d
+     LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id
+     LEFT JOIN registrar_accounts r ON r.id = d.registrar_account_id
+     WHERE ${where}
+     ORDER BY d.normalized_domain ASC`,
+  ).bind(...params).all();
+  const headers = ["域名", "注册日期", "到期日期", "注册商", "后缀"];
   const lines = [headers.map(csvCell).join(",")];
   for (const raw of result.results) {
     const row = raw;
     lines.push([
-      row.full_domain, row.tld, row.category, row.is_featured, row.is_listed, row.notes,
-      row.listing_status, row.fast_transfer, row.views, row.leads, row.unique_searches_30d, row.unique_searches_90d,
-      row.unique_searches_365d, row.total_searches_30d, row.total_searches_90d,
-      row.total_searches_365d, row.godaddy_ns, row.date_added_at, row.source,
+      row.full_domain, row.registered_at, row.expires_at, row.registrar, row.tld,
     ].map(csvCell).join(","));
   }
   const user = c.get("authUser");

@@ -496,6 +496,11 @@ a { color: inherit; text-decoration: none; }
 .admin-header a:hover { color: var(--brand); }
 .admin-header-actions { display: flex; align-items: center; gap: 12px; }
 .admin-main > main { padding: 24px 30px 60px; }
+.admin-main input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]),
+.admin-main select,
+.admin-main textarea { font-size: 11.5px; }
+.admin-main input::placeholder,
+.admin-main textarea::placeholder { color: var(--faint); font-size: 10.5px; opacity: 1; }
 .admin-stack { display: grid; gap: 18px; }
 
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
@@ -624,8 +629,6 @@ a { color: inherit; text-decoration: none; }
 .channel-card:hover { border-color: var(--border-strong); }
 .channel-card label { font-size: 11px; font-weight: 600; }
 .channel-card label input { height: auto; width: auto; margin-right: 7px; accent-color: var(--brand); }
-.channel-card > input { font-size: 10.5px; }
-.channel-card > input::placeholder { color: var(--faint); font-size: 10.5px; opacity: 1; }
 .channel-card button { border: 1px solid var(--border); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; font-size: 10px; cursor: pointer; box-shadow: var(--shadow-s); transition: border-color var(--dur-1) var(--ease); }
 .channel-card button:hover { border-color: var(--faint); }
 .align-start { justify-self: start; }
