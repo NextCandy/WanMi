@@ -69,7 +69,15 @@ publicRoutes.get("/facets", async (c) => {
   const [tldResult, categoryResult, statsResult] = await c.env.DB.batch([
     c.env.DB.prepare("SELECT DISTINCT tld FROM domains WHERE is_listed = 1 ORDER BY tld"),
     c.env.DB.prepare(
-      "SELECT DISTINCT category FROM domains WHERE is_listed = 1 AND category IS NOT NULL AND category != '' ORDER BY category",
+      `SELECT category, MIN(sort_order) AS sort_order FROM (
+         SELECT d.category AS category, 100 AS sort_order FROM domains d
+         WHERE d.is_listed = 1 AND d.category IS NOT NULL AND d.category != ''
+         UNION ALL
+         SELECT ac.category,
+           CASE ac.category WHEN '纯字母' THEN 1 WHEN '纯数字' THEN 2 WHEN '单拼' THEN 3 WHEN '双拼' THEN 4
+             WHEN '三拼' THEN 5 WHEN '三数字' THEN 6 WHEN '四数字' THEN 7 WHEN '五数字' THEN 8 WHEN '六数字' THEN 9 ELSE 99 END
+         FROM domain_auto_categories ac JOIN domains d ON d.id = ac.domain_id WHERE d.is_listed = 1
+       ) GROUP BY category ORDER BY sort_order, category`,
     ),
     c.env.DB.prepare(
       "SELECT COUNT(*) AS total, COUNT(DISTINCT tld) AS tld_count, MAX(updated_at) AS latest_added FROM domains WHERE is_listed = 1",
@@ -104,8 +112,8 @@ function publicFilters(query: ReturnType<typeof publicDomainQuerySchema.parse>):
     params.push(query.length);
   }
   if (query.category) {
-    where.push("d.category = ?");
-    params.push(query.category);
+    where.push("(d.category = ? OR EXISTS (SELECT 1 FROM domain_auto_categories ac WHERE ac.domain_id = d.id AND ac.category = ?))");
+    params.push(query.category, query.category);
   }
   if (query.featured) {
     where.push("d.is_featured = ?");

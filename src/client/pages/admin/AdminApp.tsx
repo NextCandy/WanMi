@@ -151,7 +151,7 @@ function loadColumns(): Set<string> {
   return new Set(DEFAULT_COLUMNS);
 }
 
-interface CategoryRow { id: number; name: string; domain_count: number }
+interface CategoryRow { id: number; name: string; domain_count: number; is_auto?: number }
 
 function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "success" | "error") => void; presetTld?: string }) {
   const [data, setData] = useState<AdminDomainPage | null>(null);
@@ -325,6 +325,7 @@ function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "suc
 function CategoriesView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [name, setName] = useState("");
+  const [classifying, setClassifying] = useState(false);
   const load = useCallback(() => { api<CategoryRow[]>("/api/admin/categories").then(setCategories).catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "分类加载失败", "error")); }, [notify]);
   useEffect(load, [load]);
   async function add(event: FormEvent) {
@@ -338,8 +339,17 @@ function CategoriesView({ notify }: { notify: (text: string, tone?: "success" | 
     try { await api(`/api/admin/categories/${category.id}`, { method: "DELETE" }); notify("分类已删除"); load(); }
     catch (reason) { notify(reason instanceof Error ? reason.message : "删除失败", "error"); }
   }
-  return <Panel title="分类管理" description="分类作为标签作用于域名，删除分类会将关联域名置为未分类">
-    <div className="tag-grid">{categories.length ? categories.map((category) => <span className="tag-pill" key={category.id}>{category.name}<em>{category.domain_count}</em><button onClick={() => void remove(category)} title={`删除 ${category.name}`}>×</button></span>) : <div className="empty-inline">还没有分类，先创建一个。</div>}</div>
+  async function autoClassify() {
+    setClassifying(true);
+    try {
+      const result = await api<{ domains: number; tags: number }>("/api/admin/categories/auto-classify", { method: "POST" });
+      notify(`已扫描 ${result.domains} 个域名，生成 ${result.tags} 个自动分类标签`);
+      load();
+    } catch (reason) { notify(reason instanceof Error ? reason.message : "自动分类失败", "error"); }
+    finally { setClassifying(false); }
+  }
+  return <Panel title="分类管理" description="自动分类支持多标签，不会覆盖现有人工分类" actions={<button className="primary-button" disabled={classifying} onClick={() => void autoClassify()}>{classifying ? "正在分类…" : "一键自动分类"}</button>}>
+    <div className="tag-grid">{categories.length ? categories.map((category) => <span className={`tag-pill${category.is_auto ? " tag-auto" : ""}`} key={category.id}>{category.name}<em>{category.domain_count}</em>{category.is_auto ? <small>自动</small> : <button onClick={() => void remove(category)} title={`删除 ${category.name}`}>×</button>}</span>) : <div className="empty-inline">还没有分类，先创建或执行自动分类。</div>}</div>
     <form className="tag-form" onSubmit={(event) => void add(event)}><input value={name} onChange={(event) => setName(event.target.value)} placeholder="新分类名称" maxLength={80} required /><button className="primary-button">新建分类</button></form>
   </Panel>;
 }
