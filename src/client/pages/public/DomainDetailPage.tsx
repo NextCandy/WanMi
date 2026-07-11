@@ -33,7 +33,7 @@ export function DomainDetailPage({ name }: { name: string }) {
   const [rdap, setRdap] = useState<RdapSummary | null>(null);
   const [rdapState, setRdapState] = useState<"idle" | "loading" | "error">("idle");
   const [toast, setToast] = useState<ToastMessage | null>(null);
-  const [offer, setOffer] = useState({ contact: "", amount: "", message: "" });
+  const [offer, setOffer] = useState({ contact: "", message: "" });
   const [offerState, setOfferState] = useState<"idle" | "submitting" | "done">("idle");
 
   const notify = (text: string, tone: "success" | "error" = "success") => setToast({ id: Date.now(), text, tone });
@@ -42,7 +42,7 @@ export function DomainDetailPage({ name }: { name: string }) {
     api<DetailResponse>(`/api/public/domains/${encodeURIComponent(name)}`)
       .then((response) => {
         setData(response);
-        document.title = `${response.domain.domain} 域名出售`;
+        document.title = `${response.domain.domain} 域名详情`;
       })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "域名加载失败"));
   }, [name]);
@@ -73,7 +73,6 @@ export function DomainDetailPage({ name }: { name: string }) {
         body: JSON.stringify({
           domain: name,
           contact: offer.contact.trim(),
-          amount: offer.amount.trim() || null,
           message: offer.message.trim() || null,
         }),
       });
@@ -156,11 +155,7 @@ export function DomainDetailPage({ name }: { name: string }) {
                 )}
               </div>
               <aside className="detail-panel">
-                {domain.public_price ? (
-                  <div className="detail-price"><strong>{domain.public_price}</strong><span>一口价</span></div>
-                ) : (
-                  <div className="detail-price"><strong>可议价</strong><span>提交报价获取回复</span></div>
-                )}
+                <h2>提交求购意向</h2>
                 {offerState === "done" ? (
                   <div className="state-panel small-state" style={{ minHeight: 120 }}>
                     <strong>已收到你的求购</strong>
@@ -171,14 +166,11 @@ export function DomainDetailPage({ name }: { name: string }) {
                     <label>联系方式（邮箱 / 微信 / Telegram）
                       <input value={offer.contact} onChange={(event) => setOffer({ ...offer, contact: event.target.value })} required maxLength={200} placeholder="how@to.reach.you" />
                     </label>
-                    <label>报价（可选，数字）
-                      <input value={offer.amount} onChange={(event) => setOffer({ ...offer, amount: event.target.value })} inputMode="decimal" pattern="\d+(\.\d+)?" placeholder="8888" />
-                    </label>
                     <label>留言（可选）
                       <textarea value={offer.message} onChange={(event) => setOffer({ ...offer, message: event.target.value })} maxLength={1000} placeholder="想用它做什么？" />
                     </label>
                     <button className="primary-button" disabled={offerState === "submitting"}>
-                      {offerState === "submitting" ? "正在提交…" : "提交求购 Make Offer"}
+                      {offerState === "submitting" ? "正在提交…" : "提交求购意向"}
                     </button>
                   </form>
                 )}

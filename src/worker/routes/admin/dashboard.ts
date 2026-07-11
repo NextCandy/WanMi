@@ -6,7 +6,6 @@ import type { AppBindings } from "../../types";
 export const dashboardRoutes = new Hono<AppBindings>();
 
 dashboardRoutes.get("/", async (c) => {
-  const priceSql = "CAST(replace(replace(COALESCE(m.buy_now_price, d.public_price, ''), '$', ''), ',', '') AS REAL)";
   const [counts, tlds, statuses, recentImports, recentSyncs, recentLogs, registrars, expirations, market, topViews, leads, expiring] = await c.env.DB.batch([
     c.env.DB.prepare(`SELECT
       COUNT(*) AS total,
@@ -24,8 +23,7 @@ dashboardRoutes.get("/", async (c) => {
     c.env.DB.prepare("SELECT COUNT(*) AS count FROM registrar_accounts"),
     c.env.DB.prepare("SELECT COUNT(*) AS count FROM domains WHERE expires_at IS NOT NULL"),
     c.env.DB.prepare(
-      `SELECT SUM(${priceSql}) AS total_value, AVG(NULLIF(${priceSql}, 0)) AS avg_price,
-        SUM(COALESCE(m.views, 0)) AS total_views, SUM(COALESCE(m.leads, 0)) AS market_leads
+      `SELECT SUM(COALESCE(m.views, 0)) AS total_views, SUM(COALESCE(m.leads, 0)) AS market_leads
        FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id`,
     ),
     c.env.DB.prepare(
@@ -39,12 +37,10 @@ dashboardRoutes.get("/", async (c) => {
        ORDER BY expires_at ASC LIMIT 10`,
     ),
   ]);
-  const marketRow = (market.results[0] ?? {}) as { total_value?: number; avg_price?: number; total_views?: number; market_leads?: number };
+  const marketRow = (market.results[0] ?? {}) as { total_views?: number; market_leads?: number };
   const leadsRow = (leads.results[0] ?? {}) as { total?: number; fresh?: number };
   return ok(c, {
     kpis: {
-      totalValue: Math.round(Number(marketRow.total_value ?? 0)),
-      avgPrice: Math.round(Number(marketRow.avg_price ?? 0)),
       totalViews: Number(marketRow.total_views ?? 0),
       marketLeads: Number(marketRow.market_leads ?? 0),
       siteLeads: Number(leadsRow.total ?? 0),

@@ -172,10 +172,8 @@ domainAdminRoutes.get("/export", async (c) => {
   const { where, params } = adminFilters(parsed.data);
   const result = await c.env.DB.prepare(`${DETAIL_SELECT} WHERE ${where} ORDER BY d.normalized_domain ASC`).bind(...params).all();
   const headers = [
-    "Domain", "TLD", "Category", "Featured", "Listed", "Notes", "Buy Now Price", "Floor Price",
-    "Min Offer", "Price Currency", "Lease to Own", "Max Lease Period", "Sale Lander",
-    "Show Buy Now Option", "Show Lease to Own Option", "Show Make Offer Option", "Hidden",
-    "Listing Status", "Fast Transfer", "Views", "Leads", "30-day Unique Searches",
+    "Domain", "TLD", "Category", "Featured", "Listed", "Notes", "Listing Status",
+    "Fast Transfer", "Views", "Leads", "30-day Unique Searches",
     "90-day Unique Searches", "365-day Unique Searches", "30-day Total Searches",
     "90-day Total Searches", "365-day Total Searches", "GoDaddy NS", "Date Added (UTC)", "Source",
   ];
@@ -184,10 +182,7 @@ domainAdminRoutes.get("/export", async (c) => {
     const row = raw;
     lines.push([
       row.full_domain, row.tld, row.category, row.is_featured, row.is_listed, row.notes,
-      row.buy_now_price, row.floor_price, row.min_offer, row.price_currency, row.lease_to_own,
-      row.max_lease_period, row.sale_lander, row.show_buy_now_option, row.show_lease_to_own_option,
-      row.show_make_offer_option, row.marketplace_hidden, row.listing_status, row.fast_transfer,
-      row.views, row.leads, row.unique_searches_30d, row.unique_searches_90d,
+      row.listing_status, row.fast_transfer, row.views, row.leads, row.unique_searches_30d, row.unique_searches_90d,
       row.unique_searches_365d, row.total_searches_30d, row.total_searches_90d,
       row.total_searches_365d, row.godaddy_ns, row.date_added_at, row.source,
     ].map(csvCell).join(","));

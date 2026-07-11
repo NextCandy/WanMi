@@ -19,7 +19,6 @@ interface SiteSettings {
   contact_wechat: string | null;
   contact_telegram: string | null;
   wechat_qr_url: string | null;
-  show_prices: boolean;
 }
 
 interface DomainFacets {

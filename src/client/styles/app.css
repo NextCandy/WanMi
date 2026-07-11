@@ -96,7 +96,7 @@ a { color: inherit; text-decoration: none; }
 ::selection { background: color-mix(in oklab, var(--brand) 24%, transparent); }
 :focus-visible { outline: 2px solid color-mix(in oklab, var(--brand) 65%, transparent); outline-offset: 2px; border-radius: 4px; }
 
-.domain-name, .public-price, .stat-card strong, .hero-stats strong, .detail-price strong, .related-grid a, .kpi-list b, .admin-table td strong { font-family: var(--font-display); }
+.domain-name, .stat-card strong, .hero-stats strong, .related-grid a, .kpi-list b, .admin-table td strong { font-family: var(--font-display); }
 .mono, .record-content, .whois-list b, .log-table time { font-family: var(--font-mono); }
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(14px); } }
@@ -302,7 +302,6 @@ a { color: inherit; text-decoration: none; }
 .domain-name.domain-medium { font-size: clamp(16px, 1.5vw, 20px); }
 .domain-name.domain-long { font-size: clamp(13px, 1.2vw, 15px); letter-spacing: -.02em; }
 .domain-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-height: 20px; padding-right: 28px; }
-.public-price { margin-left: auto; color: var(--brand); font-weight: 700; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 
 .density-compact .domain-card { padding: 12px 13px 10px; gap: 8px; }
 .density-spacious .domain-card { padding: 22px 17px 17px; gap: 15px; }
@@ -316,7 +315,8 @@ a { color: inherit; text-decoration: none; }
   color: var(--muted); background: color-mix(in oklab, var(--surface-2) 55%, transparent);
   animation: fade-in var(--dur-2) var(--ease);
 }
-.state-panel strong { color: var(--fg); }
+.state-panel { font-size: 12px; }
+.state-panel strong { color: var(--fg); font-size: 14px; }
 .state-panel button { margin-top: 8px; border: 1px solid var(--border); background: var(--surface-2); border-radius: 9px; padding: 7px 13px; cursor: pointer; box-shadow: var(--shadow-s); }
 .state-panel button:hover { border-color: var(--faint); }
 .error-panel { background: color-mix(in oklab, var(--danger) 6%, var(--surface-2)); border-color: color-mix(in oklab, var(--danger) 35%, transparent); color: var(--danger); }
@@ -350,9 +350,6 @@ a { color: inherit; text-decoration: none; }
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
 .detail-panel { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-l); padding: 20px; box-shadow: var(--shadow-s); }
 .detail-panel h2 { margin: 0 0 14px; font-size: 15px; letter-spacing: -.02em; }
-.detail-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
-.detail-price strong { font-size: 32px; letter-spacing: -.03em; color: var(--brand); }
-.detail-price span { color: var(--muted); font-size: 12px; }
 .detail-actions { display: grid; gap: 9px; }
 .whois-list { display: grid; gap: 9px; font-size: 12px; }
 .whois-list > div { display: flex; justify-content: space-between; gap: 14px; padding: 9px 11px; background: var(--surface-1); border-radius: 8px; }
@@ -494,7 +491,7 @@ a { color: inherit; text-decoration: none; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
 .admin-header > div:first-child span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .12em; }
-.admin-header h1 { margin: 2px 0 0; font-size: 20px; letter-spacing: -.03em; }
+.admin-header h1 { margin: 2px 0 0; font-size: 22px; letter-spacing: -.03em; }
 .admin-header a { color: var(--muted); font-size: 11px; transition: color var(--dur-1) var(--ease); }
 .admin-header a:hover { color: var(--brand); }
 .admin-header-actions { display: flex; align-items: center; gap: 12px; }
@@ -525,8 +522,8 @@ a { color: inherit; text-decoration: none; }
 
 .admin-panel { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-l); padding: 20px; min-width: 0; box-shadow: var(--shadow-s); animation: fade-up .45s var(--ease) backwards; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
-.panel-heading h2 { margin: 0; font-size: 16px; letter-spacing: -.025em; }
-.panel-heading p { margin: 4px 0 0; color: var(--muted); font-size: 10.5px; }
+.panel-heading h2 { margin: 0; font-size: 18px; letter-spacing: -.025em; }
+.panel-heading p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .panel-actions { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
 .admin-two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 
@@ -547,7 +544,7 @@ a { color: inherit; text-decoration: none; }
 .activity-list small { color: var(--muted); font-size: 9px; }
 .dot-success, .dot-error { width: 7px; height: 7px; background: var(--success); border-radius: 50%; margin-top: 4px; flex: none; box-shadow: 0 0 0 3px color-mix(in oklab, var(--success) 15%, transparent); }
 .dot-error { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in oklab, var(--danger) 15%, transparent); }
-.empty-inline { color: var(--muted); font-size: 11px; padding: 16px 0; }
+.empty-inline { color: var(--muted); font-size: 11px; line-height: 1.55; padding: 14px 0; }
 .kpi-list { display: grid; gap: 8px; }
 .kpi-list > div { display: flex; justify-content: space-between; align-items: center; padding: 9px 11px; background: var(--surface-1); border-radius: 8px; font-size: 11px; }
 .kpi-list b { font-family: var(--font-mono); font-size: 11.5px; }
@@ -578,7 +575,7 @@ a { color: inherit; text-decoration: none; }
 .bulk-bar button:hover { border-color: color-mix(in oklab, var(--brand) 40%, var(--border)); }
 
 .admin-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-m); }
-.admin-table { width: 100%; min-width: 980px; border-collapse: collapse; font-size: 10.5px; }
+.admin-table { width: 100%; min-width: 980px; border-collapse: collapse; font-size: 12px; }
 .admin-table th { text-align: left; height: 38px; padding: 0 10px; color: var(--muted); background: var(--surface-1); border-bottom: 1px solid var(--border); font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
 .admin-table th.sortable { cursor: pointer; user-select: none; }
 .admin-table th.sortable:hover { color: var(--fg); }
@@ -587,7 +584,7 @@ a { color: inherit; text-decoration: none; }
 .admin-table tbody tr { transition: background var(--dur-1) var(--ease); }
 .admin-table tbody tr:hover { background: color-mix(in oklab, var(--brand) 2.5%, var(--surface-2)); }
 .admin-table tr:last-child td { border-bottom: 0; }
-.admin-table td strong { display: block; font-size: 11.5px; font-family: var(--font-mono); font-weight: 600; letter-spacing: -.02em; }
+.admin-table td strong { display: block; font-size: 12.5px; font-family: var(--font-mono); font-weight: 600; letter-spacing: -.02em; }
 .admin-table td small { display: block; color: var(--faint); margin-top: 2px; font-size: 8.5px; }
 .table-link { border: 0; background: var(--surface-1); border-radius: 7px; padding: 4px 8px; font-size: 9.5px; cursor: pointer; transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease); }
 .table-link:hover { background: var(--brand-soft); color: var(--brand-strong); }

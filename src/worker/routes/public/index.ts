@@ -16,8 +16,6 @@ interface PublicDomainRow {
   tld: string;
   category: string | null;
   is_featured: number;
-  public_price: string | null;
-  public_price_currency: string | null;
 }
 
 interface SettingsRow {
@@ -29,7 +27,6 @@ interface SettingsRow {
   accent_color: string;
   display_density: string;
   featured_first: number;
-  show_prices: number;
   copyright_text: string | null;
   icp_number: string | null;
   contact_email: string | null;
@@ -38,18 +35,10 @@ interface SettingsRow {
   wechat_qr_url: string | null;
 }
 
-const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.category, d.is_featured,
-  CASE WHEN d.public_price_approved = 1 THEN d.public_price ELSE NULL END AS public_price,
-  CASE WHEN d.public_price_approved = 1 THEN d.public_price_currency ELSE NULL END AS public_price_currency
+const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.category, d.is_featured
   FROM domains d LEFT JOIN domain_marketplace_listings m ON m.domain_id = d.id`;
 
-// 报价文本可能带 $ 与千分位，统一转 REAL 排序
-const PRICE_SQL = `COALESCE(
-  CASE WHEN d.public_price_approved = 1 THEN CAST(d.public_price AS REAL) END,
-  CAST(replace(replace(COALESCE(m.buy_now_price, ''), '$', ''), ',', '') AS REAL)
-)`;
-
-function serializePublic(row: PublicDomainRow, showPrices: boolean): PublicDomain & Record<string, unknown> {
+function serializePublic(row: PublicDomainRow): PublicDomain & Record<string, unknown> {
   return {
     id: row.id,
     domain: row.domain,
@@ -57,7 +46,6 @@ function serializePublic(row: PublicDomainRow, showPrices: boolean): PublicDomai
     tld: row.tld,
     category: row.category,
     is_featured: row.is_featured === 1,
-    ...(showPrices ? { public_price: row.public_price } : {}),
   };
 }
 
@@ -66,7 +54,7 @@ export const publicRoutes = new Hono<AppBindings>();
 publicRoutes.get("/settings", async (c) => {
   const settings = await c.env.DB.prepare(
     `SELECT site_name, site_description, site_bio, logo_url, favicon_url, accent_color, display_density,
-      featured_first, show_prices, copyright_text, icp_number, contact_email, contact_wechat,
+      featured_first, copyright_text, icp_number, contact_email, contact_wechat,
       contact_telegram, wechat_qr_url
      FROM site_settings WHERE id = 1`,
   ).first<SettingsRow>();
@@ -74,7 +62,6 @@ publicRoutes.get("/settings", async (c) => {
   return ok(c, {
     ...settings,
     featured_first: settings.featured_first === 1,
-    show_prices: settings.show_prices === 1,
   });
 });
 
@@ -135,16 +122,13 @@ publicRoutes.get("/domains", async (c) => {
   const query = parsed.data;
   const { where, params } = publicFilters(query);
   const offset = (query.page - 1) * query.pageSize;
-  const settings = await c.env.DB.prepare("SELECT featured_first, show_prices FROM site_settings WHERE id = 1").first<{
+  const settings = await c.env.DB.prepare("SELECT featured_first FROM site_settings WHERE id = 1").first<{
     featured_first: number;
-    show_prices: number;
   }>();
   const defaultSort = `${settings?.featured_first === 1 ? "d.is_featured DESC," : ""} length(replace(d.name, '.', '')) ASC, d.normalized_domain ASC`;
   const sortSql =
     query.sort === "domain_asc" ? "d.normalized_domain ASC"
     : query.sort === "domain_desc" ? "d.normalized_domain DESC"
-    : query.sort === "price_desc" ? `${PRICE_SQL} IS NULL, ${PRICE_SQL} DESC, d.normalized_domain ASC`
-    : query.sort === "price_asc" ? `${PRICE_SQL} IS NULL, ${PRICE_SQL} ASC, d.normalized_domain ASC`
     : query.sort === "views_desc" ? "m.views IS NULL, m.views DESC, d.normalized_domain ASC"
     : query.sort === "added_desc" ? "d.created_at DESC, d.normalized_domain ASC"
     : query.sort === "length_asc" ? "length(replace(d.name, '.', '')) ASC, d.normalized_domain ASC"
@@ -154,9 +138,8 @@ publicRoutes.get("/domains", async (c) => {
     c.env.DB.prepare(`${PUBLIC_SELECT} WHERE ${where} ORDER BY ${sortSql} LIMIT ? OFFSET ?`).bind(...params, query.pageSize, offset),
   ]);
   const total = Number((countResult.results[0] as { total?: number } | undefined)?.total ?? 0);
-  const showPrices = settings?.show_prices === 1;
   return ok(c, {
-    items: (dataResult.results as unknown as PublicDomainRow[]).map((row) => serializePublic(row, showPrices)),
+    items: (dataResult.results as unknown as PublicDomainRow[]).map(serializePublic),
     page: query.page,
     pageSize: query.pageSize,
     total,
@@ -167,10 +150,6 @@ publicRoutes.get("/domains", async (c) => {
 publicRoutes.get("/domains/:name", async (c) => {
   const name = c.req.param("name").trim().toLowerCase();
   if (!name || name.length > 253) return fail(c, 422, "INVALID_DOMAIN", "域名无效");
-  const settings = await c.env.DB.prepare("SELECT show_prices, site_name FROM site_settings WHERE id = 1").first<{
-    show_prices: number;
-    site_name: string;
-  }>();
   const row = await c.env.DB.prepare(`${PUBLIC_SELECT} WHERE d.is_listed = 1 AND d.normalized_domain = ?`)
     .bind(name)
     .first<PublicDomainRow>();
@@ -182,10 +161,9 @@ publicRoutes.get("/domains/:name", async (c) => {
   )
     .bind(row.id, row.tld, row.name.length, row.tld)
     .all();
-  const showPrices = settings?.show_prices === 1;
   return ok(c, {
-    domain: serializePublic(row, showPrices),
-    related: (related.results as unknown as PublicDomainRow[]).map((item) => serializePublic(item, showPrices)),
+    domain: serializePublic(row),
+    related: (related.results as unknown as PublicDomainRow[]).map(serializePublic),
   });
 });
 

@@ -46,8 +46,12 @@ export async function download(url: string): Promise<void> {
   const disposition = response.headers.get("content-disposition") ?? "";
   const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "WanMi-export.csv";
   const anchor = document.createElement("a");
-  anchor.href = URL.createObjectURL(blob);
+  const objectUrl = URL.createObjectURL(blob);
+  anchor.href = objectUrl;
   anchor.download = filename;
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(anchor.href);
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
 }

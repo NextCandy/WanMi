@@ -22,7 +22,7 @@ interface AdminUser {
 
 interface DashboardData {
   counts: { total: number; listed: number; hidden: number; featured: number };
-  kpis: { totalValue: number; avgPrice: number; totalViews: number; marketLeads: number; siteLeads: number; newSiteLeads: number };
+  kpis: { totalViews: number; marketLeads: number; siteLeads: number; newSiteLeads: number };
   topViews: Array<{ full_domain: string; views: number }>;
   expiring90d: Array<{ full_domain: string; expires_at: string }>;
   tlds: Array<{ tld: string; count: number }>;
@@ -45,9 +45,6 @@ interface AdminDomain {
   notes: string | null;
   listing_status: string | null;
   fast_transfer: string | null;
-  buy_now_price: string | null;
-  floor_price: string | null;
-  min_offer: string | null;
   date_added_at: string | null;
   views: number | null;
   leads: number | null;
@@ -117,10 +114,7 @@ function OverviewView({ onTldClick }: { onTldClick: (tld: string) => void }) {
   const cards = [
     ["域名总数", data.counts.total], ["前台展示", data.counts.listed], ["已隐藏", data.counts.hidden], ["精品域名", data.counts.featured],
   ];
-  const money = (value: number) => `$${value.toLocaleString("en-US")}`;
   const kpiCards: Array<[string, string, string]> = [
-    ["总市值", money(data.kpis.totalValue), "SUM(报价)"],
-    ["平均报价", money(data.kpis.avgPrice), "非零报价均值"],
     ["累计 Views", data.kpis.totalViews.toLocaleString("en-US"), "市场浏览量"],
     ["求购线索", `${data.kpis.siteLeads}`, `${data.kpis.newSiteLeads} 条未读 · 市场 ${data.kpis.marketLeads}`],
   ];
@@ -142,12 +136,12 @@ function OverviewView({ onTldClick }: { onTldClick: (tld: string) => void }) {
   </div>;
 }
 
-type DomainOrderBy = "domain" | "price" | "floor" | "views" | "leads" | "date_added";
+type DomainOrderBy = "domain" | "views" | "leads" | "date_added";
 const OPTIONAL_COLUMNS: Array<[string, string]> = [
-  ["category", "分类"], ["status", "市场状态"], ["price", "报价"], ["floor", "Floor"],
+  ["category", "分类"], ["status", "市场状态"],
   ["views", "Views"], ["leads", "Leads"], ["date_added", "Date Added"], ["ns", "NS"],
 ];
-const DEFAULT_COLUMNS = ["category", "status", "price"];
+const DEFAULT_COLUMNS = ["category", "status"];
 
 function loadColumns(): Set<string> {
   try {
@@ -231,15 +225,8 @@ function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "suc
     let category: string | null | undefined;
     if (action === "categorize") category = window.prompt("输入新分类；留空将清除分类") ?? undefined;
     if (action === "categorize" && category === undefined) return;
-    let price: string | null | undefined;
-    if (action === "price") {
-      const input = window.prompt("输入公开报价（纯数字，留空清除报价）");
-      if (input === null) return;
-      price = input.trim() || null;
-      if (price && !/^\d+(?:\.\d+)?$/.test(price)) { notify("报价必须是数字", "error"); return; }
-    }
     try {
-      const result = await api<{ changed: number }>("/api/admin/domains/bulk", { method: "POST", body: JSON.stringify({ ids: [...selected], action, category, price }) });
+      const result = await api<{ changed: number }>("/api/admin/domains/bulk", { method: "POST", body: JSON.stringify({ ids: [...selected], action, category }) });
       notify(`已更新 ${result.changed} 个域名`);
       setSelected(new Set());
       setRefresh((value) => value + 1);
@@ -248,7 +235,12 @@ function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "suc
 
   function exportSelected() {
     if (!selected.size) return;
-    void download(`/api/admin/domains/export?ids=${[...selected].join(",")}`);
+    void exportCsv(`/api/admin/domains/export?ids=${[...selected].join(",")}`);
+  }
+
+  async function exportCsv(url: string) {
+    try { await download(url); notify("CSV 已开始下载"); }
+    catch (reason) { notify(reason instanceof Error ? reason.message : "CSV 导出失败", "error"); }
   }
 
   async function bulkDns() {
@@ -289,7 +281,7 @@ function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "suc
 
   const allSelected = Boolean(data?.items.length) && data!.items.every((domain) => selected.has(domain.id));
   const has = (key: string) => columns.has(key);
-  return <Panel title="域名管理" description="前后台共享同一份 D1 数据" actions={<><button className="secondary-button" onClick={() => void download(`/api/admin/domains/export?q=${encodeURIComponent(q)}&listed=${listed}${tld ? `&tld=${encodeURIComponent(tld)}` : ""}`)}>导出 CSV</button><label className="secondary-button file-button">导入 CSV<input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); event.currentTarget.value = ""; }} /></label><button className="primary-button" onClick={() => void addDomain()}>添加域名</button></>}>
+  return <Panel title="域名管理" description="前后台共享同一份 D1 数据" actions={<><button className="secondary-button" onClick={() => void exportCsv(`/api/admin/domains/export?q=${encodeURIComponent(q)}&listed=${listed}${tld ? `&tld=${encodeURIComponent(tld)}` : ""}`)}>导出 CSV</button><label className="secondary-button file-button">导入 CSV<input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); event.currentTarget.value = ""; }} /></label><button className="primary-button" onClick={() => void addDomain()}>添加域名</button></>}>
     <div className="admin-toolbar">
       <input value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="搜索完整域名" />
       <select value={listed} onChange={(event) => { setListed(event.target.value); setPage(1); }}><option value="">全部展示状态</option><option value="true">前台展示</option><option value="false">已隐藏</option></select>
@@ -297,14 +289,12 @@ function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "suc
       <details className="column-picker"><summary>列显示 ▾</summary><div>{OPTIONAL_COLUMNS.map(([key, label]) => <label key={key}><input type="checkbox" checked={columns.has(key)} onChange={() => toggleColumn(key)} />{label}</label>)}</div></details>
       <span>{loading ? "读取中…" : `共 ${data?.total ?? 0} 个`}</span>
     </div>
-    {selected.size > 0 && <div className="bulk-bar"><strong>已选 {selected.size}</strong><button onClick={() => void bulk("feature")}>设为精品</button><button onClick={() => void bulk("unfeature")}>取消精品</button><button onClick={() => void bulk("list")}>上架</button><button onClick={() => void bulk("hide")}>隐藏</button><button onClick={() => void bulk("categorize")}>设置分类</button><button onClick={() => void bulk("price")}>设置报价</button><button onClick={() => exportSelected()}>导出选中</button><button onClick={() => void bulkDns()}>批量 DNS</button><button className="danger-text" onClick={() => void bulk("delete")}>删除</button><button onClick={() => setSelected(new Set())}>清空选择</button></div>}
+    {selected.size > 0 && <div className="bulk-bar"><strong>已选 {selected.size}</strong><button onClick={() => void bulk("feature")}>设为精品</button><button onClick={() => void bulk("unfeature")}>取消精品</button><button onClick={() => void bulk("list")}>上架</button><button onClick={() => void bulk("hide")}>隐藏</button><button onClick={() => void bulk("categorize")}>设置分类</button><button onClick={() => exportSelected()}>导出选中</button><button onClick={() => void bulkDns()}>批量 DNS</button><button className="danger-text" onClick={() => void bulk("delete")}>删除</button><button onClick={() => setSelected(new Set())}>清空选择</button></div>}
     <div className="admin-table-wrap"><table className="admin-table"><thead><tr>
       <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(data?.items.map((domain) => domain.id)))} aria-label="全选当前页" /></th>
       <th className="sortable" onClick={() => toggleSort("domain")}>域名{arrow("domain")}</th>
       {has("category") && <th>分类</th>}
       {has("status") && <th>市场状态</th>}
-      {has("price") && <th className="sortable" onClick={() => toggleSort("price")}>报价{arrow("price")}</th>}
-      {has("floor") && <th className="sortable" onClick={() => toggleSort("floor")}>Floor{arrow("floor")}</th>}
       {has("views") && <th className="sortable" onClick={() => toggleSort("views")}>Views{arrow("views")}</th>}
       {has("leads") && <th className="sortable" onClick={() => toggleSort("leads")}>Leads{arrow("leads")}</th>}
       {has("date_added") && <th className="sortable" onClick={() => toggleSort("date_added")}>Date Added{arrow("date_added")}</th>}
@@ -320,15 +310,13 @@ function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "suc
         <option value="__new__">＋ 新建分类…</option>
       </select></td>}
       {has("status") && <td title={STATUS_TIPS[domain.listing_status ?? ""] ?? ""}>{domain.listing_status ? <span className={`badge-status ${domain.listing_status === "Listed" ? "badge-listed" : domain.listing_status === "Failed Compliance" ? "badge-danger" : "badge-warning"}`}>{domain.listing_status}</span> : "—"}</td>}
-      {has("price") && <td>{domain.buy_now_price || "—"}</td>}
-      {has("floor") && <td>{domain.floor_price || "—"}</td>}
       {has("views") && <td>{domain.views ?? "—"}</td>}
       {has("leads") && <td>{domain.leads ?? "—"}</td>}
       {has("date_added") && <td>{domain.date_added_at ? new Date(domain.date_added_at).toLocaleDateString("zh-CN") : "—"}</td>}
       {has("ns") && <td>{domain.godaddy_ns || "—"}</td>}
       <td><button className={`switch ${domain.is_featured ? "on gold" : ""}`} onClick={() => void patch(domain.id, { isFeatured: !domain.is_featured }, domain.is_featured ? "已取消精品" : "已设为精品")}><i /></button></td>
       <td><button className={`switch ${domain.is_listed ? "on" : ""}`} onClick={() => void patch(domain.id, { isListed: !domain.is_listed }, domain.is_listed ? "已从前台隐藏" : "已恢复展示")}><i /></button></td>
-      <td><details className="row-details"><summary>详情</summary><div><span>Floor：{domain.floor_price ?? "—"}</span><span>Min Offer：{domain.min_offer ?? "—"}</span><span>Views：{domain.views ?? "—"}</span><span>Leads：{domain.leads ?? "—"}</span><span>Date Added：{domain.date_added_at ?? "—"}</span><span>GoDaddy NS：{domain.godaddy_ns ?? "—"}</span></div></details></td>
+      <td><details className="row-details"><summary>详情</summary><div><span>Views：{domain.views ?? "—"}</span><span>Leads：{domain.leads ?? "—"}</span><span>Date Added：{domain.date_added_at ?? "—"}</span><span>GoDaddy NS：{domain.godaddy_ns ?? "—"}</span></div></details></td>
     </tr>)}</tbody></table></div>
     {data && data.totalPages > 1 && <div className="pagination admin-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {data.totalPages} 页</span><button disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}
   </Panel>;
@@ -356,7 +344,7 @@ function CategoriesView({ notify }: { notify: (text: string, tone?: "success" | 
   </Panel>;
 }
 
-interface LeadRow { id: number; full_domain: string; offer_amount: string | null; currency: string | null; contact: string; message: string | null; country: string | null; status: "new" | "read" | "archived"; created_at: string }
+interface LeadRow { id: number; full_domain: string; contact: string; message: string | null; country: string | null; status: "new" | "read" | "archived"; created_at: string }
 function LeadsView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
   const [data, setData] = useState<{ items: LeadRow[]; total: number; totalPages: number } | null>(null);
   const [status, setStatus] = useState("");
@@ -371,13 +359,12 @@ function LeadsView({ notify }: { notify: (text: string, tone?: "success" | "erro
     try { await api(`/api/admin/leads/${lead.id}`, { method: "PATCH", body: JSON.stringify({ status: next }) }); load(); }
     catch (reason) { notify(reason instanceof Error ? reason.message : "更新失败", "error"); }
   }
-  return <Panel title="求购线索" description="来自前台 Make Offer 表单，提交时已触发通知渠道">
+  return <Panel title="求购线索" description="来自前台求购意向表单，提交时已触发通知渠道">
     <div className="admin-toolbar"><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">全部状态</option><option value="new">未读</option><option value="read">已读</option><option value="archived">已归档</option></select><span>共 {data?.total ?? 0} 条</span></div>
-    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>时间</th><th>域名</th><th>报价</th><th>联系方式</th><th>留言</th><th>地区</th><th>状态</th><th>操作</th></tr></thead><tbody>
+    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>时间</th><th>域名</th><th>联系方式</th><th>留言</th><th>地区</th><th>状态</th><th>操作</th></tr></thead><tbody>
       {data?.items.map((lead) => <tr key={lead.id}>
         <td>{new Date(lead.created_at).toLocaleString("zh-CN")}</td>
         <td><strong>{lead.full_domain}</strong></td>
-        <td>{lead.offer_amount ? `${lead.offer_amount} ${lead.currency ?? ""}` : "—"}</td>
         <td>{lead.contact}</td>
         <td style={{ maxWidth: 220, wordBreak: "break-all" }}>{lead.message || "—"}</td>
         <td>{lead.country ?? "—"}</td>
@@ -535,7 +522,7 @@ function DnsView({ notify }: { notify: (text: string, tone?: "success" | "error"
 
 interface SiteSettingsForm {
   site_name: string; site_description: string; site_bio: string | null; accent_color: string; display_density: "compact" | "comfortable" | "spacious";
-  featured_first: number; show_prices: number; copyright_text: string | null; icp_number: string | null;
+  featured_first: number; copyright_text: string | null; icp_number: string | null;
   contact_email: string | null; contact_wechat: string | null; contact_telegram: string | null;
   logo_url: string | null; favicon_url: string | null; wechat_qr_url: string | null;
 }
@@ -545,9 +532,9 @@ function SettingsView({ notify }: { notify: (text: string, tone?: "success" | "e
   useEffect(() => { api<SiteSettingsForm>("/api/admin/settings").then(setForm).catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "设置加载失败", "error")); }, [notify]);
   if (!form) return <div className="state-panel">正在读取站点设置…</div>;
   function field<K extends keyof SiteSettingsForm>(key: K, value: SiteSettingsForm[K]) { setForm((current) => current ? { ...current, [key]: value } : current); }
-  async function save(event: FormEvent) { event.preventDefault(); const current = form; if (!current) return; try { await api("/api/admin/settings", { method: "PATCH", body: JSON.stringify({ ...current, featured_first: Boolean(current.featured_first), show_prices: Boolean(current.show_prices) }) }); notify("站点设置已保存并影响前台"); } catch (reason) { notify(reason instanceof Error ? reason.message : "保存失败", "error"); } }
+  async function save(event: FormEvent) { event.preventDefault(); const current = form; if (!current) return; try { await api("/api/admin/settings", { method: "PATCH", body: JSON.stringify({ ...current, featured_first: Boolean(current.featured_first) }) }); notify("站点设置已保存并影响前台"); } catch (reason) { notify(reason instanceof Error ? reason.message : "保存失败", "error"); } }
   async function upload(file: File, target: "logo" | "favicon" | "wechatQr") { const body = new FormData(); body.set("file", file); body.set("target", target); try { const result = await api<{ url: string }>("/api/admin/uploads", { method: "POST", body }); field(target === "logo" ? "logo_url" : target === "favicon" ? "favicon_url" : "wechat_qr_url", result.url); notify("图片已上传到 R2"); } catch (reason) { notify(reason instanceof Error ? reason.message : "上传失败", "error"); } }
-  return <Panel title="站点设置" description="保存到 D1，前台刷新后生效"><form className="settings-form" onSubmit={(event) => void save(event)}><div className="form-grid"><label>站点名称<input value={form.site_name} onChange={(event) => field("site_name", event.target.value)} /></label><label>主题色<input type="color" value={form.accent_color} onChange={(event) => field("accent_color", event.target.value)} /></label><label className="wide">站点描述（前台 Slogan）<input value={form.site_description} onChange={(event) => field("site_description", event.target.value)} /></label><label className="wide">品牌简介 Bio（前台 Hero 副文案）<input value={form.site_bio ?? ""} onChange={(event) => field("site_bio", event.target.value || null)} maxLength={500} placeholder="一句话介绍你的域名收藏" /></label><label>页面密度<select value={form.display_density} onChange={(event) => field("display_density", event.target.value as SiteSettingsForm["display_density"])}><option value="compact">紧凑</option><option value="comfortable">舒适</option><option value="spacious">宽松</option></select></label><label>ICP 备案号<input value={form.icp_number ?? ""} onChange={(event) => field("icp_number", event.target.value || null)} /></label><label>公开联系邮箱<input type="email" value={form.contact_email ?? ""} onChange={(event) => field("contact_email", event.target.value || null)} /></label><label>微信<input value={form.contact_wechat ?? ""} onChange={(event) => field("contact_wechat", event.target.value || null)} /></label><label>Telegram<input value={form.contact_telegram ?? ""} onChange={(event) => field("contact_telegram", event.target.value || null)} /></label><label>版权文字<input value={form.copyright_text ?? ""} onChange={(event) => field("copyright_text", event.target.value || null)} placeholder="留空使用动态年份" /></label></div><div className="checkbox-row"><label><input type="checkbox" checked={Boolean(form.featured_first)} onChange={(event) => field("featured_first", event.target.checked ? 1 : 0)} />精品优先</label><label><input type="checkbox" checked={Boolean(form.show_prices)} onChange={(event) => field("show_prices", event.target.checked ? 1 : 0)} />显示已审核公开价格</label></div><div className="upload-grid">{(["logo", "favicon", "wechatQr"] as const).map((target) => <label className="upload-card" key={target}><span>{target === "logo" ? "Logo" : target === "favicon" ? "Favicon" : "微信二维码"}</span><small>PNG / JPEG / WebP，最大 2 MB</small><input type="file" accept="image/png,image/jpeg,image/webp,image/x-icon" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file, target); }} /></label>)}</div><button className="primary-button">保存设置</button></form></Panel>;
+  return <Panel title="站点设置" description="保存到 D1，前台刷新后生效"><form className="settings-form" onSubmit={(event) => void save(event)}><div className="form-grid"><label>站点名称<input value={form.site_name} onChange={(event) => field("site_name", event.target.value)} /></label><label>主题色<input type="color" value={form.accent_color} onChange={(event) => field("accent_color", event.target.value)} /></label><label className="wide">站点描述（前台 Slogan）<input value={form.site_description} onChange={(event) => field("site_description", event.target.value)} /></label><label className="wide">品牌简介 Bio（前台 Hero 副文案）<input value={form.site_bio ?? ""} onChange={(event) => field("site_bio", event.target.value || null)} maxLength={500} placeholder="一句话介绍你的域名收藏" /></label><label>页面密度<select value={form.display_density} onChange={(event) => field("display_density", event.target.value as SiteSettingsForm["display_density"])}><option value="compact">紧凑</option><option value="comfortable">舒适</option><option value="spacious">宽松</option></select></label><label>ICP 备案号<input value={form.icp_number ?? ""} onChange={(event) => field("icp_number", event.target.value || null)} /></label><label>公开联系邮箱<input type="email" value={form.contact_email ?? ""} onChange={(event) => field("contact_email", event.target.value || null)} /></label><label>微信<input value={form.contact_wechat ?? ""} onChange={(event) => field("contact_wechat", event.target.value || null)} /></label><label>Telegram<input value={form.contact_telegram ?? ""} onChange={(event) => field("contact_telegram", event.target.value || null)} /></label><label>版权文字<input value={form.copyright_text ?? ""} onChange={(event) => field("copyright_text", event.target.value || null)} placeholder="留空使用动态年份" /></label></div><div className="checkbox-row"><label><input type="checkbox" checked={Boolean(form.featured_first)} onChange={(event) => field("featured_first", event.target.checked ? 1 : 0)} />精品优先</label></div><div className="upload-grid">{(["logo", "favicon", "wechatQr"] as const).map((target) => <label className="upload-card" key={target}><span>{target === "logo" ? "Logo" : target === "favicon" ? "Favicon" : "微信二维码"}</span><small>PNG / JPEG / WebP，最大 2 MB</small><input type="file" accept="image/png,image/jpeg,image/webp,image/x-icon" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file, target); }} /></label>)}</div><button className="primary-button">保存设置</button></form></Panel>;
 }
 
 interface NotificationForm {

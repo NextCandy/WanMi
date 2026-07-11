@@ -15,7 +15,7 @@ leadRoutes.get("/leads", async (c) => {
   const [count, rows] = await c.env.DB.batch([
     c.env.DB.prepare(`SELECT COUNT(*) AS total FROM domain_leads l ${where}`).bind(...params),
     c.env.DB.prepare(
-      `SELECT l.id, l.offer_amount, l.currency, l.contact, l.message, l.country, l.status, l.created_at,
+      `SELECT l.id, l.contact, l.message, l.country, l.status, l.created_at,
         d.full_domain
        FROM domain_leads l JOIN domains d ON d.id = l.domain_id
        ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
