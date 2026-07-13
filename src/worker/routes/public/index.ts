@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import { normalizeDomain } from "../../../shared/domain";
+import { AUTO_CATEGORY_ORDER } from "../../../shared/auto-classify";
 import { offerInputSchema, publicDomainQuerySchema } from "../../../shared/schemas/api";
 import type { PublicDomain } from "../../../shared/types/api";
 import { fail, ok, writeOperationLog } from "../../http";
@@ -16,6 +17,8 @@ interface PublicDomainRow {
   tld: string;
   description: string;
   category: string | null;
+  manual_category: string | null;
+  auto_categories: string | null;
   is_featured: number;
 }
 
@@ -37,7 +40,10 @@ interface SettingsRow {
 }
 
 const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.description,
-  COALESCE(NULLIF(d.category, ''), d.auto_category) AS category, d.is_featured FROM domains d`;
+  NULLIF(d.category, '') AS manual_category,
+  COALESCE(NULLIF(d.category, ''), d.auto_category) AS category,
+  (SELECT GROUP_CONCAT(dac.category, '|') FROM domain_auto_categories dac WHERE dac.domain_id = d.id) AS auto_categories,
+  d.is_featured FROM domains d`;
 
 function serializePublic(row: PublicDomainRow): PublicDomain & Record<string, unknown> {
   return {
@@ -47,6 +53,9 @@ function serializePublic(row: PublicDomainRow): PublicDomain & Record<string, un
     tld: row.tld,
     description: row.description,
     category: row.category,
+    categories: row.manual_category
+      ? [row.manual_category]
+      : (row.auto_categories?.split("|").filter(Boolean) ?? (row.category ? [row.category] : [])),
     is_featured: row.is_featured === 1,
   };
 }
@@ -71,18 +80,29 @@ publicRoutes.get("/facets", async (c) => {
   const [tldResult, categoryResult, statsResult] = await c.env.DB.batch([
     c.env.DB.prepare("SELECT tld, COUNT(*) AS count FROM domains WHERE is_listed = 1 GROUP BY tld ORDER BY count DESC, tld ASC"),
     c.env.DB.prepare(
-      `SELECT COALESCE(NULLIF(category, ''), auto_category) AS category, COUNT(*) AS count
-       FROM domains WHERE is_listed = 1 GROUP BY COALESCE(NULLIF(category, ''), auto_category)
-       ORDER BY CASE COALESCE(NULLIF(category, ''), auto_category)
-         WHEN '数字' THEN 1 WHEN '字母' THEN 2 WHEN '拼音' THEN 3 WHEN '英文' THEN 4
-         WHEN '杂米' THEN 5 ELSE 6 END, category`,
+      `SELECT category, COUNT(*) AS count FROM (
+         SELECT NULLIF(d.category, '') AS category
+         FROM domains d
+         WHERE d.is_listed = 1 AND NULLIF(d.category, '') IS NOT NULL
+         UNION ALL
+         SELECT dac.category
+         FROM domain_auto_categories dac
+         JOIN domains d ON d.id = dac.domain_id
+         WHERE d.is_listed = 1 AND NULLIF(d.category, '') IS NULL
+       ) effective_categories
+       WHERE category IS NOT NULL
+       GROUP BY category`,
     ),
     c.env.DB.prepare(
       "SELECT COUNT(*) AS total, COUNT(DISTINCT tld) AS tld_count, SUM(is_featured) AS featured_count, MAX(updated_at) AS latest_added FROM domains WHERE is_listed = 1",
     ),
   ]);
   const stats = (statsResult.results[0] ?? {}) as { total?: number; tld_count?: number; featured_count?: number; latest_added?: string | null };
-  const categoryRows = categoryResult.results as unknown as Array<{ category: string; count: number }>;
+  const categoryOrder = new Map<string, number>(AUTO_CATEGORY_ORDER.map((name, index) => [name, index]));
+  const categoryRows = (categoryResult.results as unknown as Array<{ category: string; count: number }>).sort((a, b) =>
+    (categoryOrder.get(a.category) ?? Number.MAX_SAFE_INTEGER) - (categoryOrder.get(b.category) ?? Number.MAX_SAFE_INTEGER)
+      || a.category.localeCompare(b.category, "zh-CN"),
+  );
   return ok(c, {
     tlds: (tldResult.results as unknown as Array<{ tld: string }>).map((row) => row.tld),
     categories: categoryRows.map((row) => row.category),
@@ -113,8 +133,17 @@ function publicFilters(query: ReturnType<typeof publicDomainQuerySchema.parse>):
     params.push(query.length);
   }
   if (query.category) {
-    where.push("COALESCE(NULLIF(d.category, ''), d.auto_category) = ?");
-    params.push(query.category);
+    where.push(`(
+      NULLIF(d.category, '') = ?
+      OR (
+        NULLIF(d.category, '') IS NULL
+        AND EXISTS (
+          SELECT 1 FROM domain_auto_categories dac
+          WHERE dac.domain_id = d.id AND dac.category = ?
+        )
+      )
+    )`);
+    params.push(query.category, query.category);
   }
   if (query.featured) {
     where.push("d.is_featured = ?");
