@@ -7,7 +7,7 @@ import type { PublicDomain } from "../../../shared/types/api";
 import { fail, ok, writeOperationLog } from "../../http";
 import { hmacSha256 } from "../../security/crypto";
 import { requestIp } from "../../security/session";
-import { enabledChannels, sendNotification, type NotificationSettingsRow } from "../../services/notifications";
+import { loadEnabledNotificationChannels, sendChannelNotification } from "../../services/notifications";
 import type { AppBindings } from "../../types";
 
 interface PublicDomainRow {
@@ -325,15 +325,12 @@ publicRoutes.post("/offers", async (c) => {
   });
   // 尽力通知，不阻塞响应也不影响结果
   const notify = async () => {
-    const settings = await c.env.DB.prepare("SELECT * FROM notification_settings WHERE id = 1").first<
-      NotificationSettingsRow & Record<string, unknown>
-    >();
-    if (!settings) return;
+    const channels = await loadEnabledNotificationChannels(c.env);
     const message = {
       title: `玩米求购线索：${domain.full_domain}`,
       content: `联系方式：${parsed.data.contact}${parsed.data.amount ? `\n报价：${parsed.data.amount} ${parsed.data.currency ?? ""}` : ""}${parsed.data.message ? `\n留言：${parsed.data.message}` : ""}`,
     };
-    await Promise.allSettled(enabledChannels(settings).map((channel) => sendNotification(c.env, channel, settings, message)));
+    await Promise.allSettled(channels.map((channel) => sendChannelNotification(c.env, channel, message)));
   };
   c.executionCtx.waitUntil(notify());
   return ok(c, { received: true }, 201);

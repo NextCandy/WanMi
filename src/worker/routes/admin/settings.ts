@@ -1,13 +1,14 @@
 import { Hono } from "hono";
 
-import { notificationPatchSchema, settingsPatchSchema } from "../../../shared/schemas/api";
+import { notificationChannelPatchSchema, notificationPatchSchema, settingsPatchSchema } from "../../../shared/schemas/api";
 import { fail, ok, writeOperationLog } from "../../http";
 import { encryptCredentials } from "../../security/crypto";
 import {
   NOTIFICATION_CHANNELS,
-  sendTestNotification,
+  parseNotificationConfig,
+  sendChannelNotification,
   type NotificationChannel,
-  type NotificationSettingsRow,
+  type NotifyChannelRow,
 } from "../../services/notifications";
 import type { AppBindings } from "../../types";
 
@@ -92,18 +93,14 @@ settingsRoutes.delete("/uploads/*", async (c) => {
 });
 
 settingsRoutes.get("/notifications", async (c) => {
-  const settings = await c.env.DB.prepare(
-    `SELECT reminder_days_json, email_enabled, telegram_enabled, bark_enabled,
-      serverchan_enabled, wecom_enabled, feishu_enabled, discord_enabled,
-      email_recipient, telegram_chat_id, timezone,
-      CASE WHEN bark_device_key_encrypted IS NOT NULL THEN 1 ELSE 0 END AS bark_configured,
-      CASE WHEN serverchan_key_encrypted IS NOT NULL THEN 1 ELSE 0 END AS serverchan_configured,
-      CASE WHEN wecom_webhook_encrypted IS NOT NULL THEN 1 ELSE 0 END AS wecom_configured,
-      CASE WHEN feishu_webhook_encrypted IS NOT NULL THEN 1 ELSE 0 END AS feishu_configured,
-      CASE WHEN discord_webhook_encrypted IS NOT NULL THEN 1 ELSE 0 END AS discord_configured
-     FROM notification_settings WHERE id = 1`,
-  ).first();
-  return ok(c, settings);
+  const [settings, channels] = await Promise.all([
+    c.env.DB.prepare("SELECT reminder_days_json, timezone FROM notification_settings WHERE id = 1").first(),
+    c.env.DB.prepare("SELECT channel, enabled, config, last_test FROM notify_channels ORDER BY channel").all<NotifyChannelRow>(),
+  ]);
+  return ok(c, { ...settings, channels: channels.results.map((row) => {
+    const config = parseNotificationConfig(row.config);
+    return { channel: row.channel, enabled: row.enabled, last_test: row.last_test ? JSON.parse(row.last_test) : null, config: { server_url: config.server_url, chat_id: config.chat_id, from: config.from, to: config.to }, configured: Boolean(config.secret_encrypted) || row.channel === "email" };
+  }) });
 });
 
 // 加密入库的渠道密钥：patch 字段 → [加密列前缀, 凭据字段名]
@@ -150,17 +147,39 @@ settingsRoutes.patch("/notifications", async (c) => {
   return ok(c, { saved: true });
 });
 
+const SECRET_NAME: Partial<Record<NotificationChannel, string>> = { telegram: "bot_token", bark: "device_key", serverchan: "send_key", wecom: "webhook_url", feishu: "webhook_url", discord: "webhook_url" };
+
+settingsRoutes.patch("/notifications/channel", async (c) => {
+  const parsed = notificationChannelPatchSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return fail(c, 422, "INVALID_CHANNEL_CONFIG", "通知渠道配置无效", parsed.error.issues);
+  const existing = await c.env.DB.prepare("SELECT channel, enabled, config, last_test FROM notify_channels WHERE channel = ?").bind(parsed.data.channel).first<NotifyChannelRow>();
+  if (!existing) return fail(c, 404, "CHANNEL_NOT_FOUND", "通知渠道不存在");
+  const config = parseNotificationConfig(existing.config);
+  const secretName = SECRET_NAME[parsed.data.channel];
+  const incoming = parsed.data.config as Record<string, string | undefined>;
+  if (secretName && incoming[secretName]) {
+    const encrypted = await encryptCredentials({ [secretName]: incoming[secretName]! }, c.env.CREDENTIALS_ENCRYPTION_KEY);
+    config.secret_encrypted = encrypted.encrypted;
+    config.secret_iv = encrypted.iv;
+  }
+  for (const field of ["server_url", "chat_id", "from", "to"] as const) if (incoming[field] !== undefined) config[field] = incoming[field];
+  await c.env.DB.prepare("UPDATE notify_channels SET enabled = ?, config = ?, updated_at = CURRENT_TIMESTAMP WHERE channel = ?").bind(parsed.data.enabled ? 1 : 0, JSON.stringify(config), parsed.data.channel).run();
+  return ok(c, { saved: true });
+});
+
 settingsRoutes.post("/notifications/test", async (c) => {
   const body = (await c.req.json().catch(() => null)) as { channel?: unknown } | null;
   if (!body || !NOTIFICATION_CHANNELS.includes(String(body.channel) as NotificationChannel)) {
     return fail(c, 422, "CHANNEL_INVALID", "通知渠道无效");
   }
-  const settings = await c.env.DB.prepare("SELECT * FROM notification_settings WHERE id = 1").first<NotificationSettingsRow>();
-  if (!settings) return fail(c, 503, "SETTINGS_UNAVAILABLE", "通知设置尚未初始化");
   const channel = body.channel as NotificationChannel;
+  const settings = await c.env.DB.prepare("SELECT channel, enabled, config, last_test FROM notify_channels WHERE channel = ?").bind(channel).first<NotifyChannelRow>();
+  if (!settings) return fail(c, 503, "SETTINGS_UNAVAILABLE", "通知渠道尚未初始化");
   const user = c.get("authUser");
   try {
-    const result = await sendTestNotification(c.env, channel, settings);
+    const result = await sendChannelNotification(c.env, settings, { title: "玩米通知测试", content: "这是一条由玩米后台真实发送的测试通知。" });
+    const lastTest = { ok: true, at: new Date().toISOString(), error: null };
+    await c.env.DB.prepare("UPDATE notify_channels SET last_test = ?, updated_at = CURRENT_TIMESTAMP WHERE channel = ?").bind(JSON.stringify(lastTest), channel).run();
     await writeOperationLog(c.env.DB, {
       action: "notifications.test",
       resourceType: "notification",
@@ -169,9 +188,11 @@ settingsRoutes.post("/notifications/test", async (c) => {
       actorUserId: user.id,
       success: true,
     });
-    return ok(c, { sent: true, channel });
+    return ok(c, { sent: true, channel, last_test: lastTest });
   } catch (error) {
     const message = error instanceof Error ? error.message : "通知发送失败";
+    const lastTest = { ok: false, at: new Date().toISOString(), error: message.slice(0, 500) };
+    await c.env.DB.prepare("UPDATE notify_channels SET last_test = ?, updated_at = CURRENT_TIMESTAMP WHERE channel = ?").bind(JSON.stringify(lastTest), channel).run();
     await writeOperationLog(c.env.DB, {
       level: "error",
       action: "notifications.test",
@@ -181,6 +202,6 @@ settingsRoutes.post("/notifications/test", async (c) => {
       actorUserId: user.id,
       success: false,
     });
-    return fail(c, 502, "NOTIFICATION_FAILED", message);
+    return fail(c, 502, "NOTIFICATION_FAILED", message, { last_test: lastTest });
   }
 });

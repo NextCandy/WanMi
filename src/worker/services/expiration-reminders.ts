@@ -1,8 +1,8 @@
 import { writeOperationLog } from "../http";
-import { enabledChannels, sendNotification, type NotificationSettingsRow } from "./notifications";
+import { loadEnabledNotificationChannels, sendChannelNotification } from "./notifications";
 import type { Env } from "../types";
 
-type SettingsRow = NotificationSettingsRow & Record<string, unknown> & {
+type SettingsRow = {
   reminder_days_json: string;
   timezone: string;
 };
@@ -32,11 +32,12 @@ export async function runExpirationReminders(env: Env): Promise<void> {
   )
     .bind(...days)
     .all<ExpiringDomainRow>();
-  const channels = enabledChannels(settings);
+  const channels = await loadEnabledNotificationChannels(env);
   const scheduledDate = new Date().toISOString().slice(0, 10);
 
   for (const domain of result.results) {
-    for (const channel of channels) {
+    for (const channelRow of channels) {
+      const channel = channelRow.channel;
       const deliveryId = crypto.randomUUID();
       const inserted = await env.DB.prepare(
         `INSERT OR IGNORE INTO notification_deliveries (
@@ -47,7 +48,7 @@ export async function runExpirationReminders(env: Env): Promise<void> {
         .run();
       if (inserted.meta.changes === 0) continue;
       try {
-        const response = await sendNotification(env, channel, settings, {
+        const response = await sendChannelNotification(env, channelRow, {
           title: "玩米域名到期提醒",
           content: `${domain.normalized_domain} 将在 ${domain.days_remaining} 天后到期。`,
         });

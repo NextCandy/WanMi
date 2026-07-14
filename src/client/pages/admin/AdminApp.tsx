@@ -565,68 +565,40 @@ function SettingsView({ notify }: { notify: (text: string, tone?: "success" | "e
   return <Panel title="站点设置" description="保存到 D1，前台刷新后生效"><form className="settings-form" onSubmit={(event) => void save(event)}><div className="form-grid"><label>站点名称<input value={form.site_name} onChange={(event) => field("site_name", event.target.value)} /></label><label>主题色<input type="color" value={form.accent_color} onChange={(event) => field("accent_color", event.target.value)} /></label><label className="wide">站点描述（前台 Slogan）<input value={form.site_description} onChange={(event) => field("site_description", event.target.value)} /></label><label className="wide">品牌简介 Bio（前台 Hero 副文案）<input value={form.site_bio ?? ""} onChange={(event) => field("site_bio", event.target.value || null)} maxLength={500} placeholder="一句话介绍你的域名收藏" /></label><label>页面密度<select value={form.display_density} onChange={(event) => field("display_density", event.target.value as SiteSettingsForm["display_density"])}><option value="compact">紧凑</option><option value="comfortable">舒适</option><option value="spacious">宽松</option></select></label><label>ICP 备案号<input value={form.icp_number ?? ""} onChange={(event) => field("icp_number", event.target.value || null)} /></label><label>公开联系邮箱<input type="email" value={form.contact_email ?? ""} onChange={(event) => field("contact_email", event.target.value || null)} /></label><label>微信<input value={form.contact_wechat ?? ""} onChange={(event) => field("contact_wechat", event.target.value || null)} /></label><label>Telegram<input value={form.contact_telegram ?? ""} onChange={(event) => field("contact_telegram", event.target.value || null)} /></label><label>版权文字<input value={form.copyright_text ?? ""} onChange={(event) => field("copyright_text", event.target.value || null)} placeholder="留空使用动态年份" /></label></div><div className="checkbox-row"><label><input type="checkbox" checked={Boolean(form.featured_first)} onChange={(event) => field("featured_first", event.target.checked ? 1 : 0)} />精品优先</label></div><div className="upload-grid">{(["logo", "favicon", "wechatQr"] as const).map((target) => <label className="upload-card" key={target}><span>{target === "logo" ? "Logo" : target === "favicon" ? "Favicon" : "微信二维码"}</span><small>PNG / JPEG / WebP，最大 2 MB</small><input type="file" accept="image/png,image/jpeg,image/webp,image/x-icon" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file, target); }} /></label>)}</div><button className="primary-button">保存设置</button></form></Panel>;
 }
 
-interface NotificationForm {
-  reminder_days_json: string; timezone: string;
-  email_enabled: number; telegram_enabled: number; bark_enabled: number;
-  serverchan_enabled: number; wecom_enabled: number; feishu_enabled: number; discord_enabled: number;
-  email_recipient: string | null; telegram_chat_id: string | null;
-  bark_configured: number; serverchan_configured: number; wecom_configured: number; feishu_configured: number; discord_configured: number;
-}
-type SecretChannel = "bark" | "serverchan" | "wecom" | "feishu" | "discord";
-const SECRET_CHANNELS: Array<{ key: SecretChannel; label: string; placeholder: string; patchKey: string }> = [
-  { key: "bark", label: "Bark", placeholder: "设备密钥", patchKey: "bark_device_key" },
-  { key: "serverchan", label: "Server 酱", placeholder: "SendKey（sctapi.ftqq.com）", patchKey: "serverchan_key" },
-  { key: "wecom", label: "企业微信机器人", placeholder: "Webhook URL（qyapi.weixin.qq.com）", patchKey: "wecom_webhook" },
-  { key: "feishu", label: "飞书机器人", placeholder: "Webhook URL（open.feishu.cn）", patchKey: "feishu_webhook" },
-  { key: "discord", label: "Discord", placeholder: "Webhook URL（discord.com）", patchKey: "discord_webhook" },
-];
+type NotificationChannelKey = "email" | "telegram" | "bark" | "serverchan" | "wecom" | "feishu" | "discord";
+interface NotificationChannelForm { channel: NotificationChannelKey; enabled: number; configured: boolean; config: Record<string, string | undefined>; last_test: { ok: boolean; at: string; error: string | null } | null; }
+interface NotificationForm { reminder_days_json: string; timezone: string; channels: NotificationChannelForm[]; }
+const CHANNEL_LABELS: Record<NotificationChannelKey, string> = { email: "Email · Resend", telegram: "Telegram", bark: "Bark", serverchan: "Server 酱", wecom: "企业微信", feishu: "飞书", discord: "Discord" };
 
 function NotificationsView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
   const [form, setForm] = useState<NotificationForm | null>(null);
-  const [secrets, setSecrets] = useState<Record<SecretChannel, string>>({ bark: "", serverchan: "", wecom: "", feishu: "", discord: "" });
+  const [drafts, setDrafts] = useState<Record<string, Record<string, string>>>({});
   useEffect(() => { api<NotificationForm>("/api/admin/notifications").then(setForm).catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "通知设置加载失败", "error")); }, [notify]);
   if (!form) return <div className="state-panel">正在读取通知设置…</div>;
-  const enabledOf = (key: SecretChannel) => Boolean(form[`${key}_enabled` as keyof NotificationForm]);
-  const configuredOf = (key: SecretChannel) => Boolean(form[`${key}_configured` as keyof NotificationForm]);
-  function setEnabled(key: SecretChannel, value: boolean) { setForm((current) => current ? { ...current, [`${key}_enabled`]: value ? 1 : 0 } : current); }
-  async function save() {
-    const current = form; if (!current) return;
+  const field = (channel: string, key: string, fallback = "") => drafts[channel]?.[key] ?? form.channels.find((item) => item.channel === channel)?.config[key] ?? fallback;
+  const change = (channel: string, key: string, value: string) => setDrafts((current) => ({ ...current, [channel]: { ...current[channel], [key]: value } }));
+  async function saveChannel(item: NotificationChannelForm) {
     try {
-      const reminderDays: unknown = JSON.parse(current.reminder_days_json);
-      if (!Array.isArray(reminderDays) || !reminderDays.every((value) => Number.isInteger(value))) throw new Error("提醒天数必须是整数 JSON 数组");
-      const body: Record<string, unknown> = {
-        reminder_days: reminderDays,
-        email_enabled: Boolean(current.email_enabled),
-        telegram_enabled: Boolean(current.telegram_enabled),
-        bark_enabled: Boolean(current.bark_enabled),
-        serverchan_enabled: Boolean(current.serverchan_enabled),
-        wecom_enabled: Boolean(current.wecom_enabled),
-        feishu_enabled: Boolean(current.feishu_enabled),
-        discord_enabled: Boolean(current.discord_enabled),
-        email_recipient: current.email_recipient,
-        telegram_chat_id: current.telegram_chat_id,
-        timezone: "Asia/Shanghai",
-      };
-      for (const { key, patchKey } of SECRET_CHANNELS) { if (secrets[key]) body[patchKey] = secrets[key]; }
-      await api("/api/admin/notifications", { method: "PATCH", body: JSON.stringify(body) });
-      notify("通知设置已保存");
-      setSecrets({ bark: "", serverchan: "", wecom: "", feishu: "", discord: "" });
+      await api("/api/admin/notifications/channel", { method: "PATCH", body: JSON.stringify({ channel: item.channel, enabled: Boolean(item.enabled), config: drafts[item.channel] ?? {} }) });
+      notify(`${CHANNEL_LABELS[item.channel]} 已保存`);
+      setDrafts((current) => ({ ...current, [item.channel]: {} }));
     } catch (reason) { notify(reason instanceof Error ? reason.message : "保存失败", "error"); }
   }
-  async function test(channel: string) { try { await api("/api/admin/notifications/test", { method: "POST", body: JSON.stringify({ channel }) }); notify(`${channel} 测试通知已真实发送`); } catch (reason) { notify(reason instanceof Error ? reason.message : "通知发送失败", "error"); } }
+  async function test(channel: NotificationChannelKey) { try { const result = await api<{ last_test: NotificationChannelForm["last_test"] }>("/api/admin/notifications/test", { method: "POST", body: JSON.stringify({ channel }) }); setForm((current) => current ? { ...current, channels: current.channels.map((item) => item.channel === channel ? { ...item, last_test: result.last_test } : item) } : current); notify(`${CHANNEL_LABELS[channel]} 测试发送成功`); } catch (reason) { api<NotificationForm>("/api/admin/notifications").then(setForm).catch(() => undefined); notify(reason instanceof Error ? reason.message : "通知发送失败", "error"); } }
+  const setEnabled = (channel: NotificationChannelKey, enabled: boolean) => setForm((current) => current ? { ...current, channels: current.channels.map((item) => item.channel === channel ? { ...item, enabled: enabled ? 1 : 0 } : item) } : current);
   return <Panel title="到期提醒与通知渠道" description="Cloudflare Cron 每天 09:00（Asia/Shanghai）检查；渠道同时用于前台求购线索推送；密钥/Webhook 一律 AES-GCM 加密存储">
     <div className="notification-stack">
       <label>提醒天数（JSON）<input value={form.reminder_days_json} onChange={(event) => setForm({ ...form, reminder_days_json: event.target.value })} /></label>
-      <div className="channel-card"><label><input type="checkbox" checked={Boolean(form.email_enabled)} onChange={(event) => setForm({ ...form, email_enabled: event.target.checked ? 1 : 0 })} />Email</label><input type="email" value={form.email_recipient ?? ""} onChange={(event) => setForm({ ...form, email_recipient: event.target.value || null })} placeholder="收件邮箱" /><button onClick={() => void test("email")}>真实测试</button></div>
-      <div className="channel-card"><label><input type="checkbox" checked={Boolean(form.telegram_enabled)} onChange={(event) => setForm({ ...form, telegram_enabled: event.target.checked ? 1 : 0 })} />Telegram</label><input value={form.telegram_chat_id ?? ""} onChange={(event) => setForm({ ...form, telegram_chat_id: event.target.value || null })} placeholder="Chat ID" /><button onClick={() => void test("telegram")}>真实测试</button></div>
-      {SECRET_CHANNELS.map(({ key, label, placeholder }) => (
-        <div className="channel-card" key={key}>
-          <label><input type="checkbox" checked={enabledOf(key)} onChange={(event) => setEnabled(key, event.target.checked)} />{label}</label>
-          <input type="password" value={secrets[key]} onChange={(event) => setSecrets((current) => ({ ...current, [key]: event.target.value }))} placeholder={configuredOf(key) ? "已加密配置；留空不修改" : placeholder} autoComplete="off" />
-          <button onClick={() => void test(key)}>真实测试</button>
-        </div>
-      ))}
-      <button className="primary-button align-start" onClick={() => void save()}>保存提醒设置</button>
+      {form.channels.map((item) => <div className="channel-card" key={item.channel}>
+        <label><input type="checkbox" checked={Boolean(item.enabled)} onChange={(event) => setEnabled(item.channel, event.target.checked)} />{CHANNEL_LABELS[item.channel]}</label>
+        {item.channel === "bark" && <><input value={field(item.channel, "server_url", "https://api.day.app")} onChange={(event) => change(item.channel, "server_url", event.target.value)} placeholder="https://api.day.app" /><input type="password" value={field(item.channel, "device_key")} onChange={(event) => change(item.channel, "device_key", event.target.value)} placeholder={item.configured ? "Device Key 已加密；留空不修改" : "Device Key"} /></>}
+        {item.channel === "telegram" && <><input type="password" value={field(item.channel, "bot_token")} onChange={(event) => change(item.channel, "bot_token", event.target.value)} placeholder={item.configured ? "Bot Token 已加密；留空不修改" : "Bot Token"} /><input value={field(item.channel, "chat_id")} onChange={(event) => change(item.channel, "chat_id", event.target.value)} placeholder="Chat ID" /></>}
+        {item.channel === "serverchan" && <input type="password" value={field(item.channel, "send_key")} onChange={(event) => change(item.channel, "send_key", event.target.value)} placeholder={item.configured ? "SendKey 已加密；留空不修改" : "SendKey"} />}
+        {(["wecom", "feishu", "discord"] as string[]).includes(item.channel) && <input type="password" value={field(item.channel, "webhook_url")} onChange={(event) => change(item.channel, "webhook_url", event.target.value)} placeholder={item.configured ? "Webhook 已加密；留空不修改" : "Webhook URL"} />}
+        {item.channel === "email" && <><input type="email" value={field(item.channel, "from")} onChange={(event) => change(item.channel, "from", event.target.value)} placeholder="发件邮箱" /><input type="email" value={field(item.channel, "to")} onChange={(event) => change(item.channel, "to", event.target.value)} placeholder="收件邮箱" /></>}
+        <div className={`test-badge ${item.last_test?.ok ? "ok" : item.last_test ? "failed" : ""}`}>{item.last_test ? `${item.last_test.ok ? "最近测试成功" : "最近测试失败"} · ${new Date(item.last_test.at).toLocaleString("zh-CN")}${item.last_test.error ? ` · ${item.last_test.error}` : ""}` : "尚未测试"}</div>
+        <button onClick={() => void saveChannel(item)}>保存</button><button onClick={() => void test(item.channel)}>发送真实测试</button>
+      </div>)}
     </div>
   </Panel>;
 }

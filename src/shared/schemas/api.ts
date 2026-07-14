@@ -156,6 +156,21 @@ export const notificationPatchSchema = z
   })
   .partial();
 
+export const notificationChannelPatchSchema = z.object({
+  channel: z.enum(["email", "telegram", "bark", "serverchan", "wecom", "feishu", "discord"]),
+  enabled: z.boolean(),
+  config: z.object({
+    server_url: z.string().trim().url().max(500).optional(),
+    device_key: z.string().trim().max(500).optional(),
+    send_key: z.string().trim().max(200).optional(),
+    bot_token: z.string().trim().max(500).optional(),
+    chat_id: z.string().trim().max(120).optional(),
+    webhook_url: z.string().trim().url().max(1000).optional(),
+    from: z.union([z.string().trim().email(), z.literal("")]).optional(),
+    to: z.union([z.string().trim().email(), z.literal("")]).optional(),
+  }),
+});
+
 export const registrarInputSchema = z.object({
   provider: z.enum(["cloudflare", "godaddy", "namesilo", "porkbun", "dnspod", "aliyun", "spaceship", "namecheap", "dynadot"]),
   displayName: z.string().trim().min(1).max(120),
