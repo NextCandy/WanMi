@@ -10,6 +10,14 @@ export const changePasswordSchema = z.object({
   newPassword: z.string().min(12, "新密码至少 12 位").max(1024),
 });
 
+const calendarDateSchema = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式必须为 YYYY-MM-DD")
+  .refine((value) => {
+    const [year, month, day] = value.split("-").map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+  }, "日期无效");
+
 export const publicDomainQuerySchema = z.object({
   q: z.string().trim().max(253).optional(),
   tld: z.string().trim().max(253).optional(),
@@ -29,7 +37,12 @@ export const adminDomainQuerySchema = publicDomainQuerySchema.extend({
   listingStatus: z.string().trim().max(120).optional(),
   fastTransfer: z.string().trim().max(120).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
-  orderBy: z.enum(["domain", "price", "floor", "views", "leads", "date_added"]).optional(),
+  registrar: z.string().trim().max(120).optional(),
+  registeredFrom: calendarDateSchema.optional(),
+  registeredTo: calendarDateSchema.optional(),
+  expiresFrom: calendarDateSchema.optional(),
+  expiresTo: calendarDateSchema.optional(),
+  orderBy: z.enum(["domain", "registered_at", "expires_at", "registrar"]).optional(),
   dir: z.enum(["asc", "desc"]).default("asc"),
   ids: z
     .string()
@@ -51,14 +64,7 @@ export const logsQuerySchema = z.object({
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
-const domainDateSchema = z.string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式必须为 YYYY-MM-DD")
-  .refine((value) => {
-    const [year, month, day] = value.split("-").map(Number);
-    const parsed = new Date(Date.UTC(year, month - 1, day));
-    return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
-  }, "日期无效")
-  .nullable();
+const domainDateSchema = calendarDateSchema.nullable();
 
 export const domainInputSchema = z.object({
   fullDomain: z.string().trim().min(3).max(253),

@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { IconDownload, IconEdit, IconGlobe, IconPlus, IconTrash, IconUpload } from "../../../components/icons";
 import { PromptModal } from "../../../components/PromptModal";
@@ -11,6 +11,7 @@ import type { AdminDomain, AdminDomainPage, CategoryRow, Notify } from "../types
 interface DomainFilterOptions {
   tlds: Array<{ tld: string; count: number }>;
   categories: Array<{ name: string; count: number }>;
+  registrars: Array<{ registrar: string; count: number }>;
 }
 
 /** 需要弹窗输入的操作。删除类仍走 window.confirm。 */
@@ -28,13 +29,20 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
   const [featured, setFeatured] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [tld, setTld] = useState(presetTld ?? "");
+  const [registrar, setRegistrar] = useState("");
+  const [registeredFrom, setRegisteredFrom] = useState("");
+  const [registeredTo, setRegisteredTo] = useState("");
+  const [expiresFrom, setExpiresFrom] = useState("");
+  const [expiresTo, setExpiresTo] = useState("");
+  const [order, setOrder] = useState("");
   const [page, setPage] = useState(1);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
-  const [filterOptions, setFilterOptions] = useState<DomainFilterOptions>({ tlds: [], categories: [] });
+  const [filterOptions, setFilterOptions] = useState<DomainFilterOptions>({ tlds: [], categories: [], registrars: [] });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [dialog, setDialog] = useState<Dialog>(null);
+  const latestLoadId = useRef(0);
 
   // 指派分类的下拉只列人工分类；自动标签是只读的，不能手动指派
   const manualCategories = useMemo(() => categories.filter((item) => !item.is_auto), [categories]);
@@ -44,25 +52,44 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
   );
 
   const load = useCallback(() => {
+    const loadId = ++latestLoadId.current;
     const params = new URLSearchParams({ page: String(page), pageSize: "50" });
     if (q) params.set("q", q);
     if (listed) params.set("listed", listed);
     if (featured) params.set("featured", featured);
     if (categoryFilter) params.set("category", categoryFilter);
     if (tld) params.set("tld", tld);
+    if (registrar) params.set("registrar", registrar);
+    if (registeredFrom) params.set("registeredFrom", registeredFrom);
+    if (registeredTo) params.set("registeredTo", registeredTo);
+    if (expiresFrom) params.set("expiresFrom", expiresFrom);
+    if (expiresTo) params.set("expiresTo", expiresTo);
+    if (order) {
+      const [orderBy, dir] = order.split(":");
+      params.set("orderBy", orderBy);
+      params.set("dir", dir);
+    }
     setLoading(true);
     api<AdminDomainPage>(`/api/admin/domains?${params}`)
-      .then(setData)
-      .catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "域名加载失败", "error"))
-      .finally(() => setLoading(false));
-  }, [categoryFilter, featured, listed, notify, page, q, tld]);
+      .then((result) => {
+        if (loadId === latestLoadId.current) setData(result);
+      })
+      .catch((reason: unknown) => {
+        if (loadId === latestLoadId.current) {
+          notify(reason instanceof Error ? reason.message : "域名加载失败", "error");
+        }
+      })
+      .finally(() => {
+        if (loadId === latestLoadId.current) setLoading(false);
+      });
+  }, [categoryFilter, expiresFrom, expiresTo, featured, listed, notify, order, page, q, registeredFrom, registeredTo, registrar, tld]);
 
   useEffect(load, [load, refresh]);
   useEffect(() => {
     api<CategoryRow[]>("/api/admin/categories").then(setCategories).catch(() => setCategories([]));
     api<DomainFilterOptions>("/api/admin/domains/filters")
       .then(setFilterOptions)
-      .catch(() => setFilterOptions({ tlds: [], categories: [] }));
+      .catch(() => setFilterOptions({ tlds: [], categories: [], registrars: [] }));
   }, [refresh]);
 
   const reload = () => setRefresh((value) => value + 1);
@@ -186,6 +213,22 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
     setPage(1);
   };
 
+  function exportQuery(ids?: number[]): string {
+    if (ids) return `ids=${ids.join(",")}`;
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (listed) params.set("listed", listed);
+    if (featured) params.set("featured", featured);
+    if (categoryFilter) params.set("category", categoryFilter);
+    if (tld) params.set("tld", tld);
+    if (registrar) params.set("registrar", registrar);
+    if (registeredFrom) params.set("registeredFrom", registeredFrom);
+    if (registeredTo) params.set("registeredTo", registeredTo);
+    if (expiresFrom) params.set("expiresFrom", expiresFrom);
+    if (expiresTo) params.set("expiresTo", expiresTo);
+    return params.toString();
+  }
+
   return (
     <Panel
       title="域名管理"
@@ -196,7 +239,7 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
             className="btn btn-secondary btn-sm"
             onClick={() =>
               void exportCsv(
-                `/api/admin/domains/export?q=${encodeURIComponent(q)}&listed=${listed}${tld ? `&tld=${encodeURIComponent(tld)}` : ""}`,
+                `/api/admin/domains/export?${exportQuery()}`,
               )
             }
           >
@@ -262,6 +305,57 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
             </option>
           ))}
         </select>
+        <select value={registrar} onChange={(event) => resetFilter(() => setRegistrar(event.target.value))} aria-label="注册商筛选">
+          <option value="">全部注册商</option>
+          {filterOptions.registrars.map((item) => (
+            <option key={item.registrar} value={item.registrar}>
+              {item.registrar}（{item.count}）
+            </option>
+          ))}
+        </select>
+        <label className="admin-date-filter">
+          <span>注册从</span>
+          <input type="date" value={registeredFrom} onChange={(event) => resetFilter(() => setRegisteredFrom(event.target.value))} aria-label="注册日期从" />
+        </label>
+        <label className="admin-date-filter">
+          <span>注册至</span>
+          <input type="date" value={registeredTo} onChange={(event) => resetFilter(() => setRegisteredTo(event.target.value))} aria-label="注册日期至" />
+        </label>
+        <label className="admin-date-filter">
+          <span>到期从</span>
+          <input type="date" value={expiresFrom} onChange={(event) => resetFilter(() => setExpiresFrom(event.target.value))} aria-label="到期日期从" />
+        </label>
+        <label className="admin-date-filter">
+          <span>到期至</span>
+          <input type="date" value={expiresTo} onChange={(event) => resetFilter(() => setExpiresTo(event.target.value))} aria-label="到期日期至" />
+        </label>
+        <select value={order} onChange={(event) => resetFilter(() => setOrder(event.target.value))} aria-label="域名资料排序">
+          <option value="">默认排序</option>
+          <option value="domain:asc">域名 A → Z</option>
+          <option value="domain:desc">域名 Z → A</option>
+          <option value="registered_at:asc">注册日期从早到晚</option>
+          <option value="registered_at:desc">注册日期从晚到早</option>
+          <option value="expires_at:asc">到期日期从近到远</option>
+          <option value="expires_at:desc">到期日期从远到近</option>
+          <option value="registrar:asc">注册商 A → Z</option>
+          <option value="registrar:desc">注册商 Z → A</option>
+        </select>
+        {(registrar || registeredFrom || registeredTo || expiresFrom || expiresTo || order) && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              setRegistrar("");
+              setRegisteredFrom("");
+              setRegisteredTo("");
+              setExpiresFrom("");
+              setExpiresTo("");
+              setOrder("");
+              setPage(1);
+            }}
+          >
+            清除资料筛选
+          </button>
+        )}
         <span className="toolbar-count">{loading ? "读取中…" : `共 ${data?.total ?? 0} 个`}</span>
       </div>
 
@@ -285,7 +379,7 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
           </button>
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => void exportCsv(`/api/admin/domains/export?ids=${[...selected].join(",")}`)}
+            onClick={() => void exportCsv(`/api/admin/domains/export?${exportQuery([...selected])}`)}
           >
             导出选中
           </button>

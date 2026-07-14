@@ -59,9 +59,9 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
 
     await page.getByRole("button", { name: "清除筛选" }).click();
-    await page.getByRole("button", { name: "纯数字 107", exact: true }).click();
+    await page.getByRole("tab", { name: "纯数字", exact: true }).click();
     await expect(page.getByText("共 107 个域名")).toBeVisible();
-    await expect(page.locator(".domain-card").first().getByText("纯数字", { exact: true })).toBeVisible();
+    await expect(page.locator(".domain-card").first().getByText("数字", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "清除筛选" }).click();
     const orgOption = page.getByRole("option", { name: ".org", exact: true });
     await expect(orgOption).toBeAttached();
@@ -145,12 +145,12 @@ test.describe.serial("WanMi 生产流程", () => {
     const record = page.locator(".record").filter({ hasText: "02cloud.com" });
     await expect(record).toBeVisible();
 
-    // 编辑简介现在走应用内 Modal（原生 window.prompt 已移除）
-    await record.getByRole("button", { name: /编辑 02cloud\.com 的简介/ }).click();
-    const dialog = page.getByRole("dialog", { name: "编辑公开简介" });
-    await dialog.getByRole("textbox").fill("E2E 临时简介");
+    // 生命周期资料与简介统一走应用内 Modal
+    await record.getByRole("button", { name: "编辑 02cloud.com 的资料" }).click();
+    const dialog = page.getByRole("dialog", { name: "编辑 02cloud.com" });
+    await dialog.getByRole("textbox", { name: /公开简介/ }).fill("E2E 临时简介");
     await dialog.getByRole("button", { name: "保存" }).click();
-    await expect(page.getByText("简介已保存")).toBeVisible();
+    await expect(page.getByText("域名资料已保存")).toBeVisible();
 
     const featuredSwitch = record.locator("button.switch").first();
     const wasFeatured = (await featuredSwitch.getAttribute("class"))?.includes("on") ?? false;
@@ -164,11 +164,11 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(publicPage.getByText("E2E 临时简介")).toBeVisible();
 
     // 清空简介并恢复原来的精品状态
-    await record.getByRole("button", { name: /编辑 02cloud\.com 的简介/ }).click();
-    const clearDialog = page.getByRole("dialog", { name: "编辑公开简介" });
-    await clearDialog.getByRole("textbox").fill("");
+    await record.getByRole("button", { name: "编辑 02cloud.com 的资料" }).click();
+    const clearDialog = page.getByRole("dialog", { name: "编辑 02cloud.com" });
+    await clearDialog.getByRole("textbox", { name: /公开简介/ }).fill("");
     await clearDialog.getByRole("button", { name: "保存" }).click();
-    await expect(page.getByText("简介已清空")).toBeVisible();
+    await expect(page.getByText("域名资料已保存")).toBeVisible();
     if (!wasFeatured) await record.locator("button.switch").first().click();
 
     await expect.poll(async () => publicPage.locator(".domain-desc").count(), { timeout: 10_000 }).toBe(0);
@@ -212,5 +212,27 @@ test.describe.serial("WanMi 生产流程", () => {
     }
     // 到期提醒与通知渠道按要求保留
     await expect(nav.filter({ hasText: "到期提醒" })).toHaveCount(1);
+  });
+
+  test("后台站点设置可保存，域名资料可筛选排序", async ({ page }) => {
+    const credentials = localCredentials();
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("管理员邮箱").fill(credentials.email);
+    await page.getByLabel("密码").fill(credentials.password);
+    await page.getByRole("button", { name: "登录", exact: true }).click();
+
+    await page.getByRole("button", { name: "站点设置", exact: true }).click();
+    await page.getByRole("button", { name: "保存设置", exact: true }).click();
+    await expect(page.getByText("站点设置已保存并影响前台")).toBeVisible();
+
+    await page.getByRole("button", { name: "域名管理", exact: true }).click();
+    await page.getByLabel("注册商筛选").selectOption("Spaceship");
+    await expect(page.getByText("共 367 个")).toBeVisible();
+    await page.getByRole("button", { name: "清除资料筛选", exact: true }).click();
+
+    await page.getByLabel("到期日期至").fill("2026-07-31");
+    await page.getByLabel("域名资料排序").selectOption("expires_at:asc");
+    await expect(page.getByText("共 6 个")).toBeVisible();
+    await expect(page.locator(".record").first()).toContainText("senlin.org");
   });
 });

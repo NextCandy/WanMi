@@ -11,6 +11,7 @@ interface SiteSettingsForm {
   accent_color: string;
   display_density: "compact" | "comfortable" | "spacious";
   featured_first: number;
+  show_prices: number;
   copyright_text: string | null;
   icp_number: string | null;
   contact_email: string | null;
@@ -48,7 +49,11 @@ export function SettingsView({ notify }: { notify: Notify }) {
     try {
       await api("/api/admin/settings", {
         method: "PATCH",
-        body: JSON.stringify({ ...form, featured_first: Boolean(form.featured_first) }),
+        body: JSON.stringify({
+          ...form,
+          featured_first: Boolean(form.featured_first),
+          show_prices: Boolean(form.show_prices),
+        }),
       });
       notify("站点设置已保存并影响前台");
     } catch (reason) {
@@ -160,6 +165,16 @@ export function SettingsView({ notify }: { notify: Notify }) {
             onChange={(event) => field("featured_first", event.target.checked ? 1 : 0)}
           />
           精品优先展示
+        </label>
+
+        <label className="check-row">
+          <input
+            type="checkbox"
+            className="check"
+            checked={Boolean(form.show_prices)}
+            onChange={(event) => field("show_prices", event.target.checked ? 1 : 0)}
+          />
+          前台显示已审核价格
         </label>
 
         <div className="upload-grid">

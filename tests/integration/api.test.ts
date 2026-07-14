@@ -157,9 +157,35 @@ describe.sequential("WanMi API 集成", () => {
   it("后台域名筛选接口返回真实后缀与自动分类统计", async () => {
     const response = await request("/api/admin/domains/filters", { headers: { Cookie: cookie } });
     expect(response.status).toBe(200);
-    const body = await response.json() as { data: { tlds: Array<{ tld: string; count: number }>; categories: Array<{ name: string; count: number }> } };
+    const body = await response.json() as { data: { tlds: Array<{ tld: string; count: number }>; categories: Array<{ name: string; count: number }>; registrars: Array<{ registrar: string; count: number }> } };
     expect(body.data.tlds.find((item) => item.tld === "com")?.count).toBeGreaterThan(0);
     expect(body.data.categories.some((item) => ["数字", "字母", "拼音", "英文", "杂米", "其他"].includes(item.name))).toBe(true);
+    expect(body.data.registrars.some((item) => item.registrar === "Spaceship" && item.count > 0)).toBe(true);
+  });
+
+  it("后台可按注册日期、到期日期、注册商筛选并排序", async () => {
+    const headers = { Cookie: cookie };
+    const filtered = await request("/api/admin/domains?registrar=Spaceship&registeredFrom=2025-01-01&registeredTo=2025-01-31&expiresFrom=2027-01-01&expiresTo=2027-01-31&orderBy=expires_at&dir=asc", { headers });
+    expect(filtered.status).toBe(200);
+    const body = await filtered.json() as { data: { items: Array<{ registrar: string; registered_at: string; expires_at: string }> } };
+    expect(body.data.items.length).toBeGreaterThan(0);
+    expect(body.data.items.every((item) => item.registrar === "Spaceship" && item.registered_at.startsWith("2025-01-") && item.expires_at.startsWith("2027-01-"))).toBe(true);
+    expect(body.data.items.map((item) => item.expires_at)).toEqual([...body.data.items.map((item) => item.expires_at)].sort());
+  });
+
+  it("站点设置完整表单可保存数值型开关", async () => {
+    const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
+    const current = await (await request("/api/admin/settings", { headers: { Cookie: cookie } })).json() as { data: Record<string, unknown> & { featured_first: number; show_prices: number } };
+    const response = await request("/api/admin/settings", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        ...current.data,
+        featured_first: Boolean(current.data.featured_first),
+        show_prices: Boolean(current.data.show_prices),
+      }),
+    });
+    expect(response.status).toBe(200);
   });
 
   it("退出后旧会话失效", async () => {

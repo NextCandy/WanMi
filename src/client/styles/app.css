@@ -1742,7 +1742,8 @@ button.dist-row {
   flex: 1 1 240px;
   min-width: 0;
 }
-.admin-toolbar select {
+.admin-toolbar select,
+.admin-date-filter input {
   min-height: 44px;
   padding: 0 32px 0 12px;
   border-radius: var(--radius-sm);
@@ -1752,8 +1753,29 @@ button.dist-row {
   font-size: 13px;
   outline: none;
 }
-.admin-toolbar select:focus {
+.admin-toolbar select:focus,
+.admin-date-filter input:focus {
   border-color: var(--gold-border);
+}
+.admin-date-filter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding-left: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-secondary);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.admin-date-filter input {
+  min-height: 42px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
 }
 .toolbar-count {
   margin-left: auto;

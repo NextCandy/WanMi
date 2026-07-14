@@ -54,6 +54,26 @@ function adminFilters(query: ReturnType<typeof adminDomainQuerySchema.parse>): {
     clauses.push("d.is_listed = ?");
     params.push(query.listed === "true" ? 1 : 0);
   }
+  if (query.registrar) {
+    clauses.push("d.registrar = ? COLLATE NOCASE");
+    params.push(query.registrar);
+  }
+  if (query.registeredFrom) {
+    clauses.push("date(d.registered_at) >= date(?)");
+    params.push(query.registeredFrom);
+  }
+  if (query.registeredTo) {
+    clauses.push("date(d.registered_at) <= date(?)");
+    params.push(query.registeredTo);
+  }
+  if (query.expiresFrom) {
+    clauses.push("date(d.expires_at) >= date(?)");
+    params.push(query.expiresFrom);
+  }
+  if (query.expiresTo) {
+    clauses.push("date(d.expires_at) <= date(?)");
+    params.push(query.expiresTo);
+  }
   if (query.ids) {
     const ids = query.ids.split(",").map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 500);
     if (ids.length > 0) clauses.push(`d.id IN (${ids.join(",")})`);
@@ -65,6 +85,9 @@ function adminOrderBy(query: ReturnType<typeof adminDomainQuerySchema.parse>): s
   const direction = query.dir === "desc" ? "DESC" : "ASC";
   const column =
     query.orderBy === "domain" ? "d.normalized_domain"
+    : query.orderBy === "registered_at" ? "d.registered_at"
+    : query.orderBy === "expires_at" ? "d.expires_at"
+    : query.orderBy === "registrar" ? "d.registrar COLLATE NOCASE"
     : null;
   if (column) return `${column} IS NULL, ${column} ${direction}, d.normalized_domain ASC`;
   if (query.sort === "domain_desc") return "d.normalized_domain DESC";
@@ -100,11 +123,12 @@ domainAdminRoutes.get("/", async (c) => {
 });
 
 domainAdminRoutes.get("/filters", async (c) => {
-  const [tlds, categories] = await c.env.DB.batch([
+  const [tlds, categories, registrars] = await c.env.DB.batch([
     c.env.DB.prepare("SELECT tld, COUNT(*) AS count FROM domains WHERE tld != '' GROUP BY tld ORDER BY count DESC, tld ASC"),
     c.env.DB.prepare("SELECT auto_category AS name, COUNT(*) AS count FROM domains GROUP BY auto_category ORDER BY count DESC, auto_category ASC"),
+    c.env.DB.prepare("SELECT registrar, COUNT(*) AS count FROM domains WHERE registrar IS NOT NULL AND registrar != '' GROUP BY registrar COLLATE NOCASE ORDER BY count DESC, registrar COLLATE NOCASE ASC"),
   ]);
-  return ok(c, { tlds: tlds.results, categories: categories.results });
+  return ok(c, { tlds: tlds.results, categories: categories.results, registrars: registrars.results });
 });
 
 domainAdminRoutes.post("/", async (c) => {
