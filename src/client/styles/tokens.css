@@ -1,0 +1,51 @@
+:root {
+  --color-paper: oklch(0.985 0.008 80);
+  --color-paper-2: oklch(0.972 0.01 80);
+  --color-surface: oklch(0.995 0.003 80);
+  --color-ink: oklch(0.18 0.02 260);
+  --color-ink-2: oklch(0.38 0.018 260);
+  --color-muted: oklch(0.54 0.015 260);
+  --color-faint: oklch(0.7 0.012 260);
+  --color-rule: oklch(0.89 0.012 80);
+  --color-rule-strong: oklch(0.8 0.018 80);
+  --color-accent: #e85d2a;
+  --color-accent-strong: #c8451b;
+  --color-focus: #e85d2a;
+  --color-premium: #f97316;
+  --color-sidebar: oklch(0.16 0.02 260);
+  --color-sidebar-accent: #f97316;
+
+  --font-display: "Noto Serif SC", "Songti SC", "STSong", ui-serif, serif;
+  --font-body: Inter, "PingFang SC", "Microsoft YaHei", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
+
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4.5rem;
+  --space-3xl: 7rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.25rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-short: 160ms;
+  --dur-medium: 220ms;
+  --dur-long: 280ms;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-round: 999px;
+  --rule-thin: 1px;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px -12px rgba(232, 93, 42, 0.12);
+}

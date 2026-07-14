@@ -1,6 +1,6 @@
 /* Hallmark · genre: modern-minimal · macrostructure: Catalogue + Workbench · theme: Coral · enrichment: none · nav: N9 · footer: Ft2 · designed-as-app · contrast: pass (40–41) · slop: pass (42–45) · honest: pass (46) · chrome: pass (47) · tokens: pass (48) · responsive: pass (49) · icons: pass (30) · mobile: pass (34, 49, 50–57) */
 /* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V5 */
-@import "../../../tokens.css";
+@import "./tokens.css";
 
 /* ============================================================
    WanMi Design System · oklch 语义令牌
@@ -465,7 +465,8 @@ a { color: inherit; text-decoration: none; }
   font-size: 12.5px; text-align: left;
   transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
-.admin-sidebar nav button > span { width: 18px; text-align: center; font-size: 15px; }
+.admin-sidebar nav button > span,
+.admin-sidebar nav button > svg { width: 18px; height: 18px; flex: 0 0 18px; text-align: center; font-size: 15px; }
 .admin-sidebar nav button:hover { background: color-mix(in oklab, oklch(100% 0 0) 6%, transparent); color: oklch(92% .008 85); }
 .admin-sidebar nav button.active { background: linear-gradient(180deg, var(--sidebar-active-a), var(--sidebar-active-b)); color: var(--sidebar-active-fg); font-weight: 650; box-shadow: 0 6px 16px color-mix(in oklab, oklch(0% 0 0) 28%, transparent); }
 .sidebar-user { margin-top: auto; border-top: 1px solid color-mix(in oklab, oklch(100% 0 0) 10%, transparent); padding: 14px 8px 0; display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -778,7 +779,8 @@ a { color: inherit; text-decoration: none; }
   .admin-brand, .sidebar-user { display: none; }
   .admin-sidebar nav { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(64px, 1fr); gap: 3px; min-width: max-content; }
   .admin-sidebar nav button { width: 64px; height: 56px; padding: 0 4px; justify-content: center; flex-direction: column; gap: 2px; font-size: 9px; border-radius: 9px; }
-  .admin-sidebar nav button > span { font-size: 14px; }
+  .admin-sidebar nav button > span,
+  .admin-sidebar nav button > svg { width: 14px; height: 14px; flex-basis: 14px; font-size: 14px; }
   .admin-sidebar nav button.active { box-shadow: none; }
   .admin-header { height: 66px; padding: 0 15px; }
   .admin-main > main { padding: 15px 12px 90px; }
@@ -949,7 +951,8 @@ a { color: inherit; text-decoration: none; }
   }
   .admin-sidebar nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-flow: row; gap: 3px; min-width: 0; }
   .admin-sidebar nav button { width: auto; min-width: 0; height: 48px; padding: 4px 2px; justify-content: center; flex-direction: column; gap: 1px; font-size: 9px; border-radius: 4px; }
-  .admin-sidebar nav button > span { width: auto; font-size: 13px; }
+  .admin-sidebar nav button > span,
+  .admin-sidebar nav button > svg { width: 13px; height: 13px; flex-basis: 13px; font-size: 13px; }
   .admin-sidebar nav button.active::before { inset: auto 8px -1px; width: auto; height: 3px; }
   .admin-header { height: 62px; padding: 0 13px; }
   .admin-header h1 { font-size: 19px; }
