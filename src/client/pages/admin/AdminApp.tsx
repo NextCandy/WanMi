@@ -13,6 +13,7 @@ import {
   Tag,
   type LucideIcon,
 } from "lucide-react";
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { Toast, type ToastMessage } from "../../components/Toast";
@@ -36,6 +37,7 @@ interface DashboardData {
   registrarCount: number;
   hasExpirationData: boolean;
   notificationHealth: Array<{ channel: NotificationChannelKey; enabled: number; last_test: string | null }>;
+  stats: { today: { pv: number; uv: number }; sevenDays: Array<{ day: string; pv: number; uv: number }>; topDomains: Array<{ domain: string; clicks: number; latest: number }>; conversion: { leads: number; clicks: number }; countries: Array<{ country: string; visitors: number }> };
 }
 
 interface AdminDomain {
@@ -107,7 +109,7 @@ function Panel({ title, description, actions, children }: { title: string; descr
   return <section className="admin-panel"><div className="panel-heading"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{actions && <div className="panel-actions">{actions}</div>}</div>{children}</section>;
 }
 
-function OverviewView({ onTldClick }: { onTldClick: (tld: string) => void }) {
+function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string) => void; onDomainClick?: (domain: string) => void }) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -122,6 +124,8 @@ function OverviewView({ onTldClick }: { onTldClick: (tld: string) => void }) {
   return <div className="admin-stack">
     <div className="stat-grid">{cards.map(([label, value]) => <div className="stat-card" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <div className="stat-grid">{kpiCards.map(([label, value, hint]) => <div className="stat-card" key={label}><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>)}</div>
+    <div className="stats-overview"><div className="stats-kpis"><div><span>今日 PV</span><strong>{data.stats.today.pv ?? 0}</strong></div><div><span>今日 UV</span><strong>{data.stats.today.uv ?? 0}</strong></div><div><span>求购转化率</span><strong>{data.stats.conversion.clicks ? `${(data.stats.conversion.leads / data.stats.conversion.clicks * 100).toFixed(1)}%` : "—"}</strong></div></div><div className="stats-chart"><ResponsiveContainer width="100%" height={180}><LineChart data={data.stats.sevenDays}><XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={10} /><Tooltip /><Line type="monotone" dataKey="pv" stroke="var(--brand)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="uv" stroke="var(--ink)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div></div>
+    <div className="admin-two-columns"><Panel title="域名点击 Top 10"><div className="kpi-list">{data.stats.topDomains.length ? data.stats.topDomains.map((item) => <button key={item.domain} onClick={() => onDomainClick?.(item.domain)}><span className="mono">{item.domain}</span><b>{item.clicks} 次</b><small title={formatExact(item.latest * 1000)}>{formatRelative(item.latest * 1000)}</small></button>) : <div className="empty-inline">尚无域名点击</div>}</div></Panel><Panel title="访客地区 Top 5"><div className="kpi-list">{data.stats.countries.map((item) => <div key={item.country}><span>{item.country}</span><b>{item.visitors}</b></div>)}</div></Panel></div>
     <Panel title="后缀分布" description="点击跳转到筛选后的域名管理"><div className="distribution-list">{data.tlds.slice(0, 12).map((item) => <a key={item.tld} onClick={() => onTldClick(item.tld)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onTldClick(item.tld); }}><span>.{item.tld}</span><div className="bar"><i style={{ width: `${Math.max(4, item.count / Math.max(data.counts.total, 1) * 100)}%` }} /></div><strong>{item.count}</strong></a>)}</div></Panel>
     <div className="admin-two-columns">
       <Panel title="90 天内到期"><div className="kpi-list">{data.expiring90d.length ? data.expiring90d.map((item) => <div key={item.full_domain}><span className="mono">{item.full_domain}</span><b>{new Date(item.expires_at).toLocaleDateString("zh-CN")}</b></div>) : <div className="empty-inline">暂无 90 天内到期的域名（或尚无到期数据）</div>}</div></Panel>
@@ -148,9 +152,9 @@ function loadColumns(): Set<string> {
 interface CategoryRow { id: number; name: string; domain_count: number; is_auto?: number }
 interface DomainFilterOptions { tlds: Array<{ tld: string; count: number }>; categories: Array<{ name: string; count: number }> }
 
-function DomainsView({ notify, presetTld }: { notify: (text: string, tone?: "success" | "error") => void; presetTld?: string }) {
+function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string, tone?: "success" | "error") => void; presetTld?: string; presetQuery?: string }) {
   const [data, setData] = useState<AdminDomainPage | null>(null);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(presetQuery ?? "");
   const [listed, setListed] = useState("");
   const [featured, setFeatured] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");

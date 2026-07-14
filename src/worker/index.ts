@@ -5,6 +5,7 @@ import { requireSameOrigin, securityHeaders } from "./middleware/security";
 import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
 import { publicRoutes } from "./routes/public";
+import { trackRoutes } from "./routes/track";
 import { runExpirationReminders } from "./services/expiration-reminders";
 import type { AppBindings, Env } from "./types";
 
@@ -14,6 +15,7 @@ app.use("/api/*", requireSameOrigin);
 
 app.get("/api/health", (c) => ok(c, { status: "ok", service: "WanMi" }));
 app.route("/api/public", publicRoutes);
+app.route("/api/track", trackRoutes);
 app.route("/api/auth", authRoutes);
 app.route("/api/admin", adminRoutes);
 
@@ -47,6 +49,8 @@ app.get("/sitemap.xml", async (c) => {
     { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } },
   );
 });
+
+app.get("/robots.txt", (c) => c.text("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/track\nSitemap: https://wanmi.org/sitemap.xml\n"));
 
 // /d/:domain —— 用 HTMLRewriter 在 SPA 外壳上注入独立 title/description/og/JSON-LD，
 // 无需完整 SSR 即可满足爬虫抓取；用户侧仍由 React 渲染

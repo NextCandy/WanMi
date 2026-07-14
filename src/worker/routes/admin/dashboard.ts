@@ -6,7 +6,7 @@ import type { AppBindings } from "../../types";
 export const dashboardRoutes = new Hono<AppBindings>();
 
 dashboardRoutes.get("/", async (c) => {
-  const [counts, tlds, recentLogs, registrars, expirations, leads, expiring, notificationHealth] = await c.env.DB.batch([
+  const [counts, tlds, recentLogs, registrars, expirations, leads, expiring, notificationHealth, todayStats, sevenDays, topDomains, conversion, countries] = await c.env.DB.batch([
     c.env.DB.prepare(`SELECT
       COUNT(*) AS total,
       SUM(CASE WHEN is_listed = 1 THEN 1 ELSE 0 END) AS listed,
@@ -25,6 +25,11 @@ dashboardRoutes.get("/", async (c) => {
        ORDER BY expires_at ASC LIMIT 10`,
     ),
     c.env.DB.prepare("SELECT channel, enabled, last_test FROM notify_channels ORDER BY channel"),
+    c.env.DB.prepare("SELECT SUM(CASE WHEN kind = 'page_view' THEN 1 ELSE 0 END) AS pv, COUNT(DISTINCT CASE WHEN kind = 'page_view' THEN visitor_id END) AS uv FROM stats_events WHERE ts >= unixepoch('now', 'start of day')"),
+    c.env.DB.prepare("SELECT date(ts, 'unixepoch') AS day, SUM(CASE WHEN kind = 'page_view' THEN 1 ELSE 0 END) AS pv, COUNT(DISTINCT CASE WHEN kind = 'page_view' THEN visitor_id END) AS uv FROM stats_events WHERE ts >= unixepoch('now', '-6 days', 'start of day') GROUP BY day ORDER BY day"),
+    c.env.DB.prepare("SELECT domain, COUNT(*) AS clicks, MAX(ts) AS latest FROM stats_events WHERE kind = 'domain_click' AND domain IS NOT NULL GROUP BY domain ORDER BY clicks DESC, latest DESC LIMIT 10"),
+    c.env.DB.prepare("SELECT SUM(CASE WHEN kind = 'lead_submit' THEN 1 ELSE 0 END) AS leads, SUM(CASE WHEN kind = 'domain_click' THEN 1 ELSE 0 END) AS clicks FROM stats_events"),
+    c.env.DB.prepare("SELECT COALESCE(country, '未知') AS country, COUNT(DISTINCT visitor_id) AS visitors FROM stats_events WHERE ts >= unixepoch('now', '-30 days') GROUP BY country ORDER BY visitors DESC LIMIT 5"),
   ]);
   const leadsRow = (leads.results[0] ?? {}) as { total?: number; fresh?: number };
   return ok(c, {
@@ -36,5 +41,12 @@ dashboardRoutes.get("/", async (c) => {
     registrarCount: Number((registrars.results[0] as { count?: number } | undefined)?.count ?? 0),
     hasExpirationData: Number((expirations.results[0] as { count?: number } | undefined)?.count ?? 0) > 0,
     notificationHealth: notificationHealth.results,
+    stats: {
+      today: todayStats.results[0] ?? { pv: 0, uv: 0 },
+      sevenDays: sevenDays.results,
+      topDomains: topDomains.results,
+      conversion: conversion.results[0] ?? { leads: 0, clicks: 0 },
+      countries: countries.results,
+    },
   });
 });

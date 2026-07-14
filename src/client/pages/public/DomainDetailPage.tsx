@@ -4,6 +4,7 @@ import { ThemeToggle } from "../../components/ThemeToggle";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { api } from "../../lib/api";
 import { copyText } from "../../lib/clipboard";
+import { useTracker } from "../../hooks/useTracker";
 import type { PublicDomain } from "../../../shared/types/api";
 
 interface RdapSummary {
@@ -28,6 +29,7 @@ function formatDate(value: string | null): string {
 }
 
 export function DomainDetailPage({ name }: { name: string }) {
+  const { trackDomainClick, trackLeadSubmit } = useTracker(`/d/${name}`);
   const [data, setData] = useState<DetailResponse | null>(null);
   const [error, setError] = useState("");
   const [rdap, setRdap] = useState<RdapSummary | null>(null);
@@ -77,6 +79,7 @@ export function DomainDetailPage({ name }: { name: string }) {
         }),
       });
       setOfferState("done");
+      trackLeadSubmit(name);
       notify("求购信息已发送，我们会尽快联系你");
     } catch (reason) {
       setOfferState("idle");
@@ -119,7 +122,7 @@ export function DomainDetailPage({ name }: { name: string }) {
           <>
             <div className="detail-head">
               <h1>{domain.name}<span>.{domain.tld}</span></h1>
-              <div className="detail-head-actions"><button className="secondary-button" onClick={() => void copyDomain()} title={`复制 ${domain.domain}`}>⧉ 复制域名</button><a className="primary-button" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer">访问域名 ↗</a></div>
+              <div className="detail-head-actions"><button className="secondary-button" onClick={() => void copyDomain()} title={`复制 ${domain.domain}`}>⧉ 复制域名</button><a className="primary-button" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer" onMouseDown={() => trackDomainClick(domain.domain)}>访问域名 ↗</a></div>
             </div>
             <div className="detail-badges">
               <span className="chip chip-brand">.{domain.tld}</span>

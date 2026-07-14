@@ -4,6 +4,7 @@ import { ThemeToggle } from "../../components/ThemeToggle";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { api } from "../../lib/api";
 import { copyText } from "../../lib/clipboard";
+import { useTracker } from "../../hooks/useTracker";
 import type { Paginated, PublicDomain } from "../../../shared/types/api";
 
 interface SiteSettings {
@@ -91,6 +92,7 @@ function MailIcon() {
 }
 
 export function PublicPage() {
+  const { trackDomainClick } = useTracker("/");
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [facets, setFacets] = useState<DomainFacets | null>(null);
   const [pageData, setPageData] = useState<Paginated<PublicDomain> | null>(null);
@@ -243,7 +245,7 @@ export function PublicPage() {
           {!loading && !error && pageData && pageData.items.length > 0 && <div className={`domain-list ${viewMode === "compact" ? "compact-view" : "card-view"}`} role="list">
             {pageData.items.map((domain, index) => <div className={`domain-card${domain.is_featured ? " featured" : ""}`} role="listitem" key={domain.id} style={{ animationDelay: `${Math.min(index * 18, 280)}ms` }}>
               <a className="card-cover" href={`/d/${encodeURIComponent(domain.domain)}`} aria-label={`查看 ${domain.domain} 详情`} />
-              <div className="domain-primary"><div className="domain-name"><strong>{domain.name}</strong><span>.{domain.tld}</span></div><div className="domain-tags">{domain.is_featured && <span className="chip chip-featured">精品</span>}{(domain.categories.length ? domain.categories : domain.category ? [domain.category] : []).map((category) => <span className="chip" key={category}>{category}</span>)}</div></div>
+              <div className="domain-primary"><div className="domain-name"><a href={`https://${domain.domain}`} target="_blank" rel="noopener nofollow" onMouseDown={() => trackDomainClick(domain.domain)}><strong>{domain.name}</strong><span>.{domain.tld}</span></a></div><div className="domain-tags">{domain.is_featured && <span className="chip chip-featured">精品</span>}{(domain.categories.length ? domain.categories : domain.category ? [domain.category] : []).map((category) => <span className="chip" key={category}>{category}</span>)}</div></div>
               <span className="domain-tld">.{domain.tld}</span><span className="domain-length">{domain.name.length}</span><p className="domain-description">{domain.description || "—"}</p>
               <div className="domain-actions"><button className="copy-button" title={`复制 ${domain.domain}`} onClick={() => void copyDomain(domain.domain)}><CopyIcon /><span>复制</span></button>{hasContact && <button className="contact-row-button" onClick={() => setContactOpen(true)}><MailIcon /><span>我想要</span></button>}<a href={`/d/${encodeURIComponent(domain.domain)}`}>详情 →</a></div>
             </div>)}

@@ -160,6 +160,18 @@ describe.sequential("WanMi API 集成", () => {
     expect(body.data.categories.some((item) => ["数字", "字母", "拼音", "英文", "杂米", "其他"].includes(item.name))).toBe(true);
   });
 
+  it("匿名统计仅保存 UA 摘要并进入概览", async () => {
+    const visitorId = crypto.randomUUID();
+    const response = await request("/api/track", { method: "POST", headers: { Origin: origin, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 Windows Chrome/120 private-token" }, body: JSON.stringify({ kind: "page_view", path: "/", visitor_id: visitorId }) });
+    expect(response.status).toBe(201);
+    const row = await env.DB.prepare("SELECT visitor_id, ua_summary FROM stats_events WHERE visitor_id = ?").bind(visitorId).first<{ visitor_id: string; ua_summary: string }>();
+    expect(row?.ua_summary).toBe("Chrome / Windows");
+    expect(JSON.stringify(row)).not.toContain("private-token");
+    const dashboard = await (await request("/api/admin/dashboard", { headers: { Cookie: cookie } })).json() as { data: { stats: { today: { pv: number; uv: number } } } };
+    expect(dashboard.data.stats.today.pv).toBeGreaterThan(0);
+    expect(dashboard.data.stats.today.uv).toBeGreaterThan(0);
+  });
+
   it("退出后旧会话失效", async () => {
     const response = await request("/api/auth/logout", { method: "POST", headers: { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf } });
     expect(response.status).toBe(200);
