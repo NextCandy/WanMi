@@ -16,7 +16,7 @@ export interface DomainClassification {
 const PINYIN_INITIALS = ["zh", "ch", "sh", "b", "p", "m", "f", "d", "t", "n", "l", "g", "k", "h", "j", "q", "x", "r", "z", "c", "s", "y", "w", ""];
 const PINYIN_FINALS = ["iang", "iong", "uang", "iao", "ian", "ing", "ong", "ang", "eng", "uan", "uai", "ai", "ei", "ao", "ou", "an", "en", "er", "ia", "ie", "iu", "in", "ua", "uo", "ui", "un", "ve", "ue", "a", "o", "e", "i", "u", "v"];
 
-// 与 dog.do 的前缀分类器保持同一套贪心声母/韵母拆分规则。
+// 使用稳定的贪心声母/韵母拆分规则，确保自动分类结果可复现。
 export function pinyinSyllableCount(value: string): number | null {
   let rest = value.trim().toLowerCase();
   if (!/^[a-z]+$/.test(rest)) return null;

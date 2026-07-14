@@ -108,6 +108,7 @@ export const settingsPatchSchema = z
     accent_color: z.string().regex(/^#[0-9a-f]{6}$/i),
     display_density: z.enum(["compact", "comfortable", "spacious"]),
     featured_first: z.boolean(),
+    show_admin_link_in_footer: z.boolean(),
     show_prices: z.boolean(),
     copyright_text: z.string().trim().max(160).nullable(),
     icp_number: z.string().trim().max(80).nullable(),

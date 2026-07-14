@@ -37,6 +37,7 @@ interface SettingsRow {
   contact_wechat: string | null;
   contact_telegram: string | null;
   wechat_qr_url: string | null;
+  show_admin_link_in_footer: number;
 }
 
 const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.description,
@@ -66,13 +67,14 @@ publicRoutes.get("/settings", async (c) => {
   const settings = await c.env.DB.prepare(
     `SELECT site_name, site_description, site_bio, logo_url, favicon_url, accent_color, display_density,
       featured_first, copyright_text, icp_number, contact_email, contact_wechat,
-      contact_telegram, wechat_qr_url
+      contact_telegram, wechat_qr_url, show_admin_link_in_footer
      FROM site_settings WHERE id = 1`,
   ).first<SettingsRow>();
   if (!settings) return fail(c, 503, "SETTINGS_UNAVAILABLE", "站点设置尚未初始化");
   return ok(c, {
     ...settings,
     featured_first: settings.featured_first === 1,
+    show_admin_link_in_footer: settings.show_admin_link_in_footer === 1,
   });
 });
 

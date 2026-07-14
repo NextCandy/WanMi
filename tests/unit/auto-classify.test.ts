@@ -27,7 +27,7 @@ describe("域名自动分类", () => {
     expect(classifyDomainName("123456789")).toEqual(["纯数字", "九数字"]);
   });
 
-  it("覆盖 dog.do 的四拼、字母与杂米子类", () => {
+  it("覆盖四拼、字母与杂米子类", () => {
     expect(classifyDomainName("wanmijiale")).toEqual(["纯字母", "拼音", "四拼"]);
     expect(classifyDomainName("xyz")).toEqual(["纯字母", "三字母"]);
     expect(classifyDomainName("a8")).toEqual(["杂米", "二杂"]);

@@ -649,6 +649,11 @@ a { color: inherit; text-decoration: none; }
 .password-strength { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .password-strength i { height: 3px; border-radius: 999px; background: var(--border); }
 .password-strength i.active { background: var(--brand); }
+.integration-details > summary { cursor: pointer; padding: 13px 15px; border: 1px solid var(--border); border-radius: 9px; font-weight: 700; }
+.integration-details[open] > summary { margin-bottom: 16px; border-color: var(--brand); color: var(--brand); }
+.integration-details .admin-panel { box-shadow: none; }
+.footer-admin-link { margin-left: auto; color: var(--fg-3); font-size: 10px; opacity: .55; }
+.footer-admin-link:hover { color: var(--brand); opacity: 1; }
 @media (max-width: 720px) { .reminder-editor { grid-template-columns: 1fr; } }
 .channel-card { min-height: 58px; display: grid; grid-template-columns: 120px minmax(180px, 1fr) auto; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-m); transition: border-color var(--dur-1) var(--ease); }
 .channel-card:hover { border-color: var(--border-strong); }

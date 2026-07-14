@@ -19,6 +19,7 @@ interface SiteSettings {
   contact_wechat: string | null;
   contact_telegram: string | null;
   wechat_qr_url: string | null;
+  show_admin_link_in_footer: boolean;
 }
 
 interface DomainFacets {
@@ -202,7 +203,7 @@ export function PublicPage() {
           <a className="active" href="#domains">域名</a>
           {hasContact && <button className="text-button" onClick={() => setContactOpen(true)}>联系</button>}
         </nav>
-        <div className="header-actions"><ThemeToggle /><a className="admin-link" href="/admin">管理后台</a></div>
+        <div className="header-actions"><ThemeToggle /></div>
       </header>
 
       <main className="catalogue-layout" id="domains">
@@ -254,7 +255,7 @@ export function PublicPage() {
 
       {categoryOpen && <div className="category-drawer-backdrop" onClick={() => setCategoryOpen(false)}><section className="category-drawer" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="更多分类"><header><h2>全部分类</h2><button onClick={() => setCategoryOpen(false)}>×</button></header><div>{categories.map((option) => <button key={option.value || "all"} onClick={() => { selectCategory(option.value); setCategoryOpen(false); }}><span>{option.icon}</span>{option.label}<small>{option.count}</small></button>)}</div></section></div>}
 
-      <footer className="public-footer"><div><strong>{settings?.site_name ?? "玩米"}</strong><span>{settings?.copyright_text || `© ${new Date().getFullYear()} 保留所有权利`}</span></div>{settings?.icp_number && <span>{settings.icp_number}</span>}{hasContact && <button onClick={() => setContactOpen(true)}><MailIcon />联系我们</button>}</footer>
+      <footer className="public-footer"><div><strong>{settings?.site_name ?? "玩米"}</strong><span>{settings?.copyright_text || `© ${new Date().getFullYear()} 保留所有权利`}</span></div>{settings?.icp_number && <span>{settings.icp_number}</span>}{hasContact && <button onClick={() => setContactOpen(true)}><MailIcon />联系我们</button>}{settings?.show_admin_link_in_footer && <a className="footer-admin-link" href="/admin">管理</a>}</footer>
 
       {contactOpen && settings && <div className="modal-backdrop" onMouseDown={() => setContactOpen(false)}><div className="contact-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="contact-title"><button className="modal-close" aria-label="关闭" onClick={() => setContactOpen(false)}>×</button><h2 id="contact-title">联系玩米</h2><p>请附上你感兴趣的完整域名。</p><div className="contact-list">{settings.contact_email && <a href={`mailto:${settings.contact_email}`}>邮箱 <strong>{settings.contact_email}</strong></a>}{settings.contact_telegram && <a href={`https://t.me/${settings.contact_telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">Telegram <strong>{settings.contact_telegram}</strong></a>}{settings.contact_wechat && <button onClick={() => void copyText(settings.contact_wechat!).then((ok) => notify(ok ? "微信号已复制" : "复制失败", ok ? "success" : "error"))}>微信 <strong>{settings.contact_wechat}</strong></button>}{settings.wechat_qr_url && <img className="qr-code" src={settings.wechat_qr_url} alt="玩米微信二维码" />}</div></div></div>}
       <Toast message={toast} onClose={() => setToast(null)} />
