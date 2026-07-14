@@ -227,15 +227,12 @@ export function PublicPage() {
         </aside>
 
         <section className="domain-section">
-          <div className="public-hero"><div className="hero-copy"><span className="eyebrow">WANMI DOMAIN COLLECTION</span><h1>发现一个<br /><em>好域名</em></h1><p>{settings?.site_bio || settings?.site_description || "精选易记、简短、有价值的域名，分类清晰，查找便捷。"}</p><form className="filter-search" onSubmit={submitSearch}>
-            <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="搜索完整域名，例如 wanmi.org" aria-label="搜索域名" />
-            {draftSearch && <button className="search-clear" type="button" aria-label="清空搜索" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
-            <button className="search-submit" type="submit">搜索</button>
-          </form><div className="hero-chips">{pageData?.items.filter((item) => item.is_featured).slice(0, 3).map((item) => <a key={item.id} href={`/d/${encodeURIComponent(item.domain)}`}>{item.domain}</a>)}</div></div>{pageData?.items[0] && <button className="hero-domain-card" onClick={() => void copyDomain(pageData.items[0].domain)}><span>本期精选</span><strong>{pageData.items[0].name}<em>.{pageData.items[0].tld}</em></strong><p>{pageData.items[0].description || "点击复制这个域名"}</p><small>点击复制</small></button>}</div>
-
-          {pageData && pageData.items.some((item) => item.is_featured) && <section className="featured-strip"><div><span>FEATURED</span><h2>精品域名</h2></div><div className="featured-scroller">{pageData.items.filter((item) => item.is_featured).slice(0, 8).map((item) => <a href={`/d/${encodeURIComponent(item.domain)}`} key={item.id}><strong>{item.name}<em>.{item.tld}</em></strong><span>{item.description || "值得关注的精品域名"}</span></a>)}</div></section>}
-
           <div className="catalogue-toolbar">
+            <form className="filter-search" onSubmit={submitSearch}>
+              <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="搜索完整域名，例如 wanmi.org" aria-label="搜索域名" />
+              {draftSearch && <button className="search-clear" type="button" aria-label="清空搜索" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
+              <button className="search-submit" type="submit">搜索</button>
+            </form>
             <div className="toolbar-filters">
               <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => setFilters((current) => ({ ...current, tld: event.target.value, page: 1 }))}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
               <label><span>位数</span><select aria-label="位数筛选" value={["two", "three"].includes(filters.group) ? filters.group : "all"} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as GroupKey, page: 1 }))}><option value="all">全部</option><option value="two">2 位</option><option value="three">3 位</option></select></label>

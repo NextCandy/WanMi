@@ -1070,29 +1070,6 @@ a { color: inherit; text-decoration: none; }
 .category-item::before { display: none; }
 .category-item.active { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
 .category-label { padding-left: 2px; }
-.public-hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(310px, .8fr); gap: clamp(28px, 6vw, 88px); align-items: center; min-height: 430px; padding: clamp(36px, 5vw, 72px); margin-bottom: 40px; border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.5); background: radial-gradient(circle at 80% 12%, color-mix(in oklab, var(--brand) 13%, transparent), transparent 36%), var(--surface-2); box-shadow: var(--shadow); overflow: hidden; }
-.hero-copy { max-width: 680px; }
-.hero-copy .eyebrow { color: var(--brand); font-size: 10px; font-weight: 800; letter-spacing: .18em; }
-.hero-copy h1 { margin: 14px 0 16px; font-family: var(--font-heading); font-size: clamp(48px, 7vw, 84px); line-height: .98; letter-spacing: -.06em; }
-.hero-copy h1 em { color: var(--brand); font-style: normal; }
-.hero-copy > p { max-width: 560px; color: var(--fg-2); font-size: 15px; line-height: 1.8; }
-.hero-copy .filter-search { max-width: 620px; margin-top: 30px; }
-.hero-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.hero-chips a { padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--fg-2); font-family: var(--font-mono); font-size: 11px; }
-.hero-domain-card { min-height: 270px; padding: 28px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; border: 1px solid color-mix(in oklab, var(--brand) 28%, var(--border)); border-radius: var(--radius); background: color-mix(in oklab, var(--brand) 5%, var(--surface)); box-shadow: var(--shadow); transform: rotate(1.5deg); }
-.hero-domain-card > span { color: var(--brand); font-size: 10px; font-weight: 800; letter-spacing: .15em; }
-.hero-domain-card strong { margin: auto 0 14px; font-family: var(--font-mono); font-size: clamp(27px, 4vw, 46px); letter-spacing: -.06em; }
-.hero-domain-card strong em { color: var(--brand); font-style: normal; }
-.hero-domain-card p { color: var(--fg-2); line-height: 1.6; }
-.hero-domain-card small { margin-top: auto; color: var(--fg-3); }
-.featured-strip { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; margin-bottom: 32px; padding: 20px 0; border-block: 1px solid var(--border); }
-.featured-strip > div:first-child span { color: var(--brand); font-size: 9px; font-weight: 800; letter-spacing: .16em; }
-.featured-strip h2 { margin: 5px 0 0; font-family: var(--font-heading); }
-.featured-scroller { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; }
-.featured-scroller a { flex: 0 0 230px; display: grid; gap: 8px; padding: 15px; border-radius: var(--radius); background: var(--brand-soft); }
-.featured-scroller strong { font-family: var(--font-mono); }
-.featured-scroller em { color: var(--brand); font-style: normal; }
-.featured-scroller span { color: var(--fg-2); font-size: 11px; }
 .view-switch { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: 9px; }
 .view-switch button { padding: 5px 9px; border-radius: 6px; font-size: 10px; }
 .view-switch button.active { color: white; background: var(--ink); }
@@ -1115,8 +1092,8 @@ a { color: inherit; text-decoration: none; }
 .category-drawer > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .category-drawer > div button { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; padding: 12px; text-align: left; border: 1px solid var(--border); border-radius: 9px; }
 .category-drawer small { color: var(--fg-3); }
-@media (max-width: 900px) { .public-hero { grid-template-columns: 1fr; min-height: 0; padding: 34px 24px; } .hero-domain-card { min-height: 210px; transform: none; } .domain-list.card-view { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px) { .catalogue-layout { padding-top: 14px; } .public-hero { margin-bottom: 24px; } .hero-copy h1 { font-size: 48px; } .featured-strip { grid-template-columns: 1fr; } .domain-list.card-view { grid-template-columns: 1fr; } .domain-list.card-view .domain-card { min-height: 160px; } .category-drawer > div { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .domain-list.card-view { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .catalogue-layout { padding-top: 14px; } .domain-list.card-view { grid-template-columns: 1fr; } .domain-list.card-view .domain-card { min-height: 160px; } .category-drawer > div { grid-template-columns: 1fr 1fr; } }
 
 /* Public catalogue 2026 — category-first editorial list */
 .public-shell {
@@ -1451,35 +1428,9 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 1px 0 color-mix(in oklab, var(--border) 54%, transparent), 0 16px 42px -34px rgba(64, 42, 20, .35);
   backdrop-filter: blur(18px) saturate(1.15);
 }
-.public-shell .public-hero {
-  position: relative;
-  isolation: isolate;
-  border: 0;
-  border-radius: 30px;
-  background:
-    radial-gradient(ellipse at 86% 14%, color-mix(in oklab, var(--brand) 18%, transparent), transparent 42%),
-    radial-gradient(ellipse at 12% 102%, color-mix(in oklab, var(--brand) 8%, transparent), transparent 44%),
-    var(--surface-2);
-  box-shadow: 0 1px 2px rgba(49, 35, 21, .04), 0 26px 70px -46px rgba(90, 54, 18, .42);
-}
-.public-shell .public-hero::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  right: -8%;
-  bottom: -46%;
-  width: 48%;
-  aspect-ratio: 1.8;
-  border: 22px solid color-mix(in oklab, var(--brand) 7%, transparent);
-  border-radius: 50%;
-  transform: rotate(-8deg);
-}
-.public-shell .hero-domain-card {
-  border: 0;
-  border-radius: 25px;
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 60%, transparent), 0 22px 60px -38px rgba(65, 40, 17, .4);
-}
 .public-shell .filter-search {
+  width: 100%;
+  max-width: none;
   border-color: color-mix(in oklab, var(--border-strong) 68%, transparent);
   border-radius: 15px;
   box-shadow: 0 12px 32px -28px rgba(56, 37, 18, .5);
@@ -1492,21 +1443,20 @@ a { color: inherit; text-decoration: none; }
   transition: transform 180ms var(--ease), box-shadow 180ms var(--ease), border-color 180ms var(--ease), background 180ms var(--ease);
 }
 .public-shell .category-item:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -18px rgba(54, 35, 18, .46); }
-.public-shell .featured-strip {
-  border: 0;
-  border-radius: 24px;
-  padding: 20px 22px;
-  background: linear-gradient(120deg, color-mix(in oklab, var(--brand-soft) 62%, var(--surface-2)), var(--surface-2));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 45%, transparent), 0 18px 45px -38px rgba(70, 43, 17, .4);
-}
-.public-shell .featured-scroller a { border-radius: 17px; }
 .public-shell .catalogue-toolbar {
+  grid-template-columns: minmax(320px, 1fr) auto auto;
+  gap: 12px 16px;
+  margin: 0 0 18px;
   border: 0;
   border-radius: 20px;
   padding: 13px 15px;
   background: color-mix(in oklab, var(--surface-1) 60%, var(--surface-2));
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 46%, transparent), 0 16px 36px -34px rgba(54, 35, 18, .42);
 }
+.public-shell .catalogue-toolbar .filter-search { grid-column: 1 / -1; }
+.public-shell .catalogue-toolbar .toolbar-filters { grid-column: 1; }
+.public-shell .catalogue-toolbar .sort-row { grid-column: 2; }
+.public-shell .catalogue-toolbar .toolbar-summary { grid-column: 3; }
 .public-shell .toolbar-filters label { border-color: transparent; border-radius: 12px; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 64%, transparent); }
 .public-shell .sort-row button { border-radius: 10px; }
 .public-shell .domain-list.card-view .domain-card {
@@ -1538,10 +1488,12 @@ a { color: inherit; text-decoration: none; }
 }
 
 @media (max-width: 780px) {
-  .public-shell .public-hero { border-radius: 22px; }
-  .public-shell .public-hero::after { right: -24%; bottom: -22%; width: 78%; }
   .public-shell .category-rail { border-bottom: 0; }
   .public-shell .catalogue-toolbar { border-radius: 17px; padding: 14px; }
+  .public-shell .catalogue-toolbar .filter-search,
+  .public-shell .catalogue-toolbar .toolbar-filters,
+  .public-shell .catalogue-toolbar .sort-row,
+  .public-shell .catalogue-toolbar .toolbar-summary { grid-column: auto; }
   .public-shell .domain-list.card-view .domain-card { padding: 15px; border-radius: 17px; }
   .public-shell .public-footer { margin: 18px 14px 14px; border-radius: 20px; }
 }
