@@ -24,19 +24,6 @@ export const publicDomainQuerySchema = z.object({
     .default("default"),
 });
 
-export const offerInputSchema = z.object({
-  domain: z.string().trim().min(3).max(253),
-  contact: z.string().trim().min(3).max(200),
-  amount: z
-    .string()
-    .trim()
-    .regex(/^\d+(?:\.\d+)?$/, "报价必须是数字")
-    .nullable()
-    .optional(),
-  currency: z.string().trim().length(3).toUpperCase().nullable().optional(),
-  message: z.string().trim().max(1000).nullable().optional(),
-});
-
 export const adminDomainQuerySchema = publicDomainQuerySchema.extend({
   listed: z.enum(["true", "false"]).optional(),
   listingStatus: z.string().trim().max(120).optional(),
@@ -52,16 +39,6 @@ export const adminDomainQuerySchema = publicDomainQuerySchema.extend({
 
 export const categoryInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
-});
-
-export const leadsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).default(50),
-  status: z.enum(["new", "read", "archived"]).optional(),
-});
-
-export const leadPatchSchema = z.object({
-  status: z.enum(["new", "read", "archived"]),
 });
 
 export const logsQuerySchema = z.object({
@@ -156,27 +133,3 @@ export const notificationPatchSchema = z
   })
   .partial();
 
-export const registrarInputSchema = z.object({
-  provider: z.enum(["cloudflare", "godaddy", "namesilo", "porkbun", "dnspod", "aliyun", "spaceship", "namecheap", "dynadot"]),
-  displayName: z.string().trim().min(1).max(120),
-  credentials: z.record(z.string(), z.string().max(5000)),
-});
-
-export const registrarPatchSchema = z.object({
-  displayName: z.string().trim().min(1).max(120).optional(),
-  credentials: z.record(z.string(), z.string().max(5000)).optional(),
-});
-
-export const dnsRecordSchema = z.object({
-  type: z.enum(["A", "AAAA", "CNAME", "MX", "TXT", "NS", "CAA", "SRV"]),
-  name: z.string().trim().min(1).max(253).default("@"),
-  content: z.string().trim().min(1).max(4096),
-  ttl: z.number().int().min(1).max(604800).nullable().optional(),
-  priority: z.number().int().min(0).max(65535).nullable().optional(),
-  proxied: z.boolean().nullable().optional(),
-});
-
-export const bulkDnsSchema = z.object({
-  domainIds: z.array(z.number().int().positive()).min(1).max(100),
-  record: dnsRecordSchema,
-});

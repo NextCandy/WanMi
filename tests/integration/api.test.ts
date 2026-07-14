@@ -132,16 +132,18 @@ describe.sequential("WanMi API 集成", () => {
     expect((await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ description: "", isFeatured: false }) })).status).toBe(200);
   });
 
-  it("DNS API 失败时不修改本地缓存", async () => {
-    const before = await env.DB.prepare("SELECT COUNT(*) AS count FROM dns_records_cache WHERE domain_id = ?").bind(targetId).first<{ count: number }>();
-    const response = await request(`/api/admin/domains/${targetId}/dns`, {
-      method: "POST",
-      headers: { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "A", name: "@", content: "192.0.2.10", ttl: 600 }),
-    });
-    const after = await env.DB.prepare("SELECT COUNT(*) AS count FROM dns_records_cache WHERE domain_id = ?").bind(targetId).first<{ count: number }>();
-    expect(response.status).toBe(502);
-    expect(after?.count).toBe(before?.count);
+  // 注册商 / DNS 解析 / 求购线索已整体移除，对应端点必须不再可达
+  it("已移除的注册商、DNS 与求购线索端点全部 404", async () => {
+    const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
+    const gone = [
+      await request("/api/admin/registrars", { headers }),
+      await request("/api/admin/leads", { headers }),
+      await request(`/api/admin/domains/${targetId}/dns`, { headers }),
+      await request("/api/public/offers", { method: "POST", headers, body: JSON.stringify({ domain: "02cloud.com", contact: "a@b.com" }) }),
+      await request("/api/public/rdap/02cloud.com"),
+      await request("/api/public/domains/02cloud.com"),
+    ];
+    for (const response of gone) expect(response.status).toBe(404);
   });
 
   it("隐藏和重新上架会立即影响公共 API", async () => {

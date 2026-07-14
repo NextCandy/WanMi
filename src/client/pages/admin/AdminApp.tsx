@@ -4,13 +4,10 @@ import { BrandMark } from "../../components/AppShell";
 import {
   IconArrowUpRight,
   IconBell,
-  IconBuilding,
   IconDoc,
   IconGlobe,
   IconHome,
-  IconInbox,
   IconLogout,
-  IconRoute,
   IconSettings,
   IconShield,
   IconTag,
@@ -19,13 +16,10 @@ import { Toast, type ToastMessage } from "../../components/Toast";
 import { ApiError, api } from "../../lib/api";
 import type { AdminUser, AdminView } from "./types";
 import { CategoriesView } from "./views/CategoriesView";
-import { DnsView } from "./views/DnsView";
 import { DomainsView } from "./views/DomainsView";
-import { LeadsView } from "./views/LeadsView";
 import { LogsView } from "./views/LogsView";
 import { NotificationsView } from "./views/NotificationsView";
 import { OverviewView } from "./views/OverviewView";
-import { RegistrarsView } from "./views/RegistrarsView";
 import { SecurityView } from "./views/SecurityView";
 import { SettingsView } from "./views/SettingsView";
 
@@ -33,9 +27,6 @@ const NAV: Array<[AdminView, string, ReactNode]> = [
   ["overview", "概览", <IconHome size={19} key="i" />],
   ["domains", "域名管理", <IconGlobe size={19} key="i" />],
   ["categories", "分类", <IconTag size={19} key="i" />],
-  ["leads", "线索", <IconInbox size={19} key="i" />],
-  ["dns", "DNS 解析", <IconRoute size={19} key="i" />],
-  ["registrars", "注册商", <IconBuilding size={19} key="i" />],
   ["settings", "站点设置", <IconSettings size={19} key="i" />],
   ["notifications", "到期提醒", <IconBell size={19} key="i" />],
   ["security", "账户安全", <IconShield size={19} key="i" />],
@@ -207,9 +198,6 @@ export function AdminApp() {
           )}
           {view === "domains" && <DomainsView key={presetTld ?? "all"} notify={notify} presetTld={presetTld} />}
           {view === "categories" && <CategoriesView notify={notify} />}
-          {view === "leads" && <LeadsView notify={notify} />}
-          {view === "dns" && <DnsView notify={notify} />}
-          {view === "registrars" && <RegistrarsView notify={notify} />}
           {view === "settings" && <SettingsView notify={notify} />}
           {view === "notifications" && <NotificationsView notify={notify} />}
           {view === "security" && <SecurityView user={user} notify={notify} />}

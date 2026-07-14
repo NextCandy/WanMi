@@ -16,8 +16,10 @@ Premium Black Asset Dashboard / iOS Dark Luxury。
 
 - **首页 `/`**：资产总览 Dashboard。亮卡（Hero）+ 三栏指标 + 资产结构 + 最近添加/更新。
 - **域名列表 `/domains`**：统计卡 → 搜索 → 一级 Segmented → 二级分类 Chip → 域名卡片网格 → 分页。
-- **详情 `/d/:name`**：大号 Serif 域名 + 徽章 + Whois 摘要 + 相关域名 + 求购表单。
-- **后台 `/admin`**：左侧窄侧栏 + 顶部工具栏 + 主内容区；手机端侧栏转两行 10 宫格导航。
+- **后台 `/admin`**：左侧窄侧栏 + 顶部工具栏 + 主内容区；手机端侧栏转两行导航（7 个模块）。
+
+**没有站内域名详情页**：点击域名直接在新标签页打开该域名本身（`https://<domain>`，
+`rel="noopener noreferrer nofollow"`）。旧的 `/d/<domain>` 链接回落到域名列表并预填搜索词。
 
 ## Theme —— 唯一暗色主题
 
@@ -64,7 +66,7 @@ Premium Black Asset Dashboard / iOS Dark Luxury。
 - **手机端**：底部固定导航（`--bottom-nav-h` + `env(safe-area-inset-bottom)`），正文必须预留该高度。
 - **桌面端**：底部导航隐藏，转顶部导航。禁止桌面端出现悬浮的手机版底部导航。
 - `html` / `body` 使用 `overflow-x: clip`；域名文本用 `overflow-wrap: anywhere`。
-- 后台十个模块在手机端完整显示为两行导航，不以横向滚动隐藏功能。
+- 后台七个模块在手机端完整显示为两行导航，不以横向滚动隐藏功能。
 - 后台域名列表在窄屏由栅格转为卡片；简介列隐藏时，编辑入口必须仍在操作区可用。
 
 ## Shared components

@@ -75,6 +75,27 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
   });
 
+  test("点击域名直接跳转到该域名本身，不再进入站内详情页", async ({ page }) => {
+    await page.goto("/domains", { waitUntil: "domcontentloaded" });
+    await searchDomains(page, "wanmi.org");
+
+    const card = page.locator(".domain-card").first();
+    const link = card.getByRole("link", { name: "打开 wanmi.org" });
+    // 指向域名本身；外链必须新窗口打开且带 noopener，避免 window.opener 劫持
+    await expect(link).toHaveAttribute("href", "https://wanmi.org");
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", /noopener/);
+
+    // 求购意向表单已整体移除
+    await expect(page.getByText("提交求购意向")).toHaveCount(0);
+  });
+
+  test("旧的 /d/ 详情页链接回落到域名列表并预填搜索", async ({ page }) => {
+    await page.goto("/d/02cloud.com", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/domains\?q=02cloud\.com/);
+    await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
+  });
+
   test("管理员真实登录、隐藏与恢复域名、退出", async ({ page, context }) => {
     const credentials = localCredentials();
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
@@ -157,7 +178,7 @@ test.describe.serial("WanMi 生产流程", () => {
   test("手机端没有横向溢出且底部导航可用", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
-    for (const path of ["/", "/domains", "/d/wanmi.org"]) {
+    for (const path of ["/", "/domains"]) {
       await page.goto(path, { waitUntil: "domcontentloaded" });
       const widths = await page.evaluate(() => ({
         scroll: document.documentElement.scrollWidth,
@@ -174,5 +195,22 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.goto("/domains", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".bottom-nav")).toBeHidden();
     await expect(page.locator(".top-nav nav")).toBeVisible();
+  });
+
+  test("后台已移除 DNS / 注册商 / 线索三个模块", async ({ page }) => {
+    const credentials = localCredentials();
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("管理员邮箱").fill(credentials.email);
+    await page.getByLabel("密码").fill(credentials.password);
+    await page.getByRole("button", { name: "登录", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "概览", exact: true })).toBeVisible();
+
+    const nav = page.locator(".admin-sidebar nav button");
+    await expect(nav).toHaveCount(7);
+    for (const gone of ["DNS 解析", "注册商", "线索"]) {
+      await expect(nav.filter({ hasText: gone })).toHaveCount(0);
+    }
+    // 到期提醒与通知渠道按要求保留
+    await expect(nav.filter({ hasText: "到期提醒" })).toHaveCount(1);
   });
 });

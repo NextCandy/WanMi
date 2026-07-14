@@ -17,3 +17,6 @@ test-results/
 *.sqlite-wal
 .DS_Store
 .claude/
+
+# CSV 解析中间产物（可由 pnpm domains:parse 重新生成）
+data/generated/

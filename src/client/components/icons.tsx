@@ -35,15 +35,6 @@ export const IconHome = (props: IconProps) => (
   </Svg>
 );
 
-export const IconGrid = (props: IconProps) => (
-  <Svg {...props}>
-    <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
-    <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
-    <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
-    <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
-  </Svg>
-);
-
 export const IconSearch = (props: IconProps) => (
   <Svg {...props}>
     <circle cx="11" cy="11" r="6.5" />
@@ -80,30 +71,6 @@ export const IconTag = (props: IconProps) => (
   </Svg>
 );
 
-export const IconInbox = (props: IconProps) => (
-  <Svg {...props}>
-    <path d="M3.5 13.5 6 5.2a1.5 1.5 0 0 1 1.45-1.1h9.1A1.5 1.5 0 0 1 18 5.2l2.5 8.3" />
-    <path d="M3.5 13.5h4l1.2 2.4h6.6l1.2-2.4h4v4.9a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z" />
-  </Svg>
-);
-
-export const IconRoute = (props: IconProps) => (
-  <Svg {...props}>
-    <circle cx="6" cy="6" r="2.5" />
-    <circle cx="18" cy="18" r="2.5" />
-    <path d="M8.5 6h5A4.5 4.5 0 0 1 18 10.5v5" />
-  </Svg>
-);
-
-export const IconBuilding = (props: IconProps) => (
-  <Svg {...props}>
-    <path d="M4 20.5h16" />
-    <path d="M5.5 20.5V5a1.5 1.5 0 0 1 1.5-1.5h6A1.5 1.5 0 0 1 14.5 5v15.5" />
-    <path d="M14.5 20.5V10h3A1.5 1.5 0 0 1 19 11.5v9" />
-    <path d="M8.5 7.5h3M8.5 11h3M8.5 14.5h3" />
-  </Svg>
-);
-
 export const IconSettings = (props: IconProps) => (
   <Svg {...props}>
     <circle cx="12" cy="12" r="3" />
@@ -125,13 +92,6 @@ export const IconShield = (props: IconProps) => (
   </Svg>
 );
 
-export const IconList = (props: IconProps) => (
-  <Svg {...props}>
-    <path d="M8.5 6.5h12M8.5 12h12M8.5 17.5h12" />
-    <path d="M4 6.5h.01M4 12h.01M4 17.5h.01" />
-  </Svg>
-);
-
 export const IconPlus = (props: IconProps) => (
   <Svg {...props}>
     <path d="M12 5v14M5 12h14" />
@@ -147,13 +107,6 @@ export const IconChevronRight = (props: IconProps) => (
 export const IconChevronLeft = (props: IconProps) => (
   <Svg {...props}>
     <path d="M14.5 5.5 8 12l6.5 6.5" />
-  </Svg>
-);
-
-export const IconArrowLeft = (props: IconProps) => (
-  <Svg {...props}>
-    <path d="M20 12H4.5" />
-    <path d="m10.5 5.5-6 6.5 6 6.5" />
   </Svg>
 );
 
@@ -182,14 +135,6 @@ export const IconLogout = (props: IconProps) => (
     <path d="M9.5 20.5H6A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5h3.5" />
     <path d="M15.5 16 20 12l-4.5-4" />
     <path d="M20 12H9.5" />
-  </Svg>
-);
-
-export const IconFilter = (props: IconProps) => (
-  <Svg {...props}>
-    <path d="M4 6h16" />
-    <path d="M7 12h10" />
-    <path d="M10 18h4" />
   </Svg>
 );
 
@@ -238,25 +183,10 @@ export const IconAlert = (props: IconProps) => (
   </Svg>
 );
 
-export const IconInfo = (props: IconProps) => (
-  <Svg {...props}>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M12 16.5V11" />
-    <path d="M12 7.7h.01" />
-  </Svg>
-);
-
 export const IconMail = (props: IconProps) => (
   <Svg {...props}>
     <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
     <path d="m4.5 7.5 6.4 4.6a2 2 0 0 0 2.2 0l6.4-4.6" />
-  </Svg>
-);
-
-export const IconClock = (props: IconProps) => (
-  <Svg {...props}>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M12 7v5.2l3.3 2" />
   </Svg>
 );
 

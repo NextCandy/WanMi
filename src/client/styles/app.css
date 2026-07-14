@@ -1301,15 +1301,9 @@ button.dist-row {
 }
 
 /* ============================================================
-   域名详情页
+   通用：返回链接 / 键值列表 / 表单 / 联系方式
    ============================================================ */
 
-.detail-page {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 24px clamp(16px, 3vw, 48px) 72px;
-  animation: fade-up var(--dur-3) var(--ease) backwards;
-}
 .back-link {
   display: inline-flex;
   align-items: center;
@@ -1321,65 +1315,6 @@ button.dist-row {
 }
 .back-link:hover {
   color: var(--gold);
-}
-.detail-hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  margin: 12px 0 16px;
-}
-.detail-hero h1 {
-  font-family: var(--font-display);
-  font-size: clamp(34px, 6.5vw, 62px);
-  font-weight: 400;
-  line-height: 1.08;
-  letter-spacing: -0.015em;
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-.detail-hero h1 em {
-  font-style: normal;
-  color: var(--text-tertiary);
-}
-.detail-badges {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-.detail-desc {
-  margin-bottom: 24px;
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.detail-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 16px;
-  align-items: start;
-}
-.detail-col {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-}
-.panel {
-  padding: 22px;
-  border-radius: var(--radius-panel);
-  border: 1px solid var(--border-subtle);
-  background: var(--surface);
-  box-shadow: var(--shadow-card);
-  min-width: 0;
-}
-.panel > h2 {
-  margin-bottom: 16px;
-  font-size: 16px;
-  font-weight: 600;
 }
 .kv-list {
   display: grid;
@@ -1406,30 +1341,6 @@ button.dist-row {
   text-align: right;
   overflow-wrap: anywhere;
 }
-.related-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 8px;
-}
-.related-grid a {
-  padding: 13px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  background: var(--background-soft);
-  font-size: 14px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition:
-    border-color var(--dur-2) var(--ease),
-    background var(--dur-2) var(--ease);
-}
-.related-grid a em {
-  font-style: normal;
-  color: var(--text-tertiary);
-}
-
 /* 表单 */
 .form-stack {
   display: grid;
@@ -2098,66 +2009,6 @@ button.dist-row {
   overflow-wrap: anywhere;
 }
 
-/* 注册商卡片 */
-.registrar-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
-}
-.registrar-card {
-  display: grid;
-  gap: 12px;
-  padding: 18px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-subtle);
-  background: var(--background-soft);
-}
-.registrar-card .registrar-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.provider-logo {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  flex: none;
-  border-radius: var(--radius-md);
-  background: var(--surface-hover);
-  color: var(--gold);
-  font-size: 12px;
-  font-weight: 600;
-}
-.registrar-card .registrar-head > div {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-}
-.registrar-card strong {
-  font-size: 14px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.registrar-card small {
-  color: var(--text-tertiary);
-  font-size: 12px;
-  text-transform: uppercase;
-}
-.registrar-card p {
-  color: var(--text-tertiary);
-  font-size: 12px;
-  line-height: 1.5;
-  min-height: 32px;
-  overflow-wrap: anywhere;
-}
-.registrar-card .registrar-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
 /* 表单栅格 */
 .form-grid {
   display: grid;
@@ -2258,48 +2109,6 @@ button.dist-row {
   font-size: 11px;
 }
 
-/* DNS Diff 预览 */
-.diff-list {
-  display: grid;
-  gap: 8px;
-}
-.diff-list > div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 11px 13px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  background: var(--background-soft);
-  font-size: 13px;
-}
-.diff-list > div.conflict {
-  border-color: rgba(217, 148, 22, 0.35);
-  background: var(--warning-bg);
-}
-.diff-list b {
-  font-family: var(--font-mono);
-  min-width: 46px;
-}
-.diff-list em {
-  font-style: normal;
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
-  min-width: 40px;
-}
-.diff-list code {
-  flex: 1;
-  min-width: 120px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-.diff-list small {
-  flex-basis: 100%;
-  color: var(--warning);
-  font-size: 11px;
-}
 .modal-foot {
   display: flex;
   justify-content: flex-end;
@@ -2418,7 +2227,6 @@ button.dist-row {
     color: var(--gold);
   }
   .recent-item:hover,
-  .related-grid a:hover,
   .contact-list a:hover,
   .contact-list button:hover {
     border-color: var(--border);
@@ -2455,9 +2263,6 @@ button.dist-row {
 
 /* 小型桌面 */
 @media (max-width: 1279px) {
-  .detail-grid {
-    grid-template-columns: minmax(0, 1fr) 320px;
-  }
   .icon-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
@@ -2469,9 +2274,6 @@ button.dist-row {
     grid-template-columns: 200px minmax(0, 1fr);
   }
   .structure-grid {
-    grid-template-columns: 1fr;
-  }
-  .detail-grid {
     grid-template-columns: 1fr;
   }
   .admin-two-col {
@@ -2535,8 +2337,7 @@ button.dist-row {
   }
 
   /* 正文预留底部导航空间，避免内容被遮挡 */
-  .page,
-  .detail-page {
+  .page {
     padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 24px);
   }
 
@@ -2609,10 +2410,6 @@ button.dist-row {
   }
   .icon-card .icon-remove {
     opacity: 1;
-  }
-
-  .detail-hero h1 {
-    width: 100%;
   }
 
   .icon-grid {

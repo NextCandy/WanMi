@@ -158,19 +158,25 @@ domainAdminRoutes.get("/export", async (c) => {
   if (!parsed.success) return fail(c, 422, "INVALID_QUERY", "筛选参数无效");
   const { where, params } = adminFilters(parsed.data);
   const result = await c.env.DB.prepare(
-    `SELECT d.full_domain, d.created_at AS registered_at, d.expires_at,
-      COALESCE(r.display_name, r.provider, '') AS registrar, d.tld
+    `SELECT d.full_domain, d.created_at AS registered_at, d.expires_at, d.tld,
+      COALESCE(NULLIF(d.category, ''), d.auto_category) AS category,
+      d.is_featured, d.is_listed, d.description
      FROM domains d
-     LEFT JOIN registrar_accounts r ON r.id = d.registrar_account_id
      WHERE ${where}
      ORDER BY d.normalized_domain ASC`,
   ).bind(...params).all();
-  const headers = ["域名", "注册日期", "到期日期", "注册商", "后缀"];
+  const headers = ["域名", "注册日期", "到期日期", "后缀", "分类", "精品", "前台展示", "简介"];
   const lines = [headers.map(csvCell).join(",")];
-  for (const raw of result.results) {
-    const row = raw;
+  for (const row of result.results) {
     lines.push([
-      row.full_domain, row.registered_at, row.expires_at, row.registrar, row.tld,
+      row.full_domain,
+      row.registered_at,
+      row.expires_at,
+      row.tld,
+      row.category,
+      row.is_featured ? "是" : "否",
+      row.is_listed ? "是" : "否",
+      row.description,
     ].map(csvCell).join(","));
   }
   const user = c.get("authUser");

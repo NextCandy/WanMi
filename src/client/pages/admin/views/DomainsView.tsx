@@ -1,13 +1,11 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { IconDownload, IconEdit, IconGlobe, IconPlus, IconTrash, IconUpload } from "../../../components/icons";
 import { PromptModal } from "../../../components/PromptModal";
-import { EmptyState, Modal, Pagination, SearchBar, SkeletonGrid } from "../../../components/ui";
+import { EmptyState, Pagination, SearchBar, SkeletonGrid } from "../../../components/ui";
 import { api, download } from "../../../lib/api";
 import { Panel } from "../Panel";
 import type { AdminDomain, AdminDomainPage, CategoryRow, Notify } from "../types";
-
-const DNS_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT", "NS", "CAA", "SRV"];
 
 /** 后台筛选下拉的可选项，带真实计数，来自 /api/admin/domains/filters */
 interface DomainFilterOptions {
@@ -21,7 +19,6 @@ type Dialog =
   | { kind: "description"; domain: AdminDomain }
   | { kind: "new-category"; domain: AdminDomain }
   | { kind: "bulk-category" }
-  | { kind: "bulk-dns" }
   | null;
 
 export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?: string }) {
@@ -38,7 +35,6 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [dns, setDns] = useState({ type: "A", name: "@", content: "" });
 
   // 指派分类的下拉只列人工分类；自动标签是只读的，不能手动指派
   const manualCategories = useMemo(() => categories.filter((item) => !item.is_auto), [categories]);
@@ -134,36 +130,6 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
       reload();
     } catch (reason) {
       notify(reason instanceof Error ? reason.message : "批量操作失败", "error");
-    }
-  }
-
-  async function bulkDns(event: FormEvent) {
-    event.preventDefault();
-    if (!selected.size || !dns.content.trim()) return;
-    try {
-      const result = await api<{
-        successes: number;
-        failures: number;
-        results: Array<{ domain?: string; success: boolean; error?: string }>;
-      }>("/api/admin/dns/bulk", {
-        method: "POST",
-        body: JSON.stringify({
-          domainIds: [...selected],
-          record: { type: dns.type, name: dns.name || "@", content: dns.content.trim(), ttl: 600 },
-        }),
-      });
-      setDialog(null);
-      notify(`批量 DNS：成功 ${result.successes}，失败 ${result.failures}`, result.failures ? "error" : "success");
-      if (result.failures) {
-        window.alert(
-          result.results
-            .filter((item) => !item.success)
-            .map((item) => `${item.domain ?? "未知域名"}：${item.error}`)
-            .join("\n"),
-        );
-      }
-    } catch (reason) {
-      notify(reason instanceof Error ? reason.message : "批量 DNS 失败", "error");
     }
   }
 
@@ -322,9 +288,6 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
             onClick={() => void exportCsv(`/api/admin/domains/export?ids=${[...selected].join(",")}`)}
           >
             导出选中
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setDialog({ kind: "bulk-dns" })}>
-            批量 DNS
           </button>
           <button className="btn btn-danger btn-sm" onClick={() => void bulk("delete")}>
             删除
@@ -535,44 +498,6 @@ export function DomainsView({ notify, presetTld }: { notify: Notify; presetTld?:
         />
       )}
 
-      {dialog?.kind === "bulk-dns" && (
-        <Modal title={`批量 DNS（${selected.size} 个域名）`} onClose={() => setDialog(null)}>
-          <form className="form-stack" onSubmit={(event) => void bulkDns(event)}>
-            <label className="field">
-              <span>记录类型</span>
-              <select value={dns.type} onChange={(event) => setDns({ ...dns, type: event.target.value })}>
-                {DNS_TYPES.map((type) => (
-                  <option key={type}>{type}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>主机记录</span>
-              <input value={dns.name} onChange={(event) => setDns({ ...dns, name: event.target.value })} placeholder="@" />
-            </label>
-            <label className="field">
-              <span>记录值</span>
-              <input
-                value={dns.content}
-                onChange={(event) => setDns({ ...dns, content: event.target.value })}
-                required
-                placeholder="203.0.113.10"
-              />
-            </label>
-            <p style={{ color: "var(--warning)", fontSize: 13 }}>
-              将直接写入所选域名关联注册商的真实 DNS，请确认无误。
-            </p>
-            <div className="modal-foot">
-              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
-                取消
-              </button>
-              <button type="submit" className="btn btn-primary">
-                写入远端
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
     </Panel>
   );
 }

@@ -1,5 +1,4 @@
 import { AdminApp } from "./pages/admin/AdminApp";
-import { DomainDetailPage } from "./pages/public/DomainDetailPage";
 import { DomainsPage } from "./pages/public/DomainsPage";
 import { HomePage } from "./pages/public/HomePage";
 
@@ -12,9 +11,12 @@ export function App() {
 
   if (path.startsWith("/admin")) return <AdminApp />;
 
+  // 域名详情页已移除：点击域名直接跳转到该域名本身。
+  // 旧的 /d/<domain> 链接统一回落到域名列表并预填搜索词。
   if (path.startsWith("/d/")) {
     const name = decodeURIComponent(path.slice(3)).trim().toLowerCase();
-    if (name) return <DomainDetailPage name={name} />;
+    window.history.replaceState(null, "", name ? `/domains?q=${encodeURIComponent(name)}` : "/domains");
+    return <DomainsPage />;
   }
 
   if (path === "/domains") return <DomainsPage />;

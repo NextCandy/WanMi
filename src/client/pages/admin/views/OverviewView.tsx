@@ -37,24 +37,6 @@ export function OverviewView({ onTldClick }: { onTldClick: (tld: string) => void
         ))}
       </section>
 
-      <section className="admin-stat-grid">
-        <div>
-          <span>求购线索</span>
-          <strong>{data.kpis.siteLeads}</strong>
-          <small>{data.kpis.newSiteLeads} 条未读</small>
-        </div>
-        <div>
-          <span>注册商账户</span>
-          <strong>{data.registrarCount}</strong>
-          <small>{data.registrarCount ? "已接入" : "尚未添加"}</small>
-        </div>
-        <div>
-          <span>到期数据</span>
-          <strong>{data.hasExpirationData ? "已同步" : "—"}</strong>
-          <small>{data.hasExpirationData ? "由注册商同步" : "暂无到期数据"}</small>
-        </div>
-      </section>
-
       <Panel title="后缀分布" description="点击任一后缀跳转到筛选后的域名管理">
         <div className="dist-list">
           {data.tlds.slice(0, 12).map((item) => (
@@ -87,7 +69,7 @@ export function OverviewView({ onTldClick }: { onTldClick: (tld: string) => void
             </div>
           ) : (
             <p style={{ color: "var(--text-tertiary)", fontSize: 13 }}>
-              暂无 90 天内到期的域名（当前库中尚未同步到期数据）。
+              暂无 90 天内到期的域名（库中尚无到期日期数据）。
             </p>
           )}
         </Panel>

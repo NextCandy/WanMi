@@ -2,9 +2,6 @@ export type AdminView =
   | "overview"
   | "domains"
   | "categories"
-  | "leads"
-  | "dns"
-  | "registrars"
   | "settings"
   | "notifications"
   | "security"
@@ -20,11 +17,9 @@ export type Notify = (text: string, tone?: "success" | "error") => void;
 
 export interface DashboardData {
   counts: { total: number; listed: number; hidden: number; featured: number };
-  kpis: { siteLeads: number; newSiteLeads: number };
   expiring90d: Array<{ full_domain: string; expires_at: string }>;
   tlds: Array<{ tld: string; count: number }>;
   recentLogs: Array<{ id: number; level: string; action: string; message: string; success: number; created_at: string }>;
-  registrarCount: number;
   hasExpirationData: boolean;
 }
 
