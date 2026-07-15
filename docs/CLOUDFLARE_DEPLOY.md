@@ -99,7 +99,7 @@ pnpm verify:production -- --write
 ## 当前生产状态
 
 - 发布日期：2026-07-15
-- Worker 版本：`c631ab3f-be50-474a-8455-75f221b32f95`
+- Worker 版本：每次 `main` 自动部署都会变化，以最新 `WanMi Cloudflare` Actions 的 `deploy` 日志为准
 - 已核验数据：862 个域名、862 个公开、87 个精品、1992 条分类关联
 - 被删除业务表：`registrar_accounts`、`dns_records_cache`、`domain_leads`
 - 回滚备份：`backups/wanmi-20260715T043546Z.sql`（仅本机、Git 忽略）

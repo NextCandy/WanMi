@@ -22,5 +22,5 @@
 
 - 已应用 `0016_remove_registrar_dns_leads.sql`，远程无待执行迁移。
 - 数据核验为 862 个域名、862 个公开、87 个精品、1992 条分类关联；外键检查为空。
-- Worker 已部署为 `c631ab3f-be50-474a-8455-75f221b32f95`。
+- Worker 已由 `main` 的 `WanMi Cloudflare` Actions 发布；版本 ID 以对应 `deploy` 日志为准。
 - `pnpm verify:production` 通过；生产桌面、手机和管理员后台均已实测，控制台无应用错误。

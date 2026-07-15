@@ -64,7 +64,7 @@
 
 ## 生产发布
 
-- Worker 版本：`c631ab3f-be50-474a-8455-75f221b32f95`
+- Worker 版本 ID 会在每次 `main` 自动部署时重新生成，不在仓库固定记录；以最新 `WanMi Cloudflare` Actions 的 `deploy` 日志为准。
 - 远程迁移：`0016_remove_registrar_dns_leads.sql` 已成功执行；远程迁移列表为空。
 - 数据核验：域名/公开/精品为 862/862/87，分类关联为 1992，通知发送历史为 0，外键检查为空。
 - 兼容核验：三个被删表均不存在，`namesale.cn.registrar_name` 保留为“易名”。
