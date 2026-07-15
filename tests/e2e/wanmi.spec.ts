@@ -38,7 +38,7 @@ test.describe.serial("WanMi 生产流程", () => {
     });
     expect(searchGeometry.width).toBeLessThanOrEqual(80);
     expect(searchGeometry.rightGap).toBeLessThanOrEqual(1);
-    const search = page.getByRole("textbox", { name: "搜索域名" });
+    const search = page.getByRole("combobox", { name: "搜索域名" });
     await search.fill("wanmi.org");
     await page.getByRole("button", { name: "搜索", exact: true }).click();
     await expect(page.getByTitle("复制 wanmi.org")).toBeVisible();
@@ -66,7 +66,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByRole("button", { name: "应用筛选" }).click();
     await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
 
-    const search = page.getByRole("textbox", { name: "搜索域名" });
+    const search = page.getByRole("combobox", { name: "搜索域名" });
     await search.fill("02cloud.com");
     await page.getByRole("button", { name: "搜索", exact: true }).click();
     await page.getByRole("button", { name: "收藏 02cloud.com" }).click();
@@ -86,7 +86,8 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByRole("button", { name: "浏览全部域名" }).click();
     await page.getByRole("button", { name: "清空搜索" }).click();
     await search.focus();
-    await expect(page.locator(".search-history").getByRole("button", { name: "02cloud.com", exact: true })).toBeVisible();
+    // 搜索建议面板的“最近搜索”分段应包含上次搜索词
+    await expect(page.locator(".search-suggest").getByText("02cloud.com", { exact: true })).toBeVisible();
   });
 
   test("管理员真实登录、隐藏与恢复域名、退出", async ({ page, context }) => {
@@ -103,6 +104,12 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(adminNavigation).not.toContainText("注册商");
     const listedCard = page.locator(".stat-card").filter({ hasText: "前台展示" });
     await expect(listedCard.getByText("859", { exact: true })).toBeVisible();
+    // 数据看板新增图表：精品占比 / 字符长度分布 / 分类分布 / 到期分布
+    await expect(page.getByRole("heading", { name: "精品占比", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "字符长度分布", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "到期分布", exact: true })).toBeVisible();
+    await expect(page.locator(".expiry-bucket")).toHaveCount(5);
+    await expect(page.locator(".ratio-donut svg")).toBeVisible();
 
     await page.getByRole("button", { name: /域名管理/ }).click();
     await page.getByPlaceholder("搜索完整域名").fill("02cloud.com");
@@ -174,7 +181,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByText("简介已清空")).toBeVisible();
     if (!wasFeatured) await row.locator("button.switch").first().click();
     await publicPage.reload({ waitUntil: "domcontentloaded" });
-    await expect(publicPage.locator(".domain-description")).toHaveText("暂无简介");
+    await expect(publicPage.locator(".domain-description")).toHaveText("简介待补充");
     await publicPage.close();
   });
 

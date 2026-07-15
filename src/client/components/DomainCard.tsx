@@ -1,5 +1,6 @@
 import { memo } from "react";
 
+import { highlightText } from "../lib/highlight";
 import type { PublicDomain } from "../../shared/types/api";
 
 function CopyIcon() {
@@ -18,20 +19,21 @@ interface DomainCardProps {
   domain: PublicDomain;
   favorite: boolean;
   highlighted: boolean;
+  query?: string;
   onCopy: (domain: string) => void;
   onFavorite: (domain: PublicDomain) => void;
   onQuickView: (domain: PublicDomain) => void;
 }
 
-function DomainCardComponent({ domain, favorite, highlighted, onCopy, onFavorite, onQuickView }: DomainCardProps) {
+function DomainCardComponent({ domain, favorite, highlighted, query, onCopy, onFavorite, onQuickView }: DomainCardProps) {
   const categories = domain.categories.length ? domain.categories : domain.category ? [domain.category] : [];
   return (
     <article id={`domain-card-${domain.id}`} className={`domain-card${domain.is_featured ? " featured" : ""}${highlighted ? " highlighted" : ""}`} aria-labelledby={`domain-${domain.id}`}>
       <div className="domain-primary">
-        <div className="domain-name"><a id={`domain-${domain.id}`} href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow"><strong>{domain.name}</strong><span>.{domain.tld}</span></a></div>
+        <div className="domain-name"><a id={`domain-${domain.id}`} href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow"><strong>{highlightText(domain.name, query)}</strong><span>.{highlightText(domain.tld, query)}</span></a></div>
         <div className="domain-tags">{domain.is_featured && <span className="chip chip-featured">精品</span>}{categories.slice(0, 3).map((category) => <span className="chip" key={category}>{category}</span>)}{categories.length > 3 && <span className="chip">+{categories.length - 3}</span>}</div>
       </div>
-      <p className="domain-description">{domain.description || "暂无简介"}</p>
+      <p className="domain-description">{domain.description || <span className="domain-description-empty">简介待补充</span>}</p>
       <div className="domain-card-meta"><span>{domain.name.length} 字符</span><span>.{domain.tld}</span></div>
       <div className="domain-actions">
         <button type="button" className={`favorite-button${favorite ? " active" : ""}`} aria-label={favorite ? `取消收藏 ${domain.domain}` : `收藏 ${domain.domain}`} aria-pressed={favorite} title={favorite ? "取消收藏" : "收藏"} onClick={() => onFavorite(domain)}><HeartIcon /></button>

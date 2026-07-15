@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 全出血金底：maskable 由系统裁剪成圆/圆角，主体“玩”置于中央安全区 -->
+  <rect width="512" height="512" fill="#d8b638"/>
+  <text x="256" y="340" font-family="Ma Shan Zheng, Xingkai SC, Kaiti SC, STKaiti, KaiTi, serif" font-size="230" font-weight="700" fill="#1c1917" text-anchor="middle">玩</text>
+</svg>

@@ -1,6 +1,91 @@
 # WanMi HANDOFF
 
-## 本轮结论
+## 本轮（2026-07-16：UI 精修 + 搜索增强 + 收藏 2.0 + 后台看板 + PWA）
+
+> 渐进式增强，**没有推倒重构、没有换技术栈、没有改 D1 Schema**。前台默认 Paper 浅色 + 深色切换保持不变，黑金已作废。
+
+### 1. 当前在做什么 / 本轮完成了什么
+
+五个模块全部落地并验证（`pnpm check` 全绿、Playwright 5 项通过、明暗×桌面/手机实测）：
+
+- **卡片 UI 精修（P0）**：搜索命中高亮（`lib/highlight.tsx`，React 节点安全拆分，不用 `dangerouslySetInnerHTML`，复制/读屏不受影响）；空简介由「暂无简介」软化为「简介待补充」。
+- **搜索增强（P0）**：新组件 `components/CatalogueSearch.tsx` 取代旧的行内搜索框——ARIA combobox + listbox，三段式建议（匹配域名 250ms 防抖拉取 / 精品·后缀快捷 / 最近搜索），↑↓/Enter/Esc 键盘导航，`/` 全局聚焦；工具栏新增「已启用 N 项筛选」徽章。
+- **收藏 2.0（P1，Local First）**：`hooks/useDomainFavorites.ts` 升级为 v2（收藏夹 / 标签 / 私人备注），`components/FavoritesToolbar.tsx` + 速览对话框内编辑区；JSON/CSV 导出、JSON 导入预览（新增/已存在/新夹计数 + 合并/覆盖，不静默覆盖）。备注明确「仅保存在当前浏览器」。
+- **后台数据看板（P1）**：复用已装的 Recharts，`OverviewView` 新增精品占比环图、字符长度分布柱图、分类分布、到期分桶（已过期/30/60/90/90+）。全部 `ResponsiveContainer`，Tooltip 走令牌兼容深色。
+- **PWA（P2）**：完善 `manifest.webmanifest`（id/scope/display_override/any+maskable 图标/纸色 bg）、金色品牌图标（`icon.svg`/`icon-maskable.svg`/更新 `favicon.svg`）、Apple/移动端 meta；新增 `public/sw.js` 并在 `main.tsx` **仅生产环境**注册。
+
+### 2. 修改了哪些重要架构
+
+- 前台搜索框从 PublicPage 行内实现抽出为独立 `CatalogueSearch`（自带建议获取与键盘导航）。
+- `useDomainFavorites` 从「扁平 PublicDomain[]（v1）」升级为「收藏夹 + 富条目（v2）」，对外仍保留 `items/ids/toggle/sync` 兼容旧调用点。
+- 后台 `OverviewView` 与 `/api/admin/dashboard` 增加只读聚合（无写、无新表）。
+- 未改动：分页（服务端 36 条 / URL 状态）、登录/会话、CRUD、CSV、Cron、R2、Workers、现有公开 API 契约。
+
+### 3. localStorage 收藏新格式（v2）
+
+Key 仍为 `wanmi-domain-favorites`，结构：
+
+```jsonc
+{
+  "version": 2,
+  "folders": [{ "id": "folder-xxx", "name": "AI 项目", "createdAt": 0 }],
+  "items": [{
+    "domain": { /* PublicDomain 快照 */ },
+    "folderId": "default | folder-xxx",   // "default" = 默认收藏
+    "tags": ["短域名"],
+    "note": "私人备注",
+    "createdAt": 0, "updatedAt": 0
+  }]
+}
+```
+
+搜索历史 key 仍为 `wanmi-search-history`（v1，未改）。主题 key `wanmi-theme`（未改）。
+
+### 4. 是否有数据迁移
+
+- **本地 localStorage 有迁移**：读取时 `coerceFavoritesSnapshot()` 自动把「v1 `{version:1,items:PublicDomain[]}`」或「更老的裸数组」升级为 v2，逐条 `try` 容错、去重、损坏项跳过、非法输入返回空且不立即覆盖。已有 6 项单元测试锁定（`tests/unit/favorites-migration.test.ts`）+ 浏览器实测零丢失。
+- **本次没有修改 D1 Schema**，没有新增/删除任何 migration。
+
+### 5. 新增 API
+
+- **无新增路由**。仅在既有 `GET /api/admin/dashboard` 的 batch 里增加三条只读聚合查询（字符长度分布 / 分类分布 / 到期分桶），响应新增 `lengths` / `categories` / `expiryBuckets` 字段。
+
+### 6. 新增 PWA 策略（`public/sw.js`，改缓存逻辑请提升 `VERSION`）
+
+- 导航(HTML)：**网络优先**，离线回退缓存的应用外壳（`/`）。
+- 静态资源(/assets 哈希文件、图标、字体)：**stale-while-revalidate**。
+- 公开 API `/api/public/*`：**网络优先**，仅离线回退上次成功响应——**绝不做固定 30 分钟缓存**。
+- 后台 `/api/admin/*`、认证 `/api/auth/*`、埋点 `/api/track`、`/uploads/*`：**network-only，永不缓存**。
+- 收藏/备注/标签在 localStorage，离线天然可读。仅生产注册，dev 不注册（保护 HMR）。
+
+### 7. 当前已知问题 / 限制
+
+- PWA 图标为 SVG（`any`+`maskable`），现代 Chromium/Android 可安装；iOS Safari 的 apple-touch-icon 偏好 PNG，若要 iOS 主屏更精细，后续可补 192/512 PNG 光栅图。
+- SW 运行时验证是在「生产构建 + 静态服务器」下完成的；`vite dev` 按设计不注册 SW。
+- 后台看板的可视化验证通过 Playwright E2E（自动化登录）完成，非人工登录。
+- 到期数据依赖 migration 0012/0013 回填的 `registered_at`/`expires_at`（约 860 条），CSV 重导逻辑不受影响。
+
+### 8. 下一步建议
+
+- 补域名简介（仍大量为空，卡片已留位）。
+- 如需 iOS 安装图标更精细，补 PNG 光栅图标。
+- 收藏 2.0 可再加「按标签多选」「收藏夹拖拽排序」，但保持 Local First，别上服务器。
+
+### 9. 绝对不要重新引入的内容
+
+- Canvas 粒子 / 动态星空 / WebGL 背景
+- 大面积玻璃拟态（重 `backdrop-filter`）
+- 卡片逐项 stagger 入场动画
+- 重阴影 / 大位移 Hover（最多 `translateY(-1~2px)`）
+- 全站 Framer Motion
+- 无限滚动（保留服务端分页 36 条 + URL 状态）
+- **公开/动态 API 固定缓存 30 分钟**（SW 已按网络优先实现）
+- 手机左右滑手势（左滑收藏 / 右滑复制）
+- 已在 migration 移除的：注册商账户/同步、DNS 读写、求购/线索、站内域名详情页
+
+---
+
+## 上一轮（2026-07-15：删除回归功能 + 性能）
 
 用户反馈昨天已经移除的求购、线索和 DNS 又出现在生产，同时首页搜索按钮过宽、卡片操作文字拥挤且页面卡顿。根因不是需求反复，而是上次从落后的 `codex/ui-notify-stats-contacts` 分支发布，覆盖了 `main` 中的正确删除提交；该分支还曾发生一次 UTF-8 源码损坏。
 

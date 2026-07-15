@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AdvancedSearchPanel,
@@ -7,18 +7,21 @@ import {
   type DomainKind,
 } from "../../components/AdvancedSearchPanel";
 import { CatalogueHero } from "../../components/CatalogueHero";
+import { CatalogueSearch } from "../../components/CatalogueSearch";
 import { ContactIcons } from "../../components/ContactIcons";
 import { DomainCard } from "../../components/DomainCard";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
+import { FavoritesToolbar, ALL_FOLDERS } from "../../components/FavoritesToolbar";
 import { PublicBottomNav } from "../../components/PublicBottomNav";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { Toast, type ToastMessage } from "../../components/Toast";
-import { useDomainFavorites } from "../../hooks/useDomainFavorites";
+import { useDomainFavorites, type ImportPreview } from "../../hooks/useDomainFavorites";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { useTracker } from "../../hooks/useTracker";
 import { api } from "../../lib/api";
 import { clearCatalogueCache, loadCatalogue } from "../../lib/catalogue-cache";
 import { copyText } from "../../lib/clipboard";
+import { downloadTextFile, favoritesToCsv, readImportFile } from "../../lib/favorites-io";
 import type { Paginated, PublicDomain } from "../../../shared/types/api";
 
 interface SiteSettings {
@@ -147,10 +150,6 @@ function pageItems(current: number, total: number): Array<number | string> {
   return result;
 }
 
-function SearchIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.2 16.2 4.1 4.1"/></svg>;
-}
-
 export function PublicPage() {
   useTracker("/");
   const [settings, setSettings] = useState<SiteSettings | null>(null);
@@ -163,8 +162,11 @@ export function PublicPage() {
   const [contactOpen, setContactOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [historyFocused, setHistoryFocused] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favFolder, setFavFolder] = useState<string>(ALL_FOLDERS);
+  const [favTag, setFavTag] = useState("");
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<"cards" | "compact">("cards");
   const [selectedDomain, setSelectedDomain] = useState<PublicDomain | null>(null);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
@@ -270,27 +272,27 @@ export function PublicPage() {
 
   const hasContact = Boolean(settings?.contact_email || settings?.contact_wechat || settings?.contact_telegram || settings?.contact_whatsapp || settings?.contact_x || settings?.contact_xiaohongshu || settings?.contact_qq);
   const hasActiveFilter = Boolean(filters.q || filters.tld || filters.category || filters.group !== "all" || filters.sort !== "default" || hasAdvancedFilters(filters.advanced));
+  const activeFilterCount =
+    (filters.q ? 1 : 0) + (filters.tld ? 1 : 0) + (filters.category ? 1 : 0) +
+    (filters.group !== "all" ? 1 : 0) + (filters.sort !== "default" ? 1 : 0) +
+    [filters.advanced.minLength, filters.advanced.maxLength, filters.advanced.contains, filters.advanced.excludes, filters.advanced.kind].filter(Boolean).length;
   const categories = useMemo(() => [
     { value: "", label: "全部", count: facets?.total ?? 0, icon: "▦" },
     { value: "__featured", label: "精品", count: facets?.featuredCount ?? 0, icon: "☆" },
     ...(facets?.categories ?? []).map((category) => ({ value: category, label: category, count: facets?.categoryCounts[category] ?? 0, icon: CATEGORY_ICONS[category] ?? category.slice(0, 1) })),
   ], [facets]);
   const catalogueItems = pageData?.items ?? [];
-  const displayedItems = favoritesOnly ? favorites.items : catalogueItems;
-  const historyMatches = history.items.filter((item) => !draftSearch || item.toLocaleLowerCase().includes(draftSearch.toLocaleLowerCase()));
+  const favoriteView = favorites.entries.filter((entry) =>
+    (favFolder === ALL_FOLDERS || entry.folderId === favFolder) && (!favTag || entry.tags.includes(favTag)),
+  );
+  const displayedItems = favoritesOnly ? favoriteView.map((entry) => entry.domain) : catalogueItems;
 
   function applySearch(value: string) {
     const query = value.trim();
     setDraftSearch(query);
     if (query) history.add(query);
     setFavoritesOnly(false);
-    setHistoryFocused(false);
     setFilters((current) => ({ ...current, q: query, page: 1 }));
-  }
-
-  function submitSearch(event: FormEvent) {
-    event.preventDefault();
-    applySearch(draftSearch);
   }
 
   function resetFilters() {
@@ -337,6 +339,38 @@ export function PublicPage() {
     document.getElementById("domains")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function exportFavoritesJson() {
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadTextFile(`wanmi-收藏-${stamp}.json`, JSON.stringify(favorites.exportSnapshot(), null, 2), "application/json");
+    notify(`已导出 ${favorites.entries.length} 个收藏（JSON）`);
+  }
+
+  function exportFavoritesCsv() {
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadTextFile(`wanmi-收藏-${stamp}.csv`, favoritesToCsv(favorites.entries, favorites.folders), "text/csv");
+    notify(`已导出 ${favorites.entries.length} 个收藏（CSV）`);
+  }
+
+  async function handleImportFile(file?: File) {
+    if (!file) return;
+    try {
+      const preview = favorites.previewImport(await readImportFile(file));
+      if (!preview.total) { notify("文件中没有可导入的收藏", "error"); return; }
+      setImportPreview(preview);
+    } catch {
+      notify("导入失败：文件不是有效的收藏 JSON", "error");
+    }
+  }
+
+  function confirmImport(mode: "merge" | "overwrite") {
+    if (!importPreview) return;
+    favorites.applyImport(importPreview.snapshot, mode);
+    const overwritten = mode === "overwrite" ? importPreview.duplicate : 0;
+    const skipped = mode === "merge" ? importPreview.duplicate : 0;
+    notify(`导入完成：新增 ${importPreview.added}${overwritten ? `，覆盖 ${overwritten}` : ""}${skipped ? `，跳过 ${skipped}` : ""} 个`);
+    setImportPreview(null);
+  }
+
   return (
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
       <header className="public-header">
@@ -378,34 +412,45 @@ export function PublicPage() {
         <section className="domain-section" aria-labelledby="domain-section-title">
           <h2 id="domain-section-title" className="visually-hidden">公开域名目录</h2>
           <div className="catalogue-toolbar">
-            <div className="search-area" onFocus={() => setHistoryFocused(true)} onBlur={() => window.setTimeout(() => setHistoryFocused(false), 100)}>
-              <form className="filter-search" onSubmit={submitSearch}>
-                <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="搜索完整域名，例如 wanmi.org" aria-label="搜索域名" autoComplete="off" />
-                {draftSearch && <button className="search-clear" type="button" aria-label="清空搜索" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
-                <button className="search-submit" type="submit">搜索</button>
-              </form>
-              {historyFocused && historyMatches.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" onClick={history.clear}>清空</button></header>{historyMatches.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
-            </div>
+            <CatalogueSearch
+              value={draftSearch}
+              onChange={setDraftSearch}
+              onSubmit={applySearch}
+              onClear={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}
+              history={history.items}
+              onRemoveHistory={history.remove}
+              onClearHistory={history.clear}
+              tlds={facets?.tlds ?? []}
+              featuredCount={facets?.featuredCount ?? 0}
+              onSelectDomain={(domain) => applySearch(domain.domain)}
+              onSelectTld={(tld) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, tld, page: 1 })); }}
+              onShowFeatured={() => { setFavoritesOnly(false); setFilters((current) => ({ ...current, category: "", group: "featured", page: 1 })); }}
+            />
             <div className="toolbar-filters">
               <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
               <label><span>位数</span><select aria-label="位数筛选" value={["two", "three"].includes(filters.group) ? filters.group : "all"} onChange={(event) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, group: event.target.value as GroupKey, page: 1 })); }}><option value="all">全部</option><option value="two">2 位</option><option value="three">3 位</option></select></label>
               <button type="button" className={`advanced-toggle${hasAdvancedFilters(filters.advanced) ? " active" : ""}`} aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((open) => !open)}>高级筛选{hasAdvancedFilters(filters.advanced) ? " · 已启用" : ""}</button>
             </div>
             <div className="sort-row" aria-label="排序"><span>排序</span>{SORTS.map(([key, label]) => <button type="button" key={key} className={filters.sort === key ? "active" : ""} onClick={() => { setFavoritesOnly(false); setFilters((current) => ({ ...current, sort: key, page: 1 })); }}>{label}</button>)}</div>
-            <div className="toolbar-summary"><span>{favoritesOnly ? `本地收藏 ${favorites.items.length} 个` : loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span><div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>{(hasActiveFilter || favoritesOnly) && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
+            <div className="toolbar-summary"><span>{favoritesOnly ? `本地收藏 ${favorites.items.length} 个` : loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span><div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>{!favoritesOnly && activeFilterCount > 0 && <span className="filter-count" aria-label={`已启用 ${activeFilterCount} 项筛选`}>已启用 {activeFilterCount} 项筛选</span>}{(hasActiveFilter || favoritesOnly) && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
             <AdvancedSearchPanel open={advancedOpen} value={filters.advanced} onClose={() => setAdvancedOpen(false)} onReset={() => setFilters((current) => ({ ...current, advanced: EMPTY_ADVANCED_FILTERS, page: 1 }))} onApply={(advanced) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, advanced, page: 1 })); setAdvancedOpen(false); }} />
           </div>
+
+          {favoritesOnly && <FavoritesToolbar folders={favorites.folders} entries={favorites.entries} allTags={favorites.allTags} selectedFolder={favFolder} selectedTag={favTag} onSelectFolder={setFavFolder} onSelectTag={setFavTag} onAddFolder={favorites.addFolder} onRenameFolder={favorites.renameFolder} onRemoveFolder={favorites.removeFolder} onExportJson={exportFavoritesJson} onExportCsv={exportFavoritesCsv} onImport={() => fileInputRef.current?.click()} onClear={() => { favorites.clear(); notify("已清空本地收藏"); }} />}
+          <input ref={fileInputRef} type="file" accept="application/json,.json" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; void handleImportFile(file); }} />
 
           {!favoritesOnly && error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}
           {!favoritesOnly && loading && <div className="domain-list skeleton-list">{Array.from({ length: 8 }, (_, index) => <div className="domain-card skeleton" key={index} />)}</div>}
           {!loading && !error && !favoritesOnly && pageData?.items.length === 0 && <div className="state-panel"><strong>没有匹配的域名</strong><span>换一个关键词，或清除筛选后再试。</span><button type="button" onClick={resetFilters}>清除筛选</button></div>}
-          {favoritesOnly && favorites.items.length === 0 && <div className="state-panel favorites-empty"><strong>还没有收藏</strong><span>点击域名卡片上的“收藏”，它会只保存在当前浏览器。</span><button type="button" onClick={() => setFavoritesOnly(false)}>浏览全部域名</button></div>}
+          {favoritesOnly && favorites.entries.length === 0 && <div className="state-panel favorites-empty"><strong>还没有收藏</strong><span>点击域名卡片上的“收藏”，它会只保存在当前浏览器。</span><button type="button" onClick={() => setFavoritesOnly(false)}>浏览全部域名</button></div>}
+          {favoritesOnly && favorites.entries.length > 0 && favoriteView.length === 0 && <div className="state-panel"><strong>该筛选下暂无收藏</strong><span>换一个收藏夹或标签，或查看全部收藏。</span><button type="button" onClick={() => { setFavFolder(ALL_FOLDERS); setFavTag(""); }}>查看全部收藏</button></div>}
           {displayedItems.length > 0 && (!loading || favoritesOnly) && <div className={`domain-list ${viewMode === "compact" ? "compact-view" : "card-view"}`}>
             {displayedItems.map((domain) => <DomainCard
               key={domain.id}
               domain={domain}
               favorite={favorites.ids.has(domain.id)}
               highlighted={highlightedId === domain.id}
+              query={favoritesOnly ? "" : filters.q}
               onCopy={copyDomain}
               onFavorite={toggleFavorite}
               onQuickView={setSelectedDomain}
@@ -421,7 +466,8 @@ export function PublicPage() {
       <footer className="public-footer footer-grid"><div className="footer-brand"><strong>{settings?.site_name ?? "玩米"}</strong><span>{settings?.copyright_text || `© ${new Date().getFullYear()} 保留所有权利`}</span>{settings?.icp_number && <span>{settings.icp_number}</span>}</div>{settings && <ContactIcons settings={settings} notify={notify} />}<div className="footer-right">{settings?.show_admin_link_in_footer && <a className="footer-admin-link" href="/admin">管理</a>}</div></footer>
 
       {contactOpen && settings && <div className="modal-backdrop" onMouseDown={() => setContactOpen(false)}><div className="contact-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="contact-title"><button type="button" className="modal-close" aria-label="关闭" onClick={() => setContactOpen(false)}>×</button><h2 id="contact-title">联系玩米</h2><p>请附上你感兴趣的完整域名。</p><div className="contact-list">{settings.contact_email && <a href={`mailto:${settings.contact_email}`}>邮箱 <strong>{settings.contact_email}</strong></a>}{settings.contact_telegram && <a href={`https://t.me/${settings.contact_telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">Telegram <strong>{settings.contact_telegram}</strong></a>}{settings.contact_wechat && <button type="button" onClick={() => void copyText(settings.contact_wechat!).then((ok) => notify(ok ? "微信号已复制" : "复制失败", ok ? "success" : "error"))}>微信 <strong>{settings.contact_wechat}</strong></button>}{settings.wechat_qr_url && <img className="qr-code" src={settings.wechat_qr_url} alt="玩米微信二维码" loading="lazy" decoding="async" />}</div></div></div>}
-      <DomainDetailDialog domain={selectedDomain} candidates={catalogueItems} favorite={selectedDomain ? favorites.ids.has(selectedDomain.id) : false} onClose={() => setSelectedDomain(null)} onCopy={copyDomain} onFavorite={toggleFavorite} onSelect={setSelectedDomain} />
+      {importPreview && <div className="modal-backdrop" onMouseDown={() => setImportPreview(null)}><div className="contact-modal import-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="import-title"><button type="button" className="modal-close" aria-label="关闭" onClick={() => setImportPreview(null)}>×</button><h2 id="import-title">导入收藏预览</h2><p className="import-summary">共 {importPreview.total} 条：<b>新增 {importPreview.added}</b> 个，已存在 {importPreview.duplicate} 个{importPreview.newFolders ? `，新收藏夹 ${importPreview.newFolders} 个` : ""}。</p><p className="import-hint">已存在的域名默认保留你当前的备注与标签；选择「覆盖已存在」会用导入数据替换它们。收藏仅保存在当前浏览器。</p><div className="import-actions"><button type="button" className="secondary-button" onClick={() => setImportPreview(null)}>取消</button><button type="button" className="secondary-button" onClick={() => confirmImport("merge")}>合并保留</button><button type="button" className="primary-button" onClick={() => confirmImport("overwrite")} disabled={!importPreview.duplicate}>覆盖已存在</button></div></div></div>}
+      <DomainDetailDialog domain={selectedDomain} candidates={catalogueItems} favorite={selectedDomain ? favorites.ids.has(selectedDomain.id) : false} entry={selectedDomain ? favorites.entryById.get(selectedDomain.id) ?? null : null} folders={favorites.folders} onClose={() => setSelectedDomain(null)} onCopy={copyDomain} onFavorite={toggleFavorite} onSelect={setSelectedDomain} onSetNote={favorites.setNote} onSetTags={favorites.setTags} onMoveFolder={favorites.moveToFolder} />
       <PublicBottomNav favoritesOnly={favoritesOnly} favoriteCount={favorites.items.length} onShowAll={() => setFavoritesOnly(false)} onShowFavorites={showFavorites} onRandom={discoverRandom} onAdvanced={() => setAdvancedOpen(true)} />
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>

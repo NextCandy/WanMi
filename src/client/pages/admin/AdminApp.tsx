@@ -11,7 +11,7 @@ import {
   Tag,
   type LucideIcon,
 } from "lucide-react";
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Bar, BarChart, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { Toast, type ToastMessage } from "../../components/Toast";
@@ -34,6 +34,9 @@ interface DashboardData {
   hasExpirationData: boolean;
   notificationHealth: Array<{ channel: NotificationChannelKey; enabled: number; last_test: string | null }>;
   stats: { today: { pv: number; uv: number }; sevenDays: Array<{ day: string; pv: number; uv: number }>; topDomains: Array<{ domain: string; clicks: number; latest: number }>; countries: Array<{ country: string; visitors: number }> };
+  lengths: Array<{ len: number; count: number }>;
+  categories: Array<{ name: string; count: number }>;
+  expiryBuckets: { expired: number; d30: number; d60: number; d90: number; d90plus: number };
 }
 
 interface AdminDomain {
@@ -108,6 +111,11 @@ function Panel({ title, description, actions, children }: { title: string; descr
   return <section className="admin-panel"><div className="panel-heading"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{actions && <div className="panel-actions">{actions}</div>}</div>{children}</section>;
 }
 
+// 图表 Tooltip 走设计令牌，深浅色主题下都清晰（Recharts 默认白底在暗色下刺眼）
+const CHART_TOOLTIP: CSSProperties = { background: "var(--surface-3)", border: "1px solid var(--border)", borderRadius: 10, color: "var(--fg)", fontSize: 12, boxShadow: "var(--shadow-l)" };
+const CHART_TOOLTIP_ITEM: CSSProperties = { color: "var(--fg)" };
+const CHART_TOOLTIP_LABEL: CSSProperties = { color: "var(--muted)" };
+
 function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string) => void; onDomainClick?: (domain: string) => void }) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
@@ -119,13 +127,56 @@ function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string)
   const cards = [
     ["域名总数", data.counts.total], ["前台展示", data.counts.listed], ["已隐藏", data.counts.hidden], ["精品域名", data.counts.featured],
   ];
+  const featuredPct = data.counts.total ? Math.round((data.counts.featured / data.counts.total) * 100) : 0;
+  const featuredData = [{ name: "精品", value: data.counts.featured }, { name: "普通", value: Math.max(0, data.counts.total - data.counts.featured) }];
+  const lengthData = data.lengths.map((item) => ({ label: item.len >= 8 ? "8+" : String(item.len), count: item.count }));
+  const maxCategory = data.categories[0]?.count ?? 1;
+  const expiryBucketList: Array<{ label: string; value: number; tone: string }> = [
+    { label: "已过期", value: data.expiryBuckets.expired, tone: "danger" },
+    { label: "30 天内", value: data.expiryBuckets.d30, tone: "warning" },
+    { label: "31–60 天", value: data.expiryBuckets.d60, tone: "warning" },
+    { label: "61–90 天", value: data.expiryBuckets.d90, tone: "info" },
+    { label: "90 天以上", value: data.expiryBuckets.d90plus, tone: "ok" },
+  ];
   return <div className="admin-stack">
     <div className="stat-grid">{cards.map(([label, value]) => <div className="stat-card" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <div className="stats-overview"><div className="stats-kpis"><div><span>今日 PV</span><strong>{data.stats.today.pv ?? 0}</strong></div><div><span>今日 UV</span><strong>{data.stats.today.uv ?? 0}</strong></div><div><span>域名点击</span><strong>{data.stats.topDomains.reduce((total, item) => total + Number(item.clicks || 0), 0)}</strong></div></div><div className="stats-chart"><ResponsiveContainer width="100%" height={180}><LineChart data={data.stats.sevenDays}><XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={10} /><Tooltip /><Line type="monotone" dataKey="pv" stroke="var(--brand)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="uv" stroke="var(--ink)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div></div>
+    <div className="admin-two-columns">
+      <Panel title="精品占比" description={`${data.counts.featured} / ${data.counts.total} 为精品`}>
+        <div className="ratio-donut">
+          <ResponsiveContainer width="100%" height={188}>
+            <PieChart>
+              <Pie data={featuredData} dataKey="value" nameKey="name" innerRadius={56} outerRadius={82} paddingAngle={2} strokeWidth={0}>
+                <Cell fill="var(--brand)" /><Cell fill="var(--rule-strong)" />
+              </Pie>
+              <Tooltip contentStyle={CHART_TOOLTIP} itemStyle={CHART_TOOLTIP_ITEM} labelStyle={CHART_TOOLTIP_LABEL} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="ratio-center"><strong>{featuredPct}%</strong><span>精品</span></div>
+        </div>
+      </Panel>
+      <Panel title="字符长度分布" description="域名主体去点后的位数，8 位及以上合并">
+        <ResponsiveContainer width="100%" height={188}>
+          <BarChart data={lengthData} margin={{ top: 8, right: 8, bottom: 0, left: -22 }}>
+            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={11} stroke="var(--muted)" />
+            <Tooltip cursor={{ fill: "color-mix(in oklab, var(--brand) 10%, transparent)" }} contentStyle={CHART_TOOLTIP} itemStyle={CHART_TOOLTIP_ITEM} labelStyle={CHART_TOOLTIP_LABEL} labelFormatter={(label) => `${String(label)} 字符`} formatter={(value) => [`${String(value)} 个`, "数量"]} />
+            <Bar dataKey="count" fill="var(--brand)" radius={[5, 5, 0, 0]} maxBarSize={42} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Panel>
+    </div>
     <div className="admin-two-columns"><Panel title="域名点击 Top 10"><div className="kpi-list">{data.stats.topDomains.length ? data.stats.topDomains.map((item) => <button key={item.domain} onClick={() => onDomainClick?.(item.domain)}><span className="mono">{item.domain}</span><b>{item.clicks} 次</b><small title={formatExact(item.latest * 1000)}>{formatRelative(item.latest * 1000)}</small></button>) : <div className="empty-inline">尚无域名点击</div>}</div></Panel><Panel title="访客地区 Top 5"><div className="kpi-list">{data.stats.countries.map((item) => <div key={item.country}><span>{item.country}</span><b>{item.visitors}</b></div>)}</div></Panel></div>
     <Panel title="后缀分布" description="点击跳转到筛选后的域名管理"><div className="distribution-list">{data.tlds.slice(0, 12).map((item) => <a key={item.tld} onClick={() => onTldClick(item.tld)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onTldClick(item.tld); }}><span>.{item.tld}</span><div className="bar"><i style={{ width: `${Math.max(4, item.count / Math.max(data.counts.total, 1) * 100)}%` }} /></div><strong>{item.count}</strong></a>)}</div></Panel>
     <div className="admin-two-columns">
-      <Panel title="90 天内到期"><div className="kpi-list">{data.expiring90d.length ? data.expiring90d.map((item) => <div key={item.full_domain}><span className="mono">{item.full_domain}</span><b>{new Date(item.expires_at).toLocaleDateString("zh-CN")}</b></div>) : <div className="empty-inline">暂无 90 天内到期的域名（或尚无到期数据）</div>}</div></Panel>
+      <Panel title="分类分布 · Top 10" description="人工分类优先，其余按自动多标签统计">
+        <div className="distribution-list">{data.categories.map((item) => <div key={item.name}><span title={item.name}>{item.name}</span><div className="bar"><i style={{ width: `${Math.max(4, (item.count / maxCategory) * 100)}%` }} /></div><strong>{item.count}</strong></div>)}</div>
+      </Panel>
+      <Panel title="到期分布" description="按到期紧迫度分桶统计">
+        {data.hasExpirationData ? <>
+          <div className="expiry-buckets">{expiryBucketList.map((bucket) => <div key={bucket.label} className={`expiry-bucket tone-${bucket.tone}`}><strong>{bucket.value}</strong><span>{bucket.label}</span></div>)}</div>
+          {data.expiring90d.length > 0 && <div className="kpi-list expiry-soon">{data.expiring90d.slice(0, 6).map((item) => <div key={item.full_domain}><span className="mono">{item.full_domain}</span><b>{new Date(item.expires_at).toLocaleDateString("zh-CN")}</b></div>)}</div>}
+        </> : <div className="empty-inline">尚无到期日期数据</div>}
+      </Panel>
     </div>
     <div className="admin-two-columns">
       <Panel title="最近操作"><div className="activity-list">{data.recentLogs.length ? data.recentLogs.map((log) => <div key={log.id}><span className={log.success ? "dot-success" : "dot-error"} /><div><strong>{log.message}</strong><small title={formatExact(log.created_at)}>{formatRelative(log.created_at)}</small></div></div>) : <div className="empty-inline">暂无操作记录</div>}</div></Panel>

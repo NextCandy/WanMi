@@ -1,17 +1,20 @@
 {
-  "name": "玩米",
+  "id": "/",
+  "name": "玩米 · 域名展示",
   "short_name": "玩米",
-  "description": "玩米域名展示与管理系统",
+  "description": "玩米域名展示与管理系统：检索、收藏、速览与访问精选域名。",
   "lang": "zh-CN",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#fffaf5",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#faf8f2",
   "theme_color": "#d8b638",
+  "categories": ["business", "productivity"],
   "icons": [
-    {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
-    }
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
   ]
 }
