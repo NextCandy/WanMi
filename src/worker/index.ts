@@ -32,6 +32,58 @@ app.get("/uploads/*", async (c) => {
   return new Response(object.body, { headers });
 });
 
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replaceAll("<", "\\u003c");
+}
+
+// 首页由 Worker 注入真实设置、Canonical 与公开域名 ItemList；React 仍负责交互渲染。
+app.get("/", async (c) => {
+  const url = new URL(c.req.url);
+  const shell = await c.env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: c.req.raw.headers }));
+  const [settings, domains, count] = await Promise.all([
+    c.env.DB.prepare("SELECT site_name, site_description FROM site_settings WHERE id = 1")
+      .first<{ site_name: string; site_description: string }>(),
+    c.env.DB.prepare(
+      `SELECT full_domain, description FROM domains
+       WHERE is_listed = 1
+       ORDER BY is_featured DESC, length(replace(name, '.', '')) ASC, normalized_domain ASC
+       LIMIT 60`,
+    ).all<{ full_domain: string; description: string }>(),
+    c.env.DB.prepare("SELECT COUNT(*) AS total FROM domains WHERE is_listed = 1").first<{ total: number }>(),
+  ]);
+  const site = settings?.site_name ?? "玩米";
+  const title = `${site} · 精选域名展示`;
+  const description = settings?.site_description || "发现值得珍藏的域名";
+  const canonical = `${url.origin}/`;
+  const image = `${url.origin}/api/public/og/wanmi.org`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `${site} 公开域名目录`,
+    numberOfItems: Number(count?.total ?? domains.results.length),
+    itemListElement: domains.results.map((domain, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: domain.full_domain,
+      description: domain.description || `${domain.full_domain} 域名`,
+      url: `${url.origin}/d/${encodeURIComponent(domain.full_domain)}`,
+    })),
+  };
+  return new HTMLRewriter()
+    .on("title", { element: (element) => { element.setInnerContent(title); } })
+    .on('meta[name="description"]', { element: (element) => { element.setAttribute("content", description); } })
+    .on('meta[property="og:title"]', { element: (element) => { element.setAttribute("content", title); } })
+    .on('meta[property="og:description"]', { element: (element) => { element.setAttribute("content", description); } })
+    .on('meta[property="og:url"]', { element: (element) => { element.setAttribute("content", canonical); } })
+    .on('meta[property="og:image"]', { element: (element) => { element.setAttribute("content", image); } })
+    .on('meta[name="twitter:title"]', { element: (element) => { element.setAttribute("content", title); } })
+    .on('meta[name="twitter:description"]', { element: (element) => { element.setAttribute("content", description); } })
+    .on('meta[name="twitter:image"]', { element: (element) => { element.setAttribute("content", image); } })
+    .on('link[rel="canonical"]', { element: (element) => { element.setAttribute("href", canonical); } })
+    .on("head", { element: (element) => { element.append(`<script type="application/ld+json">${safeJsonLd(jsonLd)}</script>`, { html: true }); } })
+    .transform(shell);
+});
+
 app.get("/sitemap.xml", async (c) => {
   const origin = new URL(c.req.url).origin;
   const rows = await c.env.DB.prepare(
@@ -61,45 +113,37 @@ app.get("/d/:name", async (c) => {
   if (!/^[a-z0-9.-]{3,253}$/.test(name)) return shell;
   const [domainRow, settingsRow] = await Promise.all([
     c.env.DB.prepare(
-      `SELECT d.full_domain, d.tld, d.public_price, d.public_price_currency, d.public_price_approved
+      `SELECT d.full_domain, d.tld, d.description
        FROM domains d WHERE d.is_listed = 1 AND d.normalized_domain = ?`,
-    ).bind(name).first<{ full_domain: string; tld: string; public_price: string | null; public_price_currency: string | null; public_price_approved: number }>(),
-    c.env.DB.prepare("SELECT site_name, show_prices FROM site_settings WHERE id = 1").first<{ site_name: string; show_prices: number }>(),
+    ).bind(name).first<{ full_domain: string; tld: string; description: string }>(),
+    c.env.DB.prepare("SELECT site_name FROM site_settings WHERE id = 1").first<{ site_name: string }>(),
   ]);
   if (!domainRow) return shell;
   const site = settingsRow?.site_name ?? "玩米";
   const title = `${domainRow.full_domain} 域名出售 · ${site}`;
   const description = `${domainRow.full_domain} 正在 ${site} 出售，支持 Make Offer 求购。优质 .${domainRow.tld} 域名，即刻联系获取报价。`;
-  const showPrice = settingsRow?.show_prices === 1 && domainRow.public_price_approved === 1 && domainRow.public_price;
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Product",
+    "@type": "WebPage",
     name: domainRow.full_domain,
-    description,
+    description: domainRow.description || description,
     url: `${url.origin}/d/${encodeURIComponent(name)}`,
-    image: `${url.origin}/api/public/og/${encodeURIComponent(name)}`,
-    ...(showPrice
-      ? {
-          offers: {
-            "@type": "Offer",
-            price: domainRow.public_price,
-            priceCurrency: domainRow.public_price_currency ?? "USD",
-            availability: "https://schema.org/InStock",
-          },
-        }
-      : {}),
+    primaryImageOfPage: `${url.origin}/api/public/og/${encodeURIComponent(name)}`,
   };
   return new HTMLRewriter()
     .on("title", { element: (el) => { el.setInnerContent(title); } })
     .on('meta[name="description"]', { element: (el) => { el.setAttribute("content", description); } })
     .on('meta[property="og:title"]', { element: (el) => { el.setAttribute("content", title); } })
     .on('meta[property="og:description"]', { element: (el) => { el.setAttribute("content", description); } })
+    .on('meta[property="og:url"]', { element: (el) => { el.setAttribute("content", `${url.origin}/d/${encodeURIComponent(name)}`); } })
+    .on('meta[property="og:image"]', { element: (el) => { el.setAttribute("content", `${url.origin}/api/public/og/${encodeURIComponent(name)}`); } })
+    .on('meta[name="twitter:title"]', { element: (el) => { el.setAttribute("content", title); } })
+    .on('meta[name="twitter:description"]', { element: (el) => { el.setAttribute("content", description); } })
+    .on('meta[name="twitter:image"]', { element: (el) => { el.setAttribute("content", `${url.origin}/api/public/og/${encodeURIComponent(name)}`); } })
+    .on('link[rel="canonical"]', { element: (el) => { el.setAttribute("href", `${url.origin}/d/${encodeURIComponent(name)}`); } })
     .on("head", {
       element: (el) => {
-        el.append(`<meta property="og:url" content="${url.origin}/d/${encodeURIComponent(name)}" />`, { html: true });
-        el.append(`<meta property="og:image" content="${url.origin}/api/public/og/${encodeURIComponent(name)}" />`, { html: true });
-        el.append(`<link rel="canonical" href="${url.origin}/d/${encodeURIComponent(name)}" />`, { html: true });
-        el.append(`<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`, { html: true });
+        el.append(`<script type="application/ld+json">${safeJsonLd(jsonLd)}</script>`, { html: true });
       },
     })
     .transform(shell);

@@ -132,6 +132,7 @@ function publicFilters(query: ReturnType<typeof publicDomainQuerySchema.parse>):
 } {
   const where = ["d.is_listed = 1"];
   const params: Array<string | number> = [];
+  const nameLength = "length(replace(d.name, '.', ''))";
   if (query.q) {
     where.push("d.normalized_domain LIKE ? ESCAPE '\\'");
     params.push(`%${query.q.toLowerCase().replaceAll("%", "\\%").replaceAll("_", "\\_")}%`);
@@ -141,8 +142,27 @@ function publicFilters(query: ReturnType<typeof publicDomainQuerySchema.parse>):
     params.push(query.tld.toLowerCase().replace(/^\./, ""));
   }
   if (query.length) {
-    where.push("length(replace(d.name, '.', '')) = ?");
+    where.push(`${nameLength} = ?`);
     params.push(query.length);
+  }
+  if (query.minLength) {
+    where.push(`${nameLength} >= ?`);
+    params.push(query.minLength);
+  }
+  if (query.maxLength) {
+    where.push(`${nameLength} <= ?`);
+    params.push(query.maxLength);
+  }
+  if (query.contains) {
+    where.push("instr(lower(d.name), ?) > 0");
+    params.push(query.contains.toLowerCase());
+  }
+  if (query.excludes) {
+    const excludedCharacters = [...new Set(Array.from(query.excludes.toLowerCase()))];
+    for (const character of excludedCharacters) {
+      where.push("instr(lower(d.name), ?) = 0");
+      params.push(character);
+    }
   }
   if (query.category) {
     where.push(`(
@@ -161,8 +181,12 @@ function publicFilters(query: ReturnType<typeof publicDomainQuerySchema.parse>):
     where.push("d.is_featured = ?");
     params.push(query.featured === "true" ? 1 : 0);
   }
-  if (query.kind === "digits") where.push("d.name NOT GLOB '*[^0-9]*'");
-  if (query.kind === "letters") where.push("d.name NOT GLOB '*[^a-z]*'");
+  if (query.kind === "digits") where.push("d.name != '' AND d.name NOT GLOB '*[^0-9]*'");
+  if (query.kind === "letters") where.push("d.name != '' AND d.name NOT GLOB '*[^a-z]*'");
+  if (query.kind === "alphanumeric") {
+    where.push("d.name NOT GLOB '*[^a-z0-9]*' AND d.name GLOB '*[a-z]*' AND d.name GLOB '*[0-9]*'");
+  }
+  if (query.kind === "hyphen") where.push("instr(d.name, '-') > 0");
   return { where: where.join(" AND "), params };
 }
 
@@ -170,6 +194,9 @@ publicRoutes.get("/domains", async (c) => {
   const parsed = publicDomainQuerySchema.safeParse(c.req.query());
   if (!parsed.success) return fail(c, 422, "INVALID_QUERY", "筛选参数无效", parsed.error.issues);
   const query = parsed.data;
+  if (query.minLength && query.maxLength && query.minLength > query.maxLength) {
+    return fail(c, 422, "INVALID_QUERY", "最小长度不能大于最大长度");
+  }
   const { where, params } = publicFilters(query);
   const offset = (query.page - 1) * query.pageSize;
   const defaultSort = "d.is_featured DESC, length(replace(d.name, '.', '')) ASC, d.normalized_domain ASC";
@@ -234,7 +261,7 @@ interface RdapResponse {
 
 const RDAP_HEADERS = {
   Accept: "application/rdap+json",
-  "User-Agent": "WanMi-DomainShowcase/1.0 (+https://wanmi.1n.workers.dev)",
+  "User-Agent": "WanMi-DomainShowcase/1.0 (+https://wanmi.org)",
 };
 
 interface RdapBootstrap { services?: Array<[string[], string[]]> }
@@ -363,7 +390,7 @@ publicRoutes.get("/og/:name", async (c) => {
     site_name: string;
     accent_color: string;
   }>();
-  const accent = /^#[0-9a-f]{6}$/i.test(settings?.accent_color ?? "") ? settings!.accent_color : "#f97316";
+  const accent = /^#[0-9a-f]{6}$/i.test(settings?.accent_color ?? "") ? settings!.accent_color : "#d8b638";
   const site = (settings?.site_name ?? "玩米").replace(/[<>&"]/g, "");
   const safeName = name.replace(/[<>&"]/g, "");
   const fontSize = safeName.length > 24 ? 56 : safeName.length > 14 ? 76 : 96;

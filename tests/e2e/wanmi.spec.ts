@@ -44,6 +44,37 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByText(/共 154 个域名/)).toBeVisible();
   });
 
+  test("前台高级筛选、搜索历史、收藏与域名速览", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: /高级筛选/ }).click();
+    await page.getByLabel("必须包含").fill("cloud");
+    await page.getByLabel("域名类型").selectOption("alphanumeric");
+    await page.getByRole("button", { name: "应用筛选" }).click();
+    await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
+
+    const search = page.getByRole("textbox", { name: "搜索域名" });
+    await search.fill("02cloud.com");
+    await page.getByRole("button", { name: "搜索", exact: true }).click();
+    await page.getByRole("button", { name: "收藏 02cloud.com" }).click();
+    await expect(page.getByText("已收藏 02cloud.com")).toBeVisible();
+    await page.getByRole("button", { name: "速览 02cloud.com" }).click();
+    const dialog = page.getByRole("dialog", { name: /02cloud\.com/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText("完整域名")).toBeVisible();
+    await dialog.getByRole("button", { name: "关闭域名速览" }).click();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator(".public-header").getByRole("button", { name: /收藏 1/ }).click();
+    await expect(page.getByRole("button", { name: "取消收藏 02cloud.com" })).toBeVisible();
+    await page.getByRole("button", { name: "取消收藏 02cloud.com" }).click();
+    await expect(page.getByText("还没有收藏")).toBeVisible();
+
+    await page.getByRole("button", { name: "浏览全部域名" }).click();
+    await page.getByRole("button", { name: "清空搜索" }).click();
+    await search.focus();
+    await expect(page.locator(".search-history").getByRole("button", { name: "02cloud.com", exact: true })).toBeVisible();
+  });
+
   test("管理员真实登录、隐藏与恢复域名、退出", async ({ page, context }) => {
     const credentials = localCredentials();
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
@@ -72,6 +103,20 @@ test.describe.serial("WanMi 生产流程", () => {
     await restoredPage.goto("/?q=02cloud.com", { waitUntil: "domcontentloaded" });
     await expect(restoredPage.getByTitle("复制 02cloud.com")).toBeVisible();
     await restoredPage.close();
+
+    await row.locator('input[type="checkbox"]').check();
+    await expect(page.getByText("已选 1", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "清空选择" }).click();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "preview.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from("Domain,TLD\n02cloud.com,com\ncodexwanmi.com,com\n"),
+    });
+    const preview = page.getByRole("dialog", { name: /确认导入 preview\.csv/ });
+    await expect(preview).toBeVisible();
+    await expect(preview.getByText("跳过现有记录（默认）")).toBeVisible();
+    await expect(preview.getByText("已存在 / 冲突")).toBeVisible();
+    await preview.getByRole("button", { name: "关闭导入预览" }).click();
 
     await page.locator(".sidebar-user > summary").click();
     await page.getByRole("button", { name: "退出登录", exact: true }).click();
@@ -109,14 +154,38 @@ test.describe.serial("WanMi 生产流程", () => {
     await row.getByRole("button", { name: "编辑简介" }).click();
     await expect(page.getByText("简介已清空")).toBeVisible();
     if (!wasFeatured) await row.locator("button.switch").first().click();
-    await expect.poll(async () => publicPage.locator(".domain-description").textContent(), { timeout: 10_000 }).toBe("—");
+    await expect.poll(async () => publicPage.locator(".domain-description").textContent(), { timeout: 10_000 }).toBe("暂无简介");
     await publicPage.close();
   });
 
-  test("手机端没有横向溢出", async ({ page }) => {
+  test("指定桌面、平板和手机尺寸均无横向溢出", async ({ page }) => {
+    const viewports = [
+      { width: 1280, height: 720 },
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
+      { width: 768, height: 1024 },
+      { width: 1024, height: 768 },
+      { width: 320, height: 568 },
+      { width: 375, height: 812 },
+      { width: 390, height: 844 },
+      { width: 430, height: 932 },
+    ];
+
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await expect(page.getByText("共 859 个域名")).toBeVisible();
+      const mobileNav = page.getByRole("navigation", { name: "移动端快捷导航" });
+      if (viewport.width <= 780) await expect(mobileNav).toBeVisible();
+      else await expect(mobileNav).toBeHidden();
+      const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+      expect(widths.scroll, `${viewport.width}x${viewport.height} 不应横向溢出`).toBeLessThanOrEqual(widths.client);
+    }
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
-    expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+    await page.getByRole("button", { name: "随机" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: "关闭域名速览" }).click();
   });
 });

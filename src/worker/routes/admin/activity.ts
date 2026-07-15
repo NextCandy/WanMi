@@ -8,24 +8,24 @@ function logFilters(query: ReturnType<typeof logsQuerySchema.parse>): { where: s
   const clauses: string[] = [];
   const params: Array<string | number> = [];
   if (query.level) {
-    clauses.push("level = ?");
+    clauses.push("l.level = ?");
     params.push(query.level);
   }
   if (query.action) {
-    clauses.push("action = ?");
+    clauses.push("l.action = ?");
     params.push(query.action);
   }
   if (query.q) {
-    clauses.push("(message LIKE ? OR action LIKE ?)");
+    clauses.push("(l.message LIKE ? OR l.action LIKE ? OR l.resource_type LIKE ? OR COALESCE(u.email, '') LIKE ?)");
     const like = `%${query.q.replaceAll("%", "\\%")}%`;
-    params.push(like, like);
+    params.push(like, like, like, like);
   }
   if (query.from) {
-    clauses.push("created_at >= ?");
+    clauses.push("l.created_at >= ?");
     params.push(`${query.from} 00:00:00`);
   }
   if (query.to) {
-    clauses.push("created_at <= ?");
+    clauses.push("l.created_at <= ?");
     params.push(`${query.to} 23:59:59`);
   }
   return { where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "", params };
@@ -39,8 +39,10 @@ activityRoutes.get("/logs", async (c) => {
   const query = parsed.data;
   const { where, params } = logFilters(query);
   const [count, rows] = await c.env.DB.batch([
-    c.env.DB.prepare(`SELECT COUNT(*) AS total FROM operation_logs ${where}`).bind(...params),
-    c.env.DB.prepare(`SELECT * FROM operation_logs ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`).bind(
+    c.env.DB.prepare(`SELECT COUNT(*) AS total FROM operation_logs l LEFT JOIN admin_users u ON u.id = l.actor_user_id ${where}`).bind(...params),
+    c.env.DB.prepare(`SELECT l.*, COALESCE(u.email, '系统') AS actor_email
+      FROM operation_logs l LEFT JOIN admin_users u ON u.id = l.actor_user_id
+      ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`).bind(
       ...params,
       query.pageSize,
       (query.page - 1) * query.pageSize,
@@ -55,8 +57,10 @@ activityRoutes.get("/logs/export", async (c) => {
   if (!parsed.success) return fail(c, 422, "INVALID_QUERY", "日志筛选参数无效");
   const { where, params } = logFilters(parsed.data);
   const rows = await c.env.DB.prepare(
-    `SELECT created_at, level, action, resource_type, resource_id, message, success FROM operation_logs ${where}
-     ORDER BY created_at DESC LIMIT 5000`,
+    `SELECT l.created_at, l.level, l.action, l.resource_type, l.resource_id,
+      COALESCE(u.email, '系统') AS actor_email, l.message, l.success
+     FROM operation_logs l LEFT JOIN admin_users u ON u.id = l.actor_user_id
+     ${where} ORDER BY l.created_at DESC LIMIT 5000`,
   )
     .bind(...params)
     .all();
@@ -69,9 +73,9 @@ activityRoutes.get("/logs/export", async (c) => {
     return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
   };
   const lines = [
-    "Time,Level,Action,Resource Type,Resource ID,Message,Success",
+    "Time,Level,Action,Resource Type,Resource ID,Actor,Message,Success",
     ...rows.results.map((row) =>
-      [row.created_at, row.level, row.action, row.resource_type, row.resource_id, row.message, row.success].map(cell).join(","),
+      [row.created_at, row.level, row.action, row.resource_type, row.resource_id, row.actor_email, row.message, row.success].map(cell).join(","),
     ),
   ];
   const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");

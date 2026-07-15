@@ -6,15 +6,15 @@ import type { DnsRecord } from "../../providers/types";
 import type { AppBindings } from "../../types";
 import { providerFailure, providerFor, registrar } from "./registrars";
 
-interface DomainAccountRow { id: number; normalized_domain: string; registrar_account_id: number | null; }
+interface DomainAccountRow { id: number; normalized_domain: string; registrar_account_ref: number | null; }
 
 async function domainAccount(db: D1Database, domainId: number): Promise<DomainAccountRow | null> {
-  return db.prepare("SELECT id, normalized_domain, registrar_account_id FROM domains WHERE id = ?").bind(domainId).first<DomainAccountRow>();
+  return db.prepare("SELECT id, normalized_domain, registrar_account_ref FROM domains WHERE id = ?").bind(domainId).first<DomainAccountRow>();
 }
 
 async function loadProvider(c: Parameters<typeof fail>[0], domain: DomainAccountRow) {
-  if (!domain.registrar_account_id) throw new Error("该域名尚未关联真实注册商账户");
-  const account = await registrar(c.env.DB, domain.registrar_account_id);
+  if (!domain.registrar_account_ref) throw new Error("该域名尚未关联真实注册商账户");
+  const account = await registrar(c.env.DB, domain.registrar_account_ref);
   if (!account) throw new Error("关联的注册商账户不存在");
   return providerFor(c, account);
 }

@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { TurnstileWidget } from "../../components/TurnstileWidget";
+import { useDomainFavorites } from "../../hooks/useDomainFavorites";
 import { api } from "../../lib/api";
 import { copyText } from "../../lib/clipboard";
 import { useTracker } from "../../hooks/useTracker";
@@ -21,6 +22,7 @@ function formatDate(value: string | null): string {
 
 export function DomainDetailPage({ name }: { name: string }) {
   const { trackDomainClick, trackLeadSubmit } = useTracker(`/d/${name}`);
+  const favorites = useDomainFavorites();
   const [data, setData] = useState<DetailResponse | null>(null);
   const [error, setError] = useState("");
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -36,10 +38,11 @@ export function DomainDetailPage({ name }: { name: string }) {
     api<DetailResponse>(`/api/public/domains/${encodeURIComponent(name)}`)
       .then((response) => {
         setData(response);
+        favorites.sync([response.domain, ...response.related]);
         document.title = `${response.domain.domain} 域名详情`;
       })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "域名加载失败"));
-  }, [name]);
+  }, [favorites.sync, name]);
 
   async function copyDomain() {
     const ok = data && (await copyText(data.domain.domain));
@@ -105,7 +108,7 @@ export function DomainDetailPage({ name }: { name: string }) {
           <>
             <div className="detail-head">
               <h1>{domain.name}<span>.{domain.tld}</span></h1>
-              <div className="detail-head-actions"><button className="secondary-button" onClick={() => void copyDomain()} title={`复制 ${domain.domain}`}>⧉ 复制域名</button><a className="primary-button" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer" onMouseDown={() => trackDomainClick(domain.domain)}>访问域名 ↗</a></div>
+              <div className="detail-head-actions"><button className="secondary-button" onClick={() => void copyDomain()} title={`复制 ${domain.domain}`}>⧉ 复制域名</button><button className="secondary-button" aria-pressed={favorites.ids.has(domain.id)} onClick={() => { const adding = !favorites.ids.has(domain.id); favorites.toggle(domain); notify(adding ? `已收藏 ${domain.domain}` : `已取消收藏 ${domain.domain}`); }}>{favorites.ids.has(domain.id) ? "♥ 已收藏" : "♡ 收藏"}</button><a className="primary-button" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer" onMouseDown={() => trackDomainClick(domain.domain)}>访问域名 ↗</a></div>
             </div>
             <div className="detail-badges">
               <span className="chip chip-brand">.{domain.tld}</span>
@@ -145,10 +148,10 @@ export function DomainDetailPage({ name }: { name: string }) {
                 ) : (
                   <form className="offer-form" onSubmit={(event) => void submitOffer(event)}>
                     <label>联系方式（邮箱 / 微信 / Telegram）
-                      <input value={offer.contact} onChange={(event) => setOffer({ ...offer, contact: event.target.value })} required maxLength={200} placeholder="how@to.reach.you" />
+                      <input value={offer.contact} onChange={(event) => setOffer((current) => ({ ...current, contact: event.target.value }))} required maxLength={200} placeholder="how@to.reach.you" />
                     </label>
                     <label>留言（可选）
-                      <textarea value={offer.message} onChange={(event) => setOffer({ ...offer, message: event.target.value })} maxLength={1000} placeholder="想用它做什么？" />
+                      <textarea value={offer.message} onChange={(event) => setOffer((current) => ({ ...current, message: event.target.value }))} maxLength={1000} placeholder="想用它做什么？" />
                     </label>
                     {turnstileSiteKey && <TurnstileWidget siteKey={turnstileSiteKey} onToken={setTurnstileToken} />}
                     <button className="primary-button" disabled={offerState === "submitting"}>

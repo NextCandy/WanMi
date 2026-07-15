@@ -18,14 +18,16 @@
     "deploy": "pnpm build && wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply wanmi-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply wanmi-db --remote",
-    "db:backup": "wrangler d1 export wanmi-db --remote --output=backups/wanmi-$(date +%Y%m%d-%H%M%S).sql",
+    "db:backup": "tsx scripts/backup-d1.ts",
+    "db:restore:removed-records": "tsx scripts/restore-production-backup-records.ts",
     "domains:parse": "tsx scripts/parse-domain-csv.ts",
     "domains:validate": "tsx scripts/validate-domain-csv.ts",
     "domains:report": "tsx scripts/report-domain-csv.ts",
     "domains:import:local": "tsx scripts/import-domain-csv.ts --local",
     "domains:import:remote": "tsx scripts/import-domain-csv.ts --remote",
     "domains:verify": "tsx scripts/verify-domain-import.ts --local",
-    "verify:no-demo-data": "tsx scripts/verify-no-demo-data.ts"
+    "verify:no-demo-data": "tsx scripts/verify-no-demo-data.ts",
+    "verify:production": "tsx scripts/verify-production.ts"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.6",

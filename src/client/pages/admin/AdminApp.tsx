@@ -56,7 +56,7 @@ interface AdminDomain {
   category_source: "auto" | "manual";
   registered_at: string | null;
   expires_at: string | null;
-  registrar_name: string | null;
+  registrar_label: string | null;
 }
 
 interface AdminDomainPage {
@@ -159,7 +159,7 @@ function DomainEditModal({ domain, onClose, onSaved, notify }: { domain: AdminDo
   const [tld, setTld] = useState(domain.tld);
   const [registeredAt, setRegisteredAt] = useState(domain.registered_at?.slice(0, 10) ?? "");
   const [expiresAt, setExpiresAt] = useState(domain.expires_at?.slice(0, 10) ?? "");
-  const [registrarName, setRegistrarName] = useState(domain.registrar_name ?? "");
+  const [registrarName, setRegistrarName] = useState(domain.registrar_label ?? "");
   const [description, setDescription] = useState(domain.description ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -203,6 +203,62 @@ function DomainEditModal({ domain, onClose, onSaved, notify }: { domain: AdminDo
   </form></div>;
 }
 
+interface ImportPreviewData {
+  file: File;
+  report: { parsedCount: number; invalidCount: number; duplicateCount: number };
+  preview: {
+    totalRows: number;
+    validRows: number;
+    invalidRows: number;
+    duplicateRows: number;
+    newRows: number;
+    existingRows: number;
+    rows: Array<{ rowNumber: number; domain: string; status: "new" | "existing" }>;
+    issues: Array<{ rowNumber: number; domain: string; code: string; reason: string }>;
+    truncated: boolean;
+  };
+}
+
+function ImportPreviewModal({ data, onClose, onConfirm }: { data: ImportPreviewData; onClose: () => void; onConfirm: (mode: "skip" | "update") => Promise<void> }) {
+  const [mode, setMode] = useState<"skip" | "update">("skip");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function confirm() {
+    setSubmitting(true);
+    setError("");
+    try {
+      await onConfirm(mode);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "CSV 导入失败");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const { preview } = data;
+  return <div className="modal-backdrop" onMouseDown={onClose}><section className="import-preview-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="import-preview-title">
+    <button type="button" className="modal-close" aria-label="关闭导入预览" onClick={onClose}>×</button>
+    <div className="import-preview-heading"><span className="eyebrow">CSV IMPORT PREVIEW</span><h2 id="import-preview-title">确认导入 {data.file.name}</h2><p>正式导入会在后端重新解析和校验；不会删除或隐藏 CSV 中未出现的现有域名。</p></div>
+    <div className="import-preview-stats">
+      <div><span>CSV 总行数</span><strong>{preview.totalRows}</strong></div>
+      <div><span>有效唯一</span><strong>{preview.validRows}</strong></div>
+      <div><span>新增</span><strong>{preview.newRows}</strong></div>
+      <div><span>已存在 / 冲突</span><strong>{preview.existingRows}</strong></div>
+      <div><span>无效</span><strong>{preview.invalidRows}</strong></div>
+      <div><span>文件内重复</span><strong>{preview.duplicateRows}</strong></div>
+    </div>
+    <fieldset className="conflict-mode"><legend>现有记录如何处理</legend><label className={mode === "skip" ? "active" : ""}><input type="radio" name="conflict-mode" checked={mode === "skip"} onChange={() => setMode("skip")} /><span><strong>跳过现有记录（默认）</strong><small>新增 {preview.newRows} 条，跳过 {preview.existingRows} 条；不覆盖人工设置。</small></span></label><label className={mode === "update" ? "active" : ""}><input type="radio" name="conflict-mode" checked={mode === "update"} onChange={() => setMode("update")} /><span><strong>更新现有记录</strong><small>新增 {preview.newRows} 条，更新 {preview.existingRows} 条；人工分类、精品、展示和备注仍受后端保护。</small></span></label></fieldset>
+    <div className="import-preview-tables">
+      <div><h3>记录预览</h3><div className="preview-table"><table><thead><tr><th>行号</th><th>域名</th><th>状态</th></tr></thead><tbody>{preview.rows.map((row) => <tr key={`${row.rowNumber}-${row.domain}`}><td>{row.rowNumber}</td><td className="mono">{row.domain}</td><td><span className={row.status === "new" ? "badge-status badge-listed" : "badge-status badge-warning"}>{row.status === "new" ? "新增" : mode === "update" ? "将更新" : "将跳过"}</span></td></tr>)}</tbody></table></div></div>
+      <div><h3>错误行</h3>{preview.issues.length ? <div className="preview-errors">{preview.issues.map((issue) => <div key={`${issue.rowNumber}-${issue.code}-${issue.domain}`}><strong>第 {issue.rowNumber} 行 · {issue.domain || "空域名"}</strong><span>{issue.reason}</span></div>)}</div> : <div className="empty-inline">没有错误行</div>}</div>
+    </div>
+    {preview.truncated && <p className="preview-note">预览仅显示前 120 条；统计数字覆盖完整文件。</p>}
+    {error && <div className="inline-error" role="alert">{error}</div>}
+    <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose} disabled={submitting}>取消</button><button type="button" className="primary-button" onClick={() => void confirm()} disabled={submitting}>{submitting ? "正在重新校验并导入…" : mode === "update" ? `确认新增 ${preview.newRows}、更新 ${preview.existingRows}` : `确认新增 ${preview.newRows}、跳过 ${preview.existingRows}`}</button></div>
+  </section></div>;
+}
+
 function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string, tone?: "success" | "error") => void; presetTld?: string; presetQuery?: string }) {
   const [data, setData] = useState<AdminDomainPage | null>(null);
   const [q, setQ] = useState(presetQuery ?? "");
@@ -220,6 +276,7 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [editing, setEditing] = useState<AdminDomain | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
   const manualCategories = useMemo(() => categories.filter((item) => !item.is_auto), [categories]);
   const manualCategoryNames = useMemo(() => new Set(manualCategories.map((item) => item.name)), [manualCategories]);
 
@@ -333,14 +390,21 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
   async function importCsv(file: File) {
     try {
       const dryForm = new FormData(); dryForm.set("file", file); dryForm.set("dryRun", "true");
-      const dry = await api<{ report: { parsedCount: number; invalidCount: number; duplicateCount: number } }>("/api/admin/domains/import", { method: "POST", body: dryForm });
-      if (!window.confirm(`解析 ${dry.report.parsedCount} 条；无效 ${dry.report.invalidCount}；重复 ${dry.report.duplicateCount}。继续导入合法记录？`)) return;
-      const form = new FormData(); form.set("file", file);
-      const result = await api<{ imported: number; errorCount: number; errorDownloadUrl: string | null }>("/api/admin/domains/import", { method: "POST", body: form });
-      notify(`已导入/更新 ${result.imported} 条，错误 ${result.errorCount} 条`);
-      if (result.errorDownloadUrl) await download(result.errorDownloadUrl);
-      setRefresh((value) => value + 1);
+      const dry = await api<Omit<ImportPreviewData, "file">>("/api/admin/domains/import", { method: "POST", body: dryForm });
+      setImportPreview({ file, report: dry.report, preview: dry.preview });
     } catch (reason) { notify(reason instanceof Error ? reason.message : "导入失败", "error"); }
+  }
+
+  async function confirmImport(mode: "skip" | "update") {
+    if (!importPreview) return;
+    const form = new FormData();
+    form.set("file", importPreview.file);
+    form.set("conflictMode", mode);
+    const result = await api<{ imported: number; inserted: number; updated: number; skipped: number; errorCount: number; errorDownloadUrl: string | null }>("/api/admin/domains/import", { method: "POST", body: form });
+    notify(`导入完成：新增 ${result.inserted}、更新 ${result.updated}、跳过 ${result.skipped}、错误 ${result.errorCount}`);
+    if (result.errorDownloadUrl) await download(result.errorDownloadUrl);
+    setImportPreview(null);
+    setRefresh((value) => value + 1);
   }
 
   const allSelected = Boolean(data?.items.length) && data!.items.every((domain) => selected.has(domain.id));
@@ -377,7 +441,7 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
       <td data-label="操作"><button className="table-link" onClick={() => setEditing(domain)}>编辑</button><button className="table-link danger-text" onClick={() => void removeDomain(domain)}>删除</button></td>
     </tr>)}</tbody></table></div>
     {data && data.totalPages > 1 && <div className="pagination admin-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {data.totalPages} 页</span><button disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}
-  </Panel>{editing && <DomainEditModal domain={editing} notify={notify} onClose={() => setEditing(null)} onSaved={() => setRefresh((value) => value + 1)} />}</>;
+  </Panel>{editing && <DomainEditModal domain={editing} notify={notify} onClose={() => setEditing(null)} onSaved={() => setRefresh((value) => value + 1)} />}{importPreview && <ImportPreviewModal data={importPreview} onClose={() => setImportPreview(null)} onConfirm={confirmImport} />}</>;
 }
 
 function CategoriesView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
@@ -669,30 +733,68 @@ function SecurityView({ user, notify }: { user: AdminUser; notify: (text: string
   return <div className="admin-stack"><Panel title="账户安全" description={`当前管理员：${user.email}`}><form className="security-form" onSubmit={(event) => void changePassword(event)}><label>当前密码<input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label>新密码<input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="至少 12 位" /><span className="password-strength" aria-label={`密码强度 ${passwordStrength}/4`}>{[1, 2, 3, 4].map((level) => <i key={level} className={level <= passwordStrength ? "active" : ""} />)}</span></label><button className="primary-button">修改密码</button></form></Panel><Panel title="双重验证（TOTP）" description="为管理员登录增加动态验证码保护"><div className="empty-inline">即将支持 · 当前请使用高强度密码并定期检查会话</div></Panel><Panel title="当前会话" actions={<button className="secondary-button" onClick={() => void api<{ revoked: number }>("/api/auth/logout-others", { method: "POST" }).then((result) => { notify(`已退出其他 ${result.revoked} 个会话`); load(); })}>退出其他会话</button>}><div className="session-list">{sessions.map((session) => <div key={session.id}><div><strong>{session.is_current ? "当前设备" : "其他设备"}{session.ip_country ? ` · ${session.ip_country}` : ""}</strong><span>{session.user_agent}</span><small title={formatExact(session.last_seen_at)}>最近活动 {formatRelative(session.last_seen_at)} · 到期 {formatRelative(session.expires_at)}</small></div>{!session.is_current && <button className="danger-text" onClick={() => void api(`/api/auth/sessions/${session.id}`, { method: "DELETE" }).then(() => { notify("会话已撤销"); load(); })}>撤销</button>}</div>)}</div></Panel></div>;
 }
 
-interface LogPage { items: Array<{ id: number; level: string; action: string; resource_type: string; message: string; success: number; created_at: string }>; total: number; }
+interface LogPage {
+  items: Array<{
+    id: number;
+    level: string;
+    action: string;
+    resource_type: string;
+    resource_id: string | null;
+    actor_email: string;
+    message: string;
+    success: number;
+    created_at: string;
+  }>;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+const LOG_ACTIONS: Array<[string, string]> = [
+  ["auth.login", "管理员登录"],
+  ["domains.create", "创建域名"],
+  ["domains.update", "修改域名"],
+  ["domains.delete", "删除域名"],
+  ["domains.import", "CSV 导入"],
+  ["domains.export", "CSV 导出"],
+  ["domains.bulk.feature", "批量设为精品"],
+  ["domains.bulk.unfeature", "批量取消精品"],
+  ["domains.bulk.categorize", "批量设置分类"],
+  ["domains.bulk.delete", "批量删除"],
+  ["settings.update", "系统设置"],
+  ["leads.create", "求购线索"],
+];
+
 function LogsView() {
   const [data, setData] = useState<LogPage | null>(null);
   const [level, setLevel] = useState("");
+  const [action, setAction] = useState("");
   const [keyword, setKeyword] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [page, setPage] = useState(1);
   const params = useCallback(() => {
-    const search = new URLSearchParams({ pageSize: "100" });
+    const search = new URLSearchParams({ page: String(page), pageSize: "50" });
     if (level) search.set("level", level);
+    if (action) search.set("action", action);
     if (keyword.trim()) search.set("q", keyword.trim());
     if (from) search.set("from", from);
     if (to) search.set("to", to);
     return search;
-  }, [from, keyword, level, to]);
-  useEffect(() => { void api<LogPage>(`/api/admin/logs?${params()}`).then(setData).catch(() => setData({ items: [], total: 0 })); }, [params]);
+  }, [action, from, keyword, level, page, to]);
+  useEffect(() => { void api<LogPage>(`/api/admin/logs?${params()}`).then(setData).catch(() => setData({ items: [], page: 1, pageSize: 50, total: 0, totalPages: 0 })); }, [params]);
   return <Panel title="操作日志" description="日志来自 D1，不记录密码、Token 或完整凭据；90 天前的日志由 Cron 自动清理" actions={<button className="secondary-button" onClick={() => void download(`/api/admin/logs/export?${params()}`)}>导出 CSV</button>}>
     <div className="log-filter">
-      <select value={level} onChange={(event) => setLevel(event.target.value)} aria-label="级别筛选"><option value="">全部级别</option><option value="info">info</option><option value="warning">warning</option><option value="error">error</option></select>
-      <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="关键字（消息或动作）" aria-label="日志关键字" />
-      <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="开始日期" />
-      <input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="结束日期" />
+      <select value={level} onChange={(event) => { setLevel(event.target.value); setPage(1); }} aria-label="级别筛选"><option value="">全部级别</option><option value="info">信息</option><option value="warning">警告</option><option value="error">错误</option></select>
+      <select value={action} onChange={(event) => { setAction(event.target.value); setPage(1); }} aria-label="操作类型筛选"><option value="">全部操作类型</option>{LOG_ACTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+      <input value={keyword} onChange={(event) => { setKeyword(event.target.value); setPage(1); }} placeholder="消息、动作、对象或操作者" aria-label="日志关键字" />
+      <input type="date" value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} aria-label="开始日期" />
+      <input type="date" value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} aria-label="结束日期" />
+      <span>共 {data?.total ?? 0} 条</span>
     </div>
-    <div className="log-table">{data ? (data.items.length ? data.items.map((log) => <div key={log.id}><span className={log.success ? "dot-success" : "dot-error"} /><time>{new Date(log.created_at).toLocaleString("zh-CN")}</time><strong>{log.action}</strong><span>{log.message}</span></div>) : <div className="empty-inline">没有匹配的日志</div>) : <div className="empty-inline">正在读取日志…</div>}</div>
+    <div className="log-table log-table-enhanced"><header><span>结果</span><span>时间</span><span>操作</span><span>对象</span><span>操作者</span><span>说明</span></header>{data ? (data.items.length ? data.items.map((log) => <div key={log.id}><span className={log.success ? "log-result success" : "log-result error"}>{log.success ? "成功" : "失败"}</span><time title={formatExact(log.created_at)}>{new Date(log.created_at).toLocaleString("zh-CN")}</time><strong>{LOG_ACTIONS.find(([value]) => value === log.action)?.[1] ?? log.action}</strong><span>{log.resource_type}{log.resource_id ? ` #${log.resource_id}` : ""}</span><span>{log.actor_email}</span><span>{log.message}</span></div>) : <div className="empty-inline">没有匹配的日志</div>) : <div className="empty-inline">正在读取日志…</div>}</div>
+    {data && data.totalPages > 1 && <div className="pagination admin-pagination"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {data.page} / {data.totalPages} 页</span><button type="button" disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}
   </Panel>;
 }
 

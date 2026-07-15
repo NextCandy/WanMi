@@ -28,6 +28,23 @@ function dateAtUtcMidnight(value: string | null | undefined): string | null {
   return value ? `${value}T00:00:00.000Z` : null;
 }
 
+async function existingNormalizedDomains(db: D1Database, normalizedDomains: string[]): Promise<Set<string>> {
+  const unique = [...new Set(normalizedDomains)];
+  const statements = [];
+  for (let index = 0; index < unique.length; index += 80) {
+    const chunk = unique.slice(index, index + 80);
+    statements.push(
+      db.prepare(`SELECT normalized_domain FROM domains WHERE normalized_domain IN (${chunk.map(() => "?").join(",")})`)
+        .bind(...chunk),
+    );
+  }
+  if (!statements.length) return new Set();
+  const results = await db.batch(statements);
+  return new Set(results.flatMap((result) =>
+    (result.results as unknown as Array<{ normalized_domain: string }>).map((row) => row.normalized_domain),
+  ));
+}
+
 function adminFilters(query: ReturnType<typeof adminDomainQuerySchema.parse>): {
   where: string;
   params: Array<string | number>;
@@ -125,7 +142,7 @@ domainAdminRoutes.post("/", async (c) => {
       `INSERT INTO domains (
         full_domain, normalized_domain, name, tld, category, is_featured, is_listed,
         public_price, public_price_currency, public_price_approved, notes, source,
-        description, registered_at, expires_at, registrar_name
+        description, registered_at, expires_at, registrar_label
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?)`,
     )
       .bind(
@@ -168,10 +185,10 @@ domainAdminRoutes.get("/export", async (c) => {
   const { where, params } = adminFilters(parsed.data);
   const result = await c.env.DB.prepare(
     `SELECT d.full_domain, d.tld, d.registered_at, d.expires_at,
-      COALESCE(NULLIF(d.registrar_name, ''), r.display_name, r.provider, '') AS registrar,
+      COALESCE(NULLIF(d.registrar_label, ''), r.display_name, r.provider, '') AS registrar,
       d.description
      FROM domains d
-     LEFT JOIN registrar_accounts r ON r.id = d.registrar_account_id
+     LEFT JOIN registrar_accounts r ON r.id = d.registrar_account_ref
      WHERE ${where}
      ORDER BY d.normalized_domain ASC`,
   ).bind(...params).all();
@@ -214,10 +231,34 @@ domainAdminRoutes.post("/import", async (c) => {
   const result = parseDomainCsv(await file.text(), file.name.replace(/[^a-zA-Z0-9._-]/g, "_"));
   if (result.records.length === 0) return fail(c, 422, "CSV_EMPTY", "CSV 中没有可导入的合法域名", result.report.issues);
   if (result.records.length > MAX_IMPORT_RECORDS) return fail(c, 413, "CSV_TOO_MANY_ROWS", `单次最多导入 ${MAX_IMPORT_RECORDS} 条`);
+  const existing = await existingNormalizedDomains(c.env.DB, result.records.map((record) => record.normalizedDomain));
+  const preview = {
+    totalRows: result.report.rawRecordCount,
+    validRows: result.records.length,
+    invalidRows: result.report.invalidCount,
+    duplicateRows: result.report.duplicateCount,
+    newRows: result.records.length - existing.size,
+    existingRows: existing.size,
+    rows: result.records.slice(0, 120).map((record) => ({
+      rowNumber: record.rowNumber,
+      domain: record.normalizedDomain,
+      status: existing.has(record.normalizedDomain) ? "existing" : "new",
+    })),
+    issues: result.report.issues.slice(0, 120),
+    truncated: result.records.length > 120 || result.report.issues.length > 120,
+  };
   const dryRun = form.dryRun === "true";
-  if (dryRun) return ok(c, { dryRun: true, report: result.report });
+  if (dryRun) return ok(c, { dryRun: true, report: result.report, preview });
+  const conflictMode = form.conflictMode === "update" ? "update" : form.conflictMode === "skip" ? "skip" : null;
+  if (!conflictMode) return fail(c, 422, "CONFLICT_MODE_REQUIRED", "请选择跳过或更新现有记录");
   const importId = crypto.randomUUID();
-  const statements = buildImportStatements(result.records, { importId });
+  const user = c.get("authUser");
+  const statements = buildImportStatements(result.records, {
+    importId,
+    conflictMode,
+    archiveMissing: false,
+    actorUserId: user.id,
+  });
   await c.env.DB.batch(statements.map((statement) => c.env.DB.prepare(statement.sql).bind(...statement.params)));
   if (result.report.issues.length > 0) {
     const insert = c.env.DB.prepare(
@@ -231,7 +272,11 @@ domainAdminRoutes.post("/import", async (c) => {
   }
   return ok(c, {
     importId,
-    imported: result.records.length,
+    imported: conflictMode === "update" ? result.records.length : result.records.length - existing.size,
+    inserted: result.records.length - existing.size,
+    updated: conflictMode === "update" ? existing.size : 0,
+    skipped: conflictMode === "skip" ? existing.size : 0,
+    conflictMode,
     errorCount: result.report.issues.length,
     report: result.report,
     errorDownloadUrl: result.report.issues.length > 0 ? `/api/admin/domains/import-errors/${importId}` : null,
@@ -311,7 +356,7 @@ domainAdminRoutes.patch("/:id", async (c) => {
     ["description", "description", (value) => value as string],
     ["registeredAt", "registered_at", (value) => dateAtUtcMidnight(value as string | null)],
     ["expiresAt", "expires_at", (value) => dateAtUtcMidnight(value as string | null)],
-    ["registrarName", "registrar_name", (value) => typeof value === "string" && value ? value.trim() : null],
+    ["registrarName", "registrar_label", (value) => typeof value === "string" && value ? value.trim() : null],
   ];
   if (parsed.data.fullDomain !== undefined || parsed.data.tld !== undefined) {
     try {

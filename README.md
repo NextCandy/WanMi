@@ -1,47 +1,51 @@
 # 玩米（WanMi）
 
-玩米是一个面向自有域名资产的中文展示与管理系统。品牌字标为毛笔楷书「玩」字（Ma Shan Zheng），域名与数字使用 Space Grotesk 展示字体，日志时间等技术值使用 JetBrains Mono。前台用于公开展示经管理员上架的域名，后台用于管理域名、分类、注册商账户、站点设置、到期提醒和安全会话。前后台与 API 同源，并共享同一个 Cloudflare D1 数据库。
+玩米是部署在 Cloudflare Workers 上的中文域名展示与管理系统。公开站点用于检索、收藏和发现已上架域名；管理后台负责域名、分类、CSV、求购线索、站点设置、通知及审计日志。前后端与 API 同源，共享 Cloudflare D1，图片使用 R2。
 
 ## 线上环境
 
-- 生产地址：<https://wanmi.org>
+- 生产站点：<https://wanmi.org>
 - 管理后台：<https://wanmi.org/admin>
-- Cloudflare Worker：`wanmi`
+- Worker：`wanmi`
 - D1：`wanmi-db`（绑定 `DB`）
 - R2：`wanmi-assets`（绑定 `UPLOADS`）
 - Cron：每天 `01:00 UTC`，即 `Asia/Shanghai 09:00`
 
-当前唯一业务源文件为 `data/source/WanMi.csv`：原始 859 条、有效唯一 859 条、重复 0、无效 0。导入会保留历史记录并将源文件中不存在的旧域名归档；本地连续导入两次后总记录 874、公开展示 859，证明同步幂等。
+唯一业务源文件为 `data/source/WanMi.csv`：原始 859 条、有效唯一 859 条、重复 0、无效 0。导入脚本保留历史记录，并支持幂等同步。
 
-## 功能
+## 公开站点
 
-- 按表头名称解析 UTF-8/BOM、CRLF、引号转义 CSV；使用 `tldts` 统一处理协议、路径、多级公共后缀、IDN/Punycode 与可注册域名主体。
-- 新增公开简介字段：后台可编辑或清空，前台卡片保留稳定的两行区域、详情页展示完整纯文本；CSV 重导不覆盖管理员简介。
-- 精品状态可在后台直接切换、筛选及批量设置/取消，前台使用克制标识并默认精品优先；CSV 重导不覆盖管理员精品状态。
-- 前台不再使用 Hero，打开首页即显示分类胶囊、搜索筛选工具条和紧凑域名列表；服务端搜索、后缀/位数/分类/精品筛选、排序、分页和 URL 状态均保留。
-- 域名详情页 `/d/:domain`：直接展示 CSV 导入的注册日期与到期日期（不发起外部 Whois/RDAP 查询）、Turnstile 求购意向表单（每 IP 每分钟最多 3 次）、相关域名推荐与安全外链。
-- 深浅色主题（跟随系统 + 手动切换，首帧无闪烁），oklch 语义设计令牌，等宽字体域名排版。
-- 后台真实登录、会话管理（含登录地）、改密、域名 CRUD、后缀/分类/展示/精品筛选、服务端排序、列显隐、批量管理、分类管理、求购线索、CSV 导入/导出，以及操作日志（筛选/导出/90 天自动清理）；支持一键导出全部 862 条记录，CSV 包含域名、后缀、注册日期、到期日期、注册商和简介，每条记录也可在后台编辑这些字段。
-- 自动分类覆盖数字、字母、拼音、英文与杂米，并采用稳定的贪心拼音拆分；自动标签与人工分类在后台合并展示，人工优先且可恢复自动，并保留 `num3…num9`、`pinyin1…pinyin4`、`alpha3/alpha4`、`mixed2/mixed3` 等子类和置信度。公共 API、前台分类栏、域名列表和详情页均使用同一套 D1 多标签分类。
-- 公共列表与后台共享 D1；写操作由数据库触发器递增数据版本，已打开的前台每 8 秒检测版本并重新验证，刷新后立即读取最新数据。
-- 概览仪表盘：域名与展示统计、匿名 PV/UV 七日趋势、域名点击 Top 10、求购转化率、访客地区、通知渠道健康和 90 天到期列表。
-- 注册商凭据 AES-GCM 加密，支持 Cloudflare、GoDaddy、NameSilo、Porkbun、Spaceship、Namecheap、Dynadot、DNSPod 和阿里云适配器。
-- R2 图片上传、Cloudflare Cron 到期提醒；Email（Resend）、Telegram、Bark、Server 酱、企业微信、飞书和 Discord 均支持独立加密配置、真实测试与 `last_test` 状态。
-- 页脚联系方式按配置显示 Email、Telegram、WhatsApp、X、小红书、微信和 QQ 图标，并保留低调管理入口；访客 IP 信息卡已移除。
-- 公共 API 字段白名单，不公开管理员、内部备注、凭据、原始 CSV 或市场内部字段。
+- 黑金目录视觉：紧凑 Hero、实时域名总数、分类构成、精品优先卡片、深浅色主题与克制动效。
+- 搜索与高级筛选：关键词、后缀、分类、精品、长度区间、包含字符、排除字符和域名类型；状态写入 URL，可刷新和分享。
+- 本地收藏：收藏内容仅保存在当前浏览器的版本化 `localStorage` 中，不上传服务器；支持收藏视图和详情页同步切换。
+- 搜索历史：最多保留 10 条，去重并支持逐条复用或清空；存储异常时自动降级，不影响检索。
+- 域名速览：在当前页查看注册日期、到期日期、分类和相似域名，可直接复制、收藏、联系或打开完整详情。
+- 随机发现与相似推荐：只从已加载的真实公开数据中选择；推荐按后缀、分类、长度和前缀在客户端确定性计算。
+- 性能：后台与详情页按路由拆包，公开列表缓存最近页面并在网络条件允许时预取下一页，长列表使用 `content-visibility`。
+- SEO：Worker 为首页注入实时站点元数据和真实域名 `ItemList` JSON-LD；详情页使用 `WebPage` 结构化数据，不伪造价格或库存。
+- 可访问性：语义化卡片、原生 `dialog`、键盘焦点环、减少动效/透明度/高对比度偏好和安全区适配。
 
-## 界面设计
+## 响应式设计
 
-前后台共享一套手写 CSS 设计系统（`src/client/styles/app.css`），无运行时 UI 依赖：
+- 桌面：多列卡片、数字分页和完整操作区。
+- 平板：自适应列数，筛选与工具栏重排。
+- 手机：单列卡片、底部固定导航、详情底部抽屉、至少 44px 触控目标，并处理 `env(safe-area-inset-bottom)`。
+- 自动化覆盖 `1280×720`、`1440×900`、`1920×1080`、`768×1024`、`1024×768`、`320×568`、`375×812`、`390×844` 和 `430×932`，检查主内容与横向溢出。
 
-- oklch 语义令牌统一管理颜色、圆角、阴影与动效节奏；主题色 `--brand` 由后台站点设置动态注入，所有派生色通过 `color-mix` 计算；深浅色双主题跟随系统并可手动切换。
-- 前台采用分类优先的编辑式目录：安静的吸顶导航、常驻分类轨、统一 48px 筛选控件和固定密度域名列表；分类标签与复制/联系操作拥有独立布局区域，桌面与移动端均不会重叠。
-- 后台为深色侧边栏 + 暖白工作区，标题、正文、表格和空状态采用一致的字号层级；短面板按内容自然收口，统计卡片根据数量自适应铺满，移动端导航提供完整触控目标和横向浏览。
-- 全站采用 160/220/280ms 的强 ease-out 动效体系，频繁交互保持克制，悬浮位移仅对精细指针启用；支持 `prefers-reduced-motion`、`prefers-reduced-transparency`、`prefers-contrast` 与键盘 `focus-visible`。
+## 管理后台
+
+- 安全认证：PBKDF2 密码、HMAC 会话、CSRF、防暴力登录、会话查看/撤销与改密。
+- 域名管理：CRUD、服务端筛选/排序/分页、简介与精品切换、隐藏/恢复、分类及批量设置。
+- CSV 导入预览：上传后先展示总数、有效、无效、重复、新增、已存在、示例记录和错误行；冲突可选择“跳过”或“更新”。正式导入会在服务端重新解析与验证，后台上传不会归档未出现在本次文件中的域名。
+- CSV 导出：支持全部或所选记录；原始业务 CSV 的同步脚本仍保持权威归档语义。
+- 批量管理：对选中域名批量上架/下架、设为/取消精品、分类和导出，并返回逐项结果。
+- 操作日志：按级别、动作、关键词和日期筛选，显示结果、时间、动作、对象、操作者和消息，支持分页与导出。
+- 数据同步：所有写操作由 D1 触发器递增数据版本；已打开的前台定期检查版本并刷新缓存。
+- 其余能力：求购线索、统计仪表盘、站点设置、R2 图片、到期提醒、通知渠道、注册商账户及 DNS 适配器。
 
 ## 技术栈
 
-React 19、TypeScript、Vite 8、Cloudflare Vite Plugin、Cloudflare Workers Static Assets、Hono、Cloudflare D1、R2、Cron Triggers、Zod、Vitest、Playwright。
+React 19、TypeScript 6、Vite 8、Cloudflare Vite Plugin、Hono、Cloudflare Workers Static Assets、D1、R2、Cron Triggers、Zod、Vitest 和 Playwright。
 
 ## 本地开发
 
@@ -58,71 +62,67 @@ pnpm domains:verify
 pnpm dev
 ```
 
-`.dev.vars` 必须填写 `ADMIN_EMAIL`、`BOOTSTRAP_ADMIN_PASSWORD`、`SESSION_SECRET` 和 `CREDENTIALS_ENCRYPTION_KEY`，且已经被 Git 忽略。首次登录时 Worker 才会创建管理员；管理员已存在时，重新部署不会重置密码。
+`.dev.vars` 必须填写 `ADMIN_EMAIL`、`BOOTSTRAP_ADMIN_PASSWORD`、`SESSION_SECRET` 和 `CREDENTIALS_ENCRYPTION_KEY`，且已被 Git 忽略。首次登录时 Worker 才会创建管理员；管理员已存在时重新部署不会重置密码。
 
 ## 常用命令
 
 ```bash
-pnpm dev
-pnpm build
 pnpm typecheck
 pnpm lint
 pnpm test
 pnpm test:e2e
+pnpm build
 pnpm check
-pnpm deploy
 
 pnpm db:migrate:local
 pnpm db:migrate:remote
 pnpm db:backup
+pnpm db:restore:removed-records -- --backup=<历史备份.sql> --dry-run
 
-pnpm domains:parse
 pnpm domains:validate
-pnpm domains:report
-pnpm domains:import:local
-pnpm domains:import:remote
-pnpm domains:verify -- --remote
+pnpm domains:import:local -- --dry-run
+pnpm domains:verify
 pnpm verify:no-demo-data
+pnpm verify:production
+pnpm verify:production -- --write
 ```
+
+集成测试使用 Node.js 内置 `node:sqlite` 模拟 D1，不依赖系统安装的 `sqlite3` 命令行工具。
+`pnpm verify:production` 默认只读；只有显式增加 `-- --write` 并通过环境变量提供管理员凭据时，才会创建一个唯一临时域名，验证批量操作、CSV 预览、导出和日志，并在 `finally` 中删除临时记录。
 
 ## 生产迁移与部署
 
 ```bash
+pnpm wrangler whoami
 pnpm db:backup
-pnpm domains:validate
-pnpm domains:import:remote -- --dry-run
 pnpm db:migrate:remote
-pnpm domains:import:remote -- --dry-run
-pnpm domains:import:remote
-pnpm domains:import:remote       # 幂等复验
-pnpm domains:verify -- --remote
 pnpm check
-pnpm wrangler deploy
+pnpm run deploy
+pnpm domains:verify -- --remote
 ```
 
-备份写入已被 Git 忽略的 `backups/`。恢复前先停止写入并使用 `wrangler d1 execute wanmi-db --remote --file=<backup.sql>`；恢复后重新运行远程验证。生产验收需覆盖 `wanmi.org` 首页、详情页、`/admin` 直接刷新、桌面/手机布局、错误密码、登录、简介/精品/分类修改、最多 10 秒同步、清理测试值和退出登录。
+`pnpm db:backup` 会把远程 D1 导出到被 Git 忽略的 `backups/`。本轮新增两项迁移：
 
-远程 API Token 只通过 `CLOUDFLARE_API_TOKEN`、`GH_TOKEN`/`GITHUB_TOKEN` 等环境变量或 Secret 注入；Worker 运行 Secret 使用 `wrangler secret put` 的标准输入或交互方式设置。真实值不得进入 README、`.env.example`、Wrangler 配置、构建产物或日志。Token 一旦出现在聊天、终端历史或提交中必须立即撤销并轮换；管理员已存在时不得通过重新部署重置密码。
+- `0014_black_gold_accent.sql`：仅当站点仍使用历史默认橙色时将主题色改为金色，管理员自定义颜色不会被覆盖。
+- `0015_restore_domain_management_schema.sql`：兼容曾执行过旧版破坏性迁移的生产库，幂等恢复注册商账户、DNS 缓存和求购线索表，并增加不会与旧列冲突的 `registrar_label`、`registrar_account_ref` 字段；同时从权威 CSV 回填 859 条注册商标签，不删除、不归档域名。
 
-## 当前数据统计
+如果远程库曾被历史迁移移除注册商或线索记录，应先对旧备份运行 `db:restore:removed-records --dry-run`，确认数量后再提供 `CLOUDFLARE_ACCOUNT_ID`、`D1_DATABASE_ID` 和 `CLOUDFLARE_API_TOKEN` 执行正式恢复。恢复脚本只写回目标表及域名账户关联，不输出加密凭据或联系人内容。
 
-- CSV Premium 标记：87（只用于新增记录的初始值，管理员后续设置受保护）
-- 简介非空：0
-- 当前自动分类统计：英文 269、拼音 313、字母 118、数字 107、杂米 43、其他 9
-- 主要后缀：`.com` 194、`.org` 154、`.cn` 84、`.net` 83、`.xyz` 60、`.cc` 44、`.pm` 33、`.de` 28
+2026-07-15 的生产验收状态：Worker 版本 `5558ddff-1b91-4525-8c83-77039eab472e`，D1 共 862 条域名、862 条公开、87 条精品；859 条权威 CSV 域名已回填注册商标签，历史备份中的 2 条注册商账户和 1 条求购线索已恢复。只读与可回滚写入冒烟、桌面/移动端真实浏览器验收均通过，临时测试域名已删除。首页由 Worker 优先处理以注入实时 SEO，其他静态资源仍由 Workers Static Assets 提供。
+
+远程 API Token 只能通过 `CLOUDFLARE_API_TOKEN`、`GH_TOKEN`/`GITHUB_TOKEN` 等环境变量或 CI Secret 注入。Worker Secret 使用 `wrangler secret put` 设置。真实凭据不得进入 README、环境变量示例、Wrangler 配置、构建产物或日志；一旦出现在聊天或终端历史中应立即撤销并轮换。
 
 ## 目录
 
 ```text
-src/client/            React 前台和后台
-src/worker/            Hono Worker、认证、服务商适配器
-src/shared/            CSV、域名、Schema 和共享类型
-scripts/               数据导入、验证和安全扫描
-migrations/            D1 migration
+src/client/            React 公开站点与管理后台
+src/worker/            Hono Worker、认证、API 与服务商适配器
+src/shared/            CSV、导入计划、Schema 和共享类型
+scripts/               数据导入、验证、备份与安全扫描
+migrations/            D1 migrations
 data/source/           唯一原始 CSV
-data/generated/        脚本生成的标准化数据与报告
-tests/                 单元、集成与 E2E
-docs/design-reference/ 原 Claude Design 原型，仅供视觉参考
+tests/                 单元、集成与 Playwright E2E
+docs/                  部署、导入、安全与适配器文档
 ```
 
-更详细说明见 [Cloudflare 部署](docs/CLOUDFLARE_DEPLOY.md)、[域名导入](docs/DOMAIN_IMPORT.md)、[注册商适配器](docs/REGISTRAR_PROVIDERS.md) 与 [安全设计](docs/SECURITY.md)。
+详细说明见 [Cloudflare 部署](docs/CLOUDFLARE_DEPLOY.md)、[域名导入](docs/DOMAIN_IMPORT.md)、[注册商适配器](docs/REGISTRAR_PROVIDERS.md)、[安全设计](docs/SECURITY.md) 与 [HANDOFF](HANDOFF.md)。

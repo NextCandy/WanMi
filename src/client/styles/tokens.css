@@ -8,12 +8,12 @@
   --color-faint: oklch(0.7 0.012 260);
   --color-rule: oklch(0.89 0.012 80);
   --color-rule-strong: oklch(0.8 0.018 80);
-  --color-accent: #e85d2a;
-  --color-accent-strong: #c8451b;
-  --color-focus: #e85d2a;
-  --color-premium: #f97316;
+  --color-accent: #d8b638;
+  --color-accent-strong: #a88416;
+  --color-focus: #d8b638;
+  --color-premium: #e4c75b;
   --color-sidebar: oklch(0.16 0.02 260);
-  --color-sidebar-accent: #f97316;
+  --color-sidebar-accent: #d8b638;
 
   --font-display: "Noto Serif SC", "Songti SC", "STSong", ui-serif, serif;
   --font-body: Inter, "PingFang SC", "Microsoft YaHei", ui-sans-serif, sans-serif;

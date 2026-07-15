@@ -119,10 +119,10 @@ async function syncAccount(c: Parameters<typeof fail>[0], account: RegistrarRow)
     }
     const statement = c.env.DB.prepare(
       `INSERT INTO domains (
-        full_domain, normalized_domain, name, tld, is_listed, source, registrar_account_id, expires_at, source_imported_at
+        full_domain, normalized_domain, name, tld, is_listed, source, registrar_account_ref, expires_at, source_imported_at
       ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(normalized_domain) DO UPDATE SET
-        registrar_account_id = excluded.registrar_account_id,
+        registrar_account_ref = excluded.registrar_account_ref,
         expires_at = COALESCE(excluded.expires_at, domains.expires_at),
         updated_at = CURRENT_TIMESTAMP`,
     );

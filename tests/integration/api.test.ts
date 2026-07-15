@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -8,7 +7,7 @@ import { parseDomainCsv } from "../../src/shared/csv";
 import { buildImportStatements, statementsToSql } from "../../src/shared/import-plan";
 import { app } from "../../src/worker";
 import type { Env } from "../../src/worker/types";
-import { SqliteD1Database } from "./sqlite-d1";
+import { executeSql, SqliteD1Database } from "./sqlite-d1";
 
 async function readAllMigrations(): Promise<string> {
   const entries = (await fs.readdir("migrations")).filter((name) => name.endsWith(".sql")).sort();
@@ -29,9 +28,9 @@ describe.sequential("WanMi API 集成", () => {
     directory = await fs.mkdtemp(path.join(os.tmpdir(), "wanmi-api-"));
     const databasePath = path.join(directory, "wanmi.sqlite");
     const [migration, source] = await Promise.all([readAllMigrations(), fs.readFile("data/source/WanMi.csv", "utf8")]);
-    execFileSync("sqlite3", [databasePath], { input: migration });
+    executeSql(databasePath, migration);
     const records = parseDomainCsv(source).records;
-    execFileSync("sqlite3", [databasePath], { input: statementsToSql(buildImportStatements(records, { importId: "api-import" })), maxBuffer: 50 * 1024 * 1024 });
+    executeSql(databasePath, statementsToSql(buildImportStatements(records, { importId: "api-import" })));
     env = {
       DB: new SqliteD1Database(databasePath) as unknown as D1Database,
       ADMIN_EMAIL: "admin@example.com",
@@ -78,6 +77,15 @@ describe.sequential("WanMi API 集成", () => {
     expect(all.data.total).toBe(859);
   });
 
+  it("公共 API 高级筛选保持真实分页并校验长度范围", async () => {
+    const response = await request("/api/public/domains?contains=cloud&kind=alphanumeric&pageSize=100");
+    expect(response.status).toBe(200);
+    const body = await response.json() as { data: { total: number; items: Array<{ name: string }> } };
+    expect(body.data.total).toBeGreaterThan(0);
+    expect(body.data.items.every((item) => item.name.includes("cloud") && /[a-z]/.test(item.name) && /[0-9]/.test(item.name))).toBe(true);
+    expect((await request("/api/public/domains?minLength=8&maxLength=2")).status).toBe(422);
+  });
+
   it("CSRF 缺失时拒绝写操作", async () => {
     const response = await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers: { Origin: origin, Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ isListed: false }) });
     expect(response.status).toBe(403);
@@ -93,9 +101,35 @@ describe.sequential("WanMi API 集成", () => {
       headers: { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf },
       body: form,
     });
-    const body = await response.json() as { data: { report: { parsedCount: number; uniqueCount: number; invalidCount: number } } };
+    const body = await response.json() as { data: { report: { parsedCount: number; uniqueCount: number; invalidCount: number }; preview: { newRows: number; existingRows: number; invalidRows: number } } };
     expect(response.status).toBe(200);
     expect(body.data.report).toMatchObject({ parsedCount: 859, uniqueCount: 859, invalidCount: 0 });
+    expect(body.data.preview).toMatchObject({ newRows: 0, existingRows: 859, invalidRows: 0 });
+  });
+
+  it("CSV 预览区分新增与冲突，默认跳过不会归档文件外数据", async () => {
+    const source = "Domain,TLD\n02cloud.com,com\ncodexwanmi.com,com\n";
+    const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf };
+    const previewForm = new FormData();
+    previewForm.set("file", new File([source], "preview.csv", { type: "text/csv" }));
+    previewForm.set("dryRun", "true");
+    const previewResponse = await request("/api/admin/domains/import", { method: "POST", headers, body: previewForm });
+    const preview = await previewResponse.json() as { data: { preview: { newRows: number; existingRows: number } } };
+    expect(preview.data.preview).toMatchObject({ newRows: 1, existingRows: 1 });
+
+    const importForm = new FormData();
+    importForm.set("file", new File([source], "preview.csv", { type: "text/csv" }));
+    importForm.set("conflictMode", "skip");
+    const importResponse = await request("/api/admin/domains/import", { method: "POST", headers, body: importForm });
+    const imported = await importResponse.json() as { data: { inserted: number; updated: number; skipped: number } };
+    expect(imported.data).toMatchObject({ inserted: 1, updated: 0, skipped: 1 });
+    const all = await (await request("/api/public/domains?pageSize=1")).json() as { data: { total: number } };
+    expect(all.data.total).toBe(860);
+    const added = await (await request("/api/public/domains?q=codexwanmi.com")).json() as { data: { items: Array<{ id: number }> } };
+    expect(added.data.items).toHaveLength(1);
+    expect((await request(`/api/admin/domains/${added.data.items[0].id}`, { method: "DELETE", headers })).status).toBe(200);
+    const restored = await (await request("/api/public/domains?pageSize=1")).json() as { data: { total: number } };
+    expect(restored.data.total).toBe(859);
   });
 
   it("添加重复域名返回冲突", async () => {
@@ -170,6 +204,15 @@ describe.sequential("WanMi API 集成", () => {
     const dashboard = await (await request("/api/admin/dashboard", { headers: { Cookie: cookie } })).json() as { data: { stats: { today: { pv: number; uv: number } } } };
     expect(dashboard.data.stats.today.pv).toBeGreaterThan(0);
     expect(dashboard.data.stats.today.uv).toBeGreaterThan(0);
+  });
+
+  it("操作日志返回操作者并支持动作筛选", async () => {
+    const response = await request("/api/admin/logs?action=domains.import&pageSize=20", { headers: { Cookie: cookie } });
+    expect(response.status).toBe(200);
+    const body = await response.json() as { data: { items: Array<{ action: string; actor_email: string }> } };
+    expect(body.data.items.length).toBeGreaterThan(0);
+    expect(body.data.items.every((item) => item.action === "domains.import")).toBe(true);
+    expect(body.data.items.some((item) => item.actor_email === "admin@example.com")).toBe(true);
   });
 
   it("退出后旧会话失效", async () => {

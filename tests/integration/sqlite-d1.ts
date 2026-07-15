@@ -1,24 +1,27 @@
-import { execFileSync } from "node:child_process";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 
 type Value = string | number | null | ArrayBuffer;
 
-function literal(value: Value): string {
-  if (value === null) return "NULL";
-  if (typeof value === "number") return String(value);
-  if (value instanceof ArrayBuffer) return `X'${Buffer.from(value).toString("hex")}'`;
-  return `'${value.replaceAll("'", "''")}'`;
+function sqliteValue(value: Value): SQLInputValue {
+  return value instanceof ArrayBuffer ? new Uint8Array(value) : value;
 }
 
-function render(sql: string, params: Value[]): string {
-  let index = 0;
-  const rendered = sql.replaceAll("?", () => literal(params[index++] ?? null));
-  if (index !== params.length) throw new Error(`SQL 参数数量不匹配：${index}/${params.length}`);
-  return rendered;
+export function executeSql(databasePath: string, sql: string): void {
+  const database = new DatabaseSync(databasePath);
+  try {
+    database.exec(sql);
+  } finally {
+    database.close();
+  }
 }
 
-function query<T>(databasePath: string, sql: string): T[] {
-  const output = execFileSync("sqlite3", ["-json", databasePath, sql], { encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
-  return output ? JSON.parse(output) as T[] : [];
+export function queryRows<T>(databasePath: string, sql: string, params: Value[] = []): T[] {
+  const database = new DatabaseSync(databasePath);
+  try {
+    return database.prepare(sql).all(...params.map(sqliteValue)) as T[];
+  } finally {
+    database.close();
+  }
 }
 
 export class SqliteD1Statement {
@@ -29,9 +32,30 @@ export class SqliteD1Statement {
   ) {}
 
   bind(...params: Value[]): SqliteD1Statement { return new SqliteD1Statement(this.databasePath, this.sql, params); }
-  async all<T = Record<string, unknown>>() { const results = query<T>(this.databasePath, render(this.sql, this.params)); return { success: true, results, meta: { changes: 0, last_row_id: 0 } }; }
-  async first<T = Record<string, unknown>>(column?: string): Promise<T | null> { const row = (await this.all<T>()).results[0] ?? null; return column && row ? (row as Record<string, unknown>)[column] as T : row; }
-  async run<T = Record<string, unknown>>() { const result = query<{ changes: number; last_row_id: number }>(this.databasePath, `${render(this.sql, this.params)}; SELECT changes() AS changes, last_insert_rowid() AS last_row_id;`).at(-1) ?? { changes: 0, last_row_id: 0 }; return { success: true, results: [] as T[], meta: { changes: result.changes, last_row_id: result.last_row_id } }; }
+
+  async all<T = Record<string, unknown>>() {
+    const results = queryRows<T>(this.databasePath, this.sql, this.params);
+    return { success: true, results, meta: { changes: 0, last_row_id: 0 } };
+  }
+
+  async first<T = Record<string, unknown>>(column?: string): Promise<T | null> {
+    const row = (await this.all<T>()).results[0] ?? null;
+    return column && row ? (row as Record<string, unknown>)[column] as T : row;
+  }
+
+  async run<T = Record<string, unknown>>() {
+    const database = new DatabaseSync(this.databasePath);
+    try {
+      const result = database.prepare(this.sql).run(...this.params.map(sqliteValue));
+      return {
+        success: true,
+        results: [] as T[],
+        meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid) },
+      };
+    } finally {
+      database.close();
+    }
+  }
 }
 
 export class SqliteD1Database {
