@@ -19,7 +19,6 @@
     "db:migrate:local": "wrangler d1 migrations apply wanmi-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply wanmi-db --remote",
     "db:backup": "tsx scripts/backup-d1.ts",
-    "db:restore:removed-records": "tsx scripts/restore-production-backup-records.ts",
     "domains:parse": "tsx scripts/parse-domain-csv.ts",
     "domains:validate": "tsx scripts/validate-domain-csv.ts",
     "domains:report": "tsx scripts/report-domain-csv.ts",

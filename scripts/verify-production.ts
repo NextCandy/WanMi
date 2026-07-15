@@ -79,21 +79,30 @@ async function eventually<T>(
 const origin = (process.env.WANMI_ORIGIN ?? "https://wanmi.org").replace(/\/$/, "");
 const write = process.argv.includes("--write");
 
-const [health, settings, domains, facets, rootResponse, detailResponse, sitemapResponse, adminResponse] = await Promise.all([
+const [health, settings, domains, facets, rootResponse, legacyDetailResponse, sitemapResponse, adminResponse] = await Promise.all([
   api<{ status: string; service: string }>(origin, "/api/health"),
   api<{ accent_color: string }>(origin, "/api/public/settings"),
   api<PublicList>(origin, "/api/public/domains?pageSize=1"),
   api<{ total: number }>(origin, "/api/public/facets"),
   fetch(`${origin}/`, { redirect: "error" }),
-  fetch(`${origin}/d/wanmi.org`, { redirect: "error" }),
+  fetch(`${origin}/d/wanmi.org`, { redirect: "manual" }),
   fetch(`${origin}/sitemap.xml`, { redirect: "error" }),
   fetch(`${origin}/admin`, { redirect: "error" }),
 ]);
 
-const [rootHtml, detailHtml, sitemapXml] = await Promise.all([
+const [rootHtml, sitemapXml] = await Promise.all([
   responseText(rootResponse, "首页"),
-  responseText(detailResponse, "详情页"),
   responseText(sitemapResponse, "站点地图"),
+]);
+const removedPublicResponses = await Promise.all([
+  fetch(`${origin}/api/public/domains/wanmi.org`, { redirect: "error" }),
+  fetch(`${origin}/api/public/rdap/wanmi.org`, { redirect: "error" }),
+  fetch(`${origin}/api/public/offers`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: origin },
+    body: JSON.stringify({ domain: "wanmi.org", contact: "verify@example.test" }),
+    redirect: "error",
+  }),
 ]);
 invariant(adminResponse.ok, `/admin 返回 HTTP ${adminResponse.status}`);
 invariant(health.data.status === "ok", "健康检查状态不是 ok");
@@ -102,16 +111,22 @@ invariant(facets.data.total === domains.data.total, "列表与分类统计不一
 invariant(rootHtml.includes('"@type":"ItemList"'), "首页缺少 ItemList JSON-LD");
 invariant(rootHtml.includes(`"numberOfItems":${domains.data.total}`), "首页 JSON-LD 数量不是实时值");
 invariant(rootHtml.includes(`<link rel="canonical" href="${origin}/"`), "首页 canonical 不正确");
-invariant(detailHtml.includes('"@type":"WebPage"'), "详情页缺少 WebPage JSON-LD");
-invariant(!detailHtml.includes('"@type":"Product"'), "详情页仍包含无真实报价的 Product JSON-LD");
-invariant(sitemapXml.includes(`${origin}/d/wanmi.org`), "站点地图缺少 wanmi.org");
+invariant([301, 302].includes(legacyDetailResponse.status), `旧详情链接返回 HTTP ${legacyDetailResponse.status}`);
+invariant(
+  new URL(legacyDetailResponse.headers.get("location") ?? "/", origin).toString() === `${origin}/?q=wanmi.org`,
+  "旧详情链接没有回到首页搜索结果",
+);
+invariant(sitemapXml.includes(`<loc>${origin}/</loc>`), "站点地图缺少首页");
+invariant(!sitemapXml.includes("/d/"), "站点地图仍包含已移除的详情页");
+invariant(removedPublicResponses.every((response) => response.status === 404), "已移除的公开接口仍可访问");
 
 const report: Record<string, unknown> = {
   origin,
   health: health.data.status,
   publicDomains: domains.data.total,
   accentColor: settings.data.accent_color,
-  seo: { itemList: true, liveCount: true, canonical: true, detailWebPage: true, sitemap: true },
+  seo: { itemList: true, liveCount: true, canonical: true, legacyDetailRedirect: true, rootOnlySitemap: true },
+  removedPublicApis: true,
 };
 
 if (write) {

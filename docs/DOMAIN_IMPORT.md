@@ -23,7 +23,7 @@
 
 ## 表头映射
 
-本次表头为域名、注册日期、到期日期、注册商、后缀、简介、Premium。解析器按名称定位域名、简介和 Premium，不依赖固定列序；当前简介均为空。
+本次表头为域名、注册日期、到期日期、注册商、后缀、简介、Premium。解析器按名称定位字段，不依赖固定列序。注册日期、到期日期和注册商名称会进入域名生命周期资料；注册商名称只是 `registrar_name` 文字，不关联账户、凭据或外部 API。当前简介均为空。
 
 - 金额保存为安全十进制字符串，不推断币种。
 - `Members-only feature` 与 `-` 转为 `NULL`，原始值仍在 JSON 中。
@@ -42,7 +42,7 @@ pnpm domains:import:local
 pnpm domains:verify
 ```
 
-生成文件：
+解析/报告命令会按需生成以下被 Git 忽略的文件：
 
 - `data/generated/domains.normalized.json`
 - `data/generated/domains.report.json`
@@ -50,11 +50,11 @@ pnpm domains:verify
 
 ## 幂等和管理员字段
 
-导入以 `normalized_domain` 唯一索引 UPSERT。CSV 中不存在的旧业务域名保留记录但下架归档；重复导入公开集合仍为 859 条，并保留管理员人工修改的分类、精品、简介、展示状态和内部备注。
+导入以 `normalized_domain` 唯一索引 UPSERT。后台上传明确使用 `archiveMissing: false`，不会下架文件外域名；命令行权威同步目前会下架 CSV 中不存在的旧业务域名，所以生产库存在历史人工域名时不得把远程导入当作普通发布步骤。重复导入会保留管理员人工修改的分类、精品、简介、展示状态和内部备注。
 
 初次 859 行通过 D1 暂存表和集合式 UPSERT 组成一个不超过 1,000 statement 的 batch。远程使用 D1 HTTP batch；本地使用同一 migration 下的 Wrangler Miniflare SQLite 状态文件和显式事务。
 
-当前 Cloudflare D1 Query API 的批量请求体为 `{ "batch": [{ "sql": "...", "params": [...] }] }`，不能直接发送顶层数组。本地连续导入两次后总记录 874（含 15 条归档历史记录）、公开展示 859、市场记录 0。
+Cloudflare D1 Query API 的批量请求体为 `{ "batch": [{ "sql": "...", "params": [...] }] }`，不能直接发送顶层数组。全新本地库导入后为 859 条公开域名、市场记录 0；生产库的 3 条历史人工域名不属于本次远程导入范围。
 
 ## 后台更新 CSV
 

@@ -10,6 +10,16 @@ export const changePasswordSchema = z.object({
   newPassword: z.string().min(12, "新密码至少 12 位").max(1024),
 });
 
+const calendarDateSchema = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式必须为 YYYY-MM-DD")
+  .refine((value) => {
+    const [year, month, day] = value.split("-").map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return parsed.getUTCFullYear() === year
+      && parsed.getUTCMonth() === month - 1
+      && parsed.getUTCDate() === day;
+  }, "日期无效");
+
 export const publicDomainQuerySchema = z.object({
   q: z.string().trim().max(253).optional(),
   tld: z.string().trim().max(253).optional(),
@@ -28,26 +38,17 @@ export const publicDomainQuerySchema = z.object({
     .default("default"),
 });
 
-export const offerInputSchema = z.object({
-  domain: z.string().trim().min(3).max(253),
-  contact: z.string().trim().min(3).max(200),
-  amount: z
-    .string()
-    .trim()
-    .regex(/^\d+(?:\.\d+)?$/, "报价必须是数字")
-    .nullable()
-    .optional(),
-  currency: z.string().trim().length(3).toUpperCase().nullable().optional(),
-  message: z.string().trim().max(1000).nullable().optional(),
-  turnstile_token: z.string().trim().max(2048).nullable().optional(),
-});
-
 export const adminDomainQuerySchema = publicDomainQuerySchema.extend({
   listed: z.enum(["true", "false"]).optional(),
   listingStatus: z.string().trim().max(120).optional(),
   fastTransfer: z.string().trim().max(120).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
-  orderBy: z.enum(["domain", "price", "floor", "views", "leads", "date_added"]).optional(),
+  registrar: z.string().trim().max(120).optional(),
+  registeredFrom: calendarDateSchema.optional(),
+  registeredTo: calendarDateSchema.optional(),
+  expiresFrom: calendarDateSchema.optional(),
+  expiresTo: calendarDateSchema.optional(),
+  orderBy: z.enum(["domain", "registered_at", "expires_at", "registrar"]).optional(),
   dir: z.enum(["asc", "desc"]).default("asc"),
   ids: z
     .string()
@@ -57,16 +58,6 @@ export const adminDomainQuerySchema = publicDomainQuerySchema.extend({
 
 export const categoryInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
-});
-
-export const leadsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).default(50),
-  status: z.enum(["new", "read", "archived"]).optional(),
-});
-
-export const leadPatchSchema = z.object({
-  status: z.enum(["new", "read", "archived"]),
 });
 
 export const logsQuerySchema = z.object({
@@ -90,8 +81,8 @@ export const domainInputSchema = z.object({
   publicPriceApproved: z.boolean().optional(),
   notes: z.string().trim().max(4000).nullable().optional(),
   description: z.string().max(500).optional(),
-  registeredAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  registeredAt: calendarDateSchema.nullable().optional(),
+  expiresAt: calendarDateSchema.nullable().optional(),
   registrarName: z.string().trim().max(120).nullable().optional(),
 });
 
@@ -108,6 +99,10 @@ export const bulkDomainSchema = z.object({
     .optional(),
 });
 
+const booleanSettingSchema = z
+  .union([z.boolean(), z.literal(0), z.literal(1)])
+  .transform((value) => Boolean(value));
+
 export const settingsPatchSchema = z
   .object({
     site_name: z.string().trim().min(1).max(80),
@@ -115,11 +110,9 @@ export const settingsPatchSchema = z
     site_bio: z.string().trim().max(500).nullable(),
     accent_color: z.string().regex(/^#[0-9a-f]{6}$/i),
     display_density: z.enum(["compact", "comfortable", "spacious"]),
-    featured_first: z.boolean(),
-    show_admin_link_in_footer: z.boolean(),
-    turnstile_site_key: z.string().trim().max(200).nullable(),
-    turnstile_secret_ref: z.string().trim().max(200).nullable(),
-    show_prices: z.boolean(),
+    featured_first: booleanSettingSchema,
+    show_admin_link_in_footer: booleanSettingSchema,
+    show_prices: booleanSettingSchema,
     copyright_text: z.string().trim().max(160).nullable(),
     icp_number: z.string().trim().max(80).nullable(),
     contact_email: z.union([z.string().trim().email(), z.literal("")]).nullable(),
@@ -184,29 +177,4 @@ export const notificationChannelPatchSchema = z.object({
     from: z.union([z.string().trim().email(), z.literal("")]).optional(),
     to: z.union([z.string().trim().email(), z.literal("")]).optional(),
   }),
-});
-
-export const registrarInputSchema = z.object({
-  provider: z.enum(["cloudflare", "godaddy", "namesilo", "porkbun", "dnspod", "aliyun", "spaceship", "namecheap", "dynadot"]),
-  displayName: z.string().trim().min(1).max(120),
-  credentials: z.record(z.string(), z.string().max(5000)),
-});
-
-export const registrarPatchSchema = z.object({
-  displayName: z.string().trim().min(1).max(120).optional(),
-  credentials: z.record(z.string(), z.string().max(5000)).optional(),
-});
-
-export const dnsRecordSchema = z.object({
-  type: z.enum(["A", "AAAA", "CNAME", "MX", "TXT", "NS", "CAA", "SRV"]),
-  name: z.string().trim().min(1).max(253).default("@"),
-  content: z.string().trim().min(1).max(4096),
-  ttl: z.number().int().min(1).max(604800).nullable().optional(),
-  priority: z.number().int().min(0).max(65535).nullable().optional(),
-  proxied: z.boolean().nullable().optional(),
-});
-
-export const bulkDnsSchema = z.object({
-  domainIds: z.array(z.number().int().positive()).min(1).max(100),
-  record: dnsRecordSchema,
 });

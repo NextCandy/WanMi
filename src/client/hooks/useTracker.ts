@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 
-type TrackKind = "page_view" | "domain_click" | "lead_submit";
+type TrackKind = "page_view" | "domain_click";
 
 function visitorId(): string {
   const key = "wanmi-visitor-id";
@@ -18,5 +18,5 @@ export function useTracker(path = window.location.pathname) {
     else void fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true });
   }, [path]);
   useEffect(() => { track("page_view"); }, [track]);
-  return { trackDomainClick: (domain: string) => track("domain_click", domain), trackLeadSubmit: (domain: string) => track("lead_submit", domain) };
+  return { trackDomainClick: (domain: string) => track("domain_click", domain) };
 }

@@ -19,22 +19,6 @@ export function loadCatalogue(url: string): Promise<Paginated<PublicDomain>> {
   return request;
 }
 
-export function prefetchCatalogue(url: string): void {
-  void loadCatalogue(url).catch(() => undefined);
-}
-
 export function clearCatalogueCache(): void {
   cache.clear();
-}
-
-interface NetworkInformationLike {
-  saveData?: boolean;
-  effectiveType?: string;
-}
-
-export function canPrefetchNextPage(): boolean {
-  if (typeof navigator === "undefined") return false;
-  const connection = (navigator as Navigator & { connection?: NetworkInformationLike }).connection;
-  if (!connection) return true;
-  return !connection.saveData && connection.effectiveType !== "slow-2g" && connection.effectiveType !== "2g";
 }

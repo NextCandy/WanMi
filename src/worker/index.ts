@@ -55,7 +55,7 @@ app.get("/", async (c) => {
   const title = `${site} · 精选域名展示`;
   const description = settings?.site_description || "发现值得珍藏的域名";
   const canonical = `${url.origin}/`;
-  const image = `${url.origin}/api/public/og/wanmi.org`;
+  const image = `${url.origin}/icon-512.png`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -66,7 +66,7 @@ app.get("/", async (c) => {
       position: index + 1,
       name: domain.full_domain,
       description: domain.description || `${domain.full_domain} 域名`,
-      url: `${url.origin}/d/${encodeURIComponent(domain.full_domain)}`,
+      url: `https://${domain.full_domain}`,
     })),
   };
   return new HTMLRewriter()
@@ -84,17 +84,10 @@ app.get("/", async (c) => {
     .transform(shell);
 });
 
-app.get("/sitemap.xml", async (c) => {
+app.get("/sitemap.xml", (c) => {
   const origin = new URL(c.req.url).origin;
-  const rows = await c.env.DB.prepare(
-    "SELECT normalized_domain, updated_at FROM domains WHERE is_listed = 1 ORDER BY normalized_domain",
-  ).all<{ normalized_domain: string; updated_at: string }>();
   const urls = [
     `<url><loc>${origin}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`,
-    ...rows.results.map(
-      (row) =>
-        `<url><loc>${origin}/d/${encodeURIComponent(row.normalized_domain)}</loc><lastmod>${(row.updated_at ?? "").slice(0, 10)}</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>`,
-    ),
   ];
   return new Response(
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>`,
@@ -104,49 +97,12 @@ app.get("/sitemap.xml", async (c) => {
 
 app.get("/robots.txt", (c) => c.text("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/track\nSitemap: https://wanmi.org/sitemap.xml\n"));
 
-// /d/:domain —— 用 HTMLRewriter 在 SPA 外壳上注入独立 title/description/og/JSON-LD，
-// 无需完整 SSR 即可满足爬虫抓取；用户侧仍由 React 渲染
-app.get("/d/:name", async (c) => {
+// 旧详情链接回到首页搜索结果；卡片本身直接打开域名。
+app.get("/d/:name", (c) => {
   const url = new URL(c.req.url);
-  const shell = await c.env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: c.req.raw.headers }));
   const name = decodeURIComponent(c.req.param("name")).trim().toLowerCase();
-  if (!/^[a-z0-9.-]{3,253}$/.test(name)) return shell;
-  const [domainRow, settingsRow] = await Promise.all([
-    c.env.DB.prepare(
-      `SELECT d.full_domain, d.tld, d.description
-       FROM domains d WHERE d.is_listed = 1 AND d.normalized_domain = ?`,
-    ).bind(name).first<{ full_domain: string; tld: string; description: string }>(),
-    c.env.DB.prepare("SELECT site_name FROM site_settings WHERE id = 1").first<{ site_name: string }>(),
-  ]);
-  if (!domainRow) return shell;
-  const site = settingsRow?.site_name ?? "玩米";
-  const title = `${domainRow.full_domain} 域名出售 · ${site}`;
-  const description = `${domainRow.full_domain} 正在 ${site} 出售，支持 Make Offer 求购。优质 .${domainRow.tld} 域名，即刻联系获取报价。`;
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    name: domainRow.full_domain,
-    description: domainRow.description || description,
-    url: `${url.origin}/d/${encodeURIComponent(name)}`,
-    primaryImageOfPage: `${url.origin}/api/public/og/${encodeURIComponent(name)}`,
-  };
-  return new HTMLRewriter()
-    .on("title", { element: (el) => { el.setInnerContent(title); } })
-    .on('meta[name="description"]', { element: (el) => { el.setAttribute("content", description); } })
-    .on('meta[property="og:title"]', { element: (el) => { el.setAttribute("content", title); } })
-    .on('meta[property="og:description"]', { element: (el) => { el.setAttribute("content", description); } })
-    .on('meta[property="og:url"]', { element: (el) => { el.setAttribute("content", `${url.origin}/d/${encodeURIComponent(name)}`); } })
-    .on('meta[property="og:image"]', { element: (el) => { el.setAttribute("content", `${url.origin}/api/public/og/${encodeURIComponent(name)}`); } })
-    .on('meta[name="twitter:title"]', { element: (el) => { el.setAttribute("content", title); } })
-    .on('meta[name="twitter:description"]', { element: (el) => { el.setAttribute("content", description); } })
-    .on('meta[name="twitter:image"]', { element: (el) => { el.setAttribute("content", `${url.origin}/api/public/og/${encodeURIComponent(name)}`); } })
-    .on('link[rel="canonical"]', { element: (el) => { el.setAttribute("href", `${url.origin}/d/${encodeURIComponent(name)}`); } })
-    .on("head", {
-      element: (el) => {
-        el.append(`<script type="application/ld+json">${safeJsonLd(jsonLd)}</script>`, { html: true });
-      },
-    })
-    .transform(shell);
+  if (!/^[a-z0-9.-]{3,253}$/.test(name)) return c.redirect(`${url.origin}/`, 302);
+  return c.redirect(`${url.origin}/?q=${encodeURIComponent(name)}`, 301);
 });
 
 app.all("/cdn-cgi/handler/scheduled", (c) => fail(c, 404, "NOT_FOUND", "未找到资源"));

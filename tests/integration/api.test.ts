@@ -155,27 +155,31 @@ describe.sequential("WanMi API 集成", () => {
     expect((await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ isFeatured: false }) })).status).toBe(200);
   });
 
-  it("管理员简介与精品修改会立即映射到公共 API 且可恢复", async () => {
+  it("管理员生命周期资料、简介与精品修改会保存，公开字段立即映射且可恢复", async () => {
     const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
-    const changed = await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ description: "集成测试简介", isFeatured: true }) });
+    const changed = await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ description: "集成测试简介", isFeatured: true, registeredAt: "2025-01-07", expiresAt: "2027-01-07", registrarName: "Spaceship" }) });
     expect(changed.status).toBe(200);
-    const changedBody = await changed.json() as { data: { description: string; is_featured: number } };
-    expect(changedBody.data).toMatchObject({ description: "集成测试简介", is_featured: 1 });
+    const changedBody = await changed.json() as { data: { description: string; is_featured: number; registered_at: string; expires_at: string; registrar_name: string } };
+    expect(changedBody.data).toMatchObject({ description: "集成测试简介", is_featured: 1, registrar_name: "Spaceship" });
+    expect(changedBody.data.registered_at.startsWith("2025-01-07")).toBe(true);
+    expect(changedBody.data.expires_at.startsWith("2027-01-07")).toBe(true);
     const visible = await (await request("/api/public/domains?q=02cloud.com")).json() as { data: { items: Array<{ description: string; is_featured: boolean }> } };
     expect(visible.data.items[0]).toMatchObject({ description: "集成测试简介", is_featured: true });
     expect((await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ description: "", isFeatured: false }) })).status).toBe(200);
   });
 
-  it("DNS API 失败时不修改本地缓存", async () => {
-    const before = await env.DB.prepare("SELECT COUNT(*) AS count FROM dns_records_cache WHERE domain_id = ?").bind(targetId).first<{ count: number }>();
-    const response = await request(`/api/admin/domains/${targetId}/dns`, {
-      method: "POST",
-      headers: { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "A", name: "@", content: "192.0.2.10", ttl: 600 }),
-    });
-    const after = await env.DB.prepare("SELECT COUNT(*) AS count FROM dns_records_cache WHERE domain_id = ?").bind(targetId).first<{ count: number }>();
-    expect(response.status).toBe(502);
-    expect(after?.count).toBe(before?.count);
+  // 注册商 / DNS 解析 / 求购线索已整体移除，对应端点必须不再可达
+  it("已移除的注册商、DNS 与求购线索端点全部 404", async () => {
+    const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
+    const gone = [
+      await request("/api/admin/registrars", { headers }),
+      await request("/api/admin/leads", { headers }),
+      await request(`/api/admin/domains/${targetId}/dns`, { headers }),
+      await request("/api/public/offers", { method: "POST", headers, body: JSON.stringify({ domain: "02cloud.com", contact: "a@b.com" }) }),
+      await request("/api/public/rdap/02cloud.com"),
+      await request("/api/public/domains/02cloud.com"),
+    ];
+    for (const response of gone) expect(response.status).toBe(404);
   });
 
   it("隐藏和重新上架会立即影响公共 API", async () => {
@@ -189,9 +193,35 @@ describe.sequential("WanMi API 集成", () => {
   it("后台域名筛选接口返回真实后缀与自动分类统计", async () => {
     const response = await request("/api/admin/domains/filters", { headers: { Cookie: cookie } });
     expect(response.status).toBe(200);
-    const body = await response.json() as { data: { tlds: Array<{ tld: string; count: number }>; categories: Array<{ name: string; count: number }> } };
+    const body = await response.json() as { data: { tlds: Array<{ tld: string; count: number }>; categories: Array<{ name: string; count: number }>; registrars: Array<{ registrar: string; count: number }> } };
     expect(body.data.tlds.find((item) => item.tld === "com")?.count).toBeGreaterThan(0);
     expect(body.data.categories.some((item) => ["数字", "字母", "拼音", "英文", "杂米", "其他"].includes(item.name))).toBe(true);
+    expect(body.data.registrars.some((item) => item.registrar === "Spaceship" && item.count > 0)).toBe(true);
+  });
+
+  it("后台可按注册日期、到期日期、注册商筛选并排序", async () => {
+    const headers = { Cookie: cookie };
+    const filtered = await request("/api/admin/domains?registrar=Spaceship&registeredFrom=2025-01-01&registeredTo=2025-01-31&expiresFrom=2027-01-01&expiresTo=2027-01-31&orderBy=expires_at&dir=asc", { headers });
+    expect(filtered.status).toBe(200);
+    const body = await filtered.json() as { data: { items: Array<{ registrar_name: string; registered_at: string; expires_at: string }> } };
+    expect(body.data.items.length).toBeGreaterThan(0);
+    expect(body.data.items.every((item) => item.registrar_name === "Spaceship" && item.registered_at.startsWith("2025-01-") && item.expires_at.startsWith("2027-01-"))).toBe(true);
+    expect(body.data.items.map((item) => item.expires_at)).toEqual([...body.data.items.map((item) => item.expires_at)].sort());
+  });
+
+  it("站点设置完整表单可保存数值型开关", async () => {
+    const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
+    const current = await (await request("/api/admin/settings", { headers: { Cookie: cookie } })).json() as { data: Record<string, unknown> & { featured_first: number; show_prices: number } };
+    const response = await request("/api/admin/settings", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        ...current.data,
+        featured_first: Boolean(current.data.featured_first),
+        show_prices: Boolean(current.data.show_prices),
+      }),
+    });
+    expect(response.status).toBe(200);
   });
 
   it("匿名统计仅保存 UA 摘要并进入概览", async () => {

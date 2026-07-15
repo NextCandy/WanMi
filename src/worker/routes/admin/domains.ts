@@ -75,6 +75,26 @@ function adminFilters(query: ReturnType<typeof adminDomainQuerySchema.parse>): {
     clauses.push("d.is_listed = ?");
     params.push(query.listed === "true" ? 1 : 0);
   }
+  if (query.registrar) {
+    clauses.push("d.registrar_name = ? COLLATE NOCASE");
+    params.push(query.registrar);
+  }
+  if (query.registeredFrom) {
+    clauses.push("date(d.registered_at) >= date(?)");
+    params.push(query.registeredFrom);
+  }
+  if (query.registeredTo) {
+    clauses.push("date(d.registered_at) <= date(?)");
+    params.push(query.registeredTo);
+  }
+  if (query.expiresFrom) {
+    clauses.push("date(d.expires_at) >= date(?)");
+    params.push(query.expiresFrom);
+  }
+  if (query.expiresTo) {
+    clauses.push("date(d.expires_at) <= date(?)");
+    params.push(query.expiresTo);
+  }
   if (query.ids) {
     const ids = query.ids.split(",").map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 500);
     if (ids.length > 0) clauses.push(`d.id IN (${ids.join(",")})`);
@@ -86,6 +106,9 @@ function adminOrderBy(query: ReturnType<typeof adminDomainQuerySchema.parse>): s
   const direction = query.dir === "desc" ? "DESC" : "ASC";
   const column =
     query.orderBy === "domain" ? "d.normalized_domain"
+    : query.orderBy === "registered_at" ? "d.registered_at"
+    : query.orderBy === "expires_at" ? "d.expires_at"
+    : query.orderBy === "registrar" ? "d.registrar_name COLLATE NOCASE"
     : null;
   if (column) return `${column} IS NULL, ${column} ${direction}, d.normalized_domain ASC`;
   if (query.sort === "domain_desc") return "d.normalized_domain DESC";
@@ -121,11 +144,12 @@ domainAdminRoutes.get("/", async (c) => {
 });
 
 domainAdminRoutes.get("/filters", async (c) => {
-  const [tlds, categories] = await c.env.DB.batch([
+  const [tlds, categories, registrars] = await c.env.DB.batch([
     c.env.DB.prepare("SELECT tld, COUNT(*) AS count FROM domains WHERE tld != '' GROUP BY tld ORDER BY count DESC, tld ASC"),
     c.env.DB.prepare("SELECT auto_category AS name, COUNT(*) AS count FROM domains GROUP BY auto_category ORDER BY count DESC, auto_category ASC"),
+    c.env.DB.prepare("SELECT registrar_name AS registrar, COUNT(*) AS count FROM domains WHERE registrar_name IS NOT NULL AND registrar_name != '' GROUP BY registrar_name COLLATE NOCASE ORDER BY count DESC, registrar_name COLLATE NOCASE ASC"),
   ]);
-  return ok(c, { tlds: tlds.results, categories: categories.results });
+  return ok(c, { tlds: tlds.results, categories: categories.results, registrars: registrars.results });
 });
 
 domainAdminRoutes.post("/", async (c) => {
@@ -142,7 +166,7 @@ domainAdminRoutes.post("/", async (c) => {
       `INSERT INTO domains (
         full_domain, normalized_domain, name, tld, category, is_featured, is_listed,
         public_price, public_price_currency, public_price_approved, notes, source,
-        description, registered_at, expires_at, registrar_label
+        description, registered_at, expires_at, registrar_name
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?)`,
     )
       .bind(
@@ -185,10 +209,9 @@ domainAdminRoutes.get("/export", async (c) => {
   const { where, params } = adminFilters(parsed.data);
   const result = await c.env.DB.prepare(
     `SELECT d.full_domain, d.tld, d.registered_at, d.expires_at,
-      COALESCE(NULLIF(d.registrar_label, ''), r.display_name, r.provider, '') AS registrar,
+      COALESCE(NULLIF(d.registrar_name, ''), '') AS registrar,
       d.description
      FROM domains d
-     LEFT JOIN registrar_accounts r ON r.id = d.registrar_account_ref
      WHERE ${where}
      ORDER BY d.normalized_domain ASC`,
   ).bind(...params).all();
@@ -356,7 +379,7 @@ domainAdminRoutes.patch("/:id", async (c) => {
     ["description", "description", (value) => value as string],
     ["registeredAt", "registered_at", (value) => dateAtUtcMidnight(value as string | null)],
     ["expiresAt", "expires_at", (value) => dateAtUtcMidnight(value as string | null)],
-    ["registrarName", "registrar_label", (value) => typeof value === "string" && value ? value.trim() : null],
+    ["registrarName", "registrar_name", (value) => typeof value === "string" && value ? value.trim() : null],
   ];
   if (parsed.data.fullDomain !== undefined || parsed.data.tld !== undefined) {
     try {

@@ -17,19 +17,20 @@
 - 登录失败统一返回账号或密码错误；同一邮箱/IP 15 分钟 5 次失败后限流。
 - 管理 API 返回 `Cache-Control: no-store`。
 
-## 注册商与通知凭据
+## 通知凭据
 
-- 注册商凭据和 Bark Device Key 使用 AES-256-GCM、随机 12 字节 IV 加密。
+- 通知渠道密钥（Bark Device Key、各类 Webhook URL）使用 AES-256-GCM、随机 12 字节 IV 加密。
 - 主密钥只来自 `CREDENTIALS_ENCRYPTION_KEY` Secret。
 - Telegram、Resend 等 Token 只来自 Worker Secret。
 - 日志不记录密码、完整 Token、API Key 或加密主密钥。
+- 注册商 API 账户功能已移除，系统不再存储任何注册商凭据。
 
 ## 上传与公共数据
 
 - R2 上传仅接受 PNG/JPEG/WebP/ICO，最大 2 MB；对象键由随机 UUID 生成并校验路径。
 - 公共 API 仅返回域名 ID、完整域名、主体、TLD、分类、精品；价格只有管理员启用且单域审核后才返回。
 - 管理员邮箱不会自动作为前台联系邮箱。
-- 原始 CSV、市场内部字段、注册商账户、日志和备注不公开。
+- 原始 CSV、市场内部字段、日志和备注不公开。
 
 ## Secret 轮换
 

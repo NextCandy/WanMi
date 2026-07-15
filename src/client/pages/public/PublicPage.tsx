@@ -17,12 +17,7 @@ import { useDomainFavorites } from "../../hooks/useDomainFavorites";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { useTracker } from "../../hooks/useTracker";
 import { api } from "../../lib/api";
-import {
-  canPrefetchNextPage,
-  clearCatalogueCache,
-  loadCatalogue,
-  prefetchCatalogue,
-} from "../../lib/catalogue-cache";
+import { clearCatalogueCache, loadCatalogue } from "../../lib/catalogue-cache";
 import { copyText } from "../../lib/clipboard";
 import type { Paginated, PublicDomain } from "../../../shared/types/api";
 
@@ -134,7 +129,7 @@ function catalogueUrl(filters: Filters, page = filters.page): string {
     ...advancedParams(filters.advanced),
     ...(filters.sort !== "default" ? { sort: filters.sort } : {}),
     page: String(page),
-    pageSize: "60",
+    pageSize: "36",
   });
   return `/api/public/domains?${params}`;
 }
@@ -224,9 +219,6 @@ export function PublicPage() {
         if (sequence !== requestSequence.current) return;
         setPageData(result);
         favorites.sync(result.items);
-        if (result.page < result.totalPages && canPrefetchNextPage()) {
-          prefetchCatalogue(catalogueUrl(filters, result.page + 1));
-        }
       })
       .catch((reason: unknown) => {
         if (sequence === requestSequence.current) setError(reason instanceof Error ? reason.message : "域名加载失败");
@@ -252,8 +244,16 @@ export function PublicPage() {
       }
     };
     void check();
-    const timer = window.setInterval(() => void check(), 8000);
-    return () => { active = false; window.clearInterval(timer); };
+    const checkWhenVisible = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    const timer = window.setInterval(checkWhenVisible, 60_000);
+    document.addEventListener("visibilitychange", checkWhenVisible);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", checkWhenVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -306,16 +306,16 @@ export function PublicPage() {
       : { ...current, category: value, group: "all", page: 1 });
   }
 
-  async function copyDomain(domain: string) {
+  const copyDomain = useCallback(async (domain: string) => {
     if (await copyText(domain)) notify(`已复制 ${domain}`);
     else notify("复制失败，请手动复制", "error");
-  }
+  }, [notify]);
 
-  function toggleFavorite(domain: PublicDomain) {
+  const toggleFavorite = useCallback((domain: PublicDomain) => {
     const willFavorite = !favorites.ids.has(domain.id);
     favorites.toggle(domain);
     notify(willFavorite ? `已收藏 ${domain.domain}` : `已取消收藏 ${domain.domain}`);
-  }
+  }, [favorites.ids, favorites.toggle, notify]);
 
   function discoverRandom() {
     const pool = displayedItems.length ? displayedItems : catalogueItems;
@@ -406,11 +406,9 @@ export function PublicPage() {
               domain={domain}
               favorite={favorites.ids.has(domain.id)}
               highlighted={highlightedId === domain.id}
-              hasContact={hasContact}
-              onCopy={(value) => void copyDomain(value)}
+              onCopy={copyDomain}
               onFavorite={toggleFavorite}
               onQuickView={setSelectedDomain}
-              onContact={() => setContactOpen(true)}
             />)}
           </div>}
 
@@ -423,7 +421,7 @@ export function PublicPage() {
       <footer className="public-footer footer-grid"><div className="footer-brand"><strong>{settings?.site_name ?? "玩米"}</strong><span>{settings?.copyright_text || `© ${new Date().getFullYear()} 保留所有权利`}</span>{settings?.icp_number && <span>{settings.icp_number}</span>}</div>{settings && <ContactIcons settings={settings} notify={notify} />}<div className="footer-right">{settings?.show_admin_link_in_footer && <a className="footer-admin-link" href="/admin">管理</a>}</div></footer>
 
       {contactOpen && settings && <div className="modal-backdrop" onMouseDown={() => setContactOpen(false)}><div className="contact-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="contact-title"><button type="button" className="modal-close" aria-label="关闭" onClick={() => setContactOpen(false)}>×</button><h2 id="contact-title">联系玩米</h2><p>请附上你感兴趣的完整域名。</p><div className="contact-list">{settings.contact_email && <a href={`mailto:${settings.contact_email}`}>邮箱 <strong>{settings.contact_email}</strong></a>}{settings.contact_telegram && <a href={`https://t.me/${settings.contact_telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">Telegram <strong>{settings.contact_telegram}</strong></a>}{settings.contact_wechat && <button type="button" onClick={() => void copyText(settings.contact_wechat!).then((ok) => notify(ok ? "微信号已复制" : "复制失败", ok ? "success" : "error"))}>微信 <strong>{settings.contact_wechat}</strong></button>}{settings.wechat_qr_url && <img className="qr-code" src={settings.wechat_qr_url} alt="玩米微信二维码" loading="lazy" decoding="async" />}</div></div></div>}
-      <DomainDetailDialog domain={selectedDomain} candidates={catalogueItems} favorite={selectedDomain ? favorites.ids.has(selectedDomain.id) : false} hasContact={hasContact} onClose={() => setSelectedDomain(null)} onCopy={(value) => void copyDomain(value)} onFavorite={toggleFavorite} onContact={() => { setSelectedDomain(null); setContactOpen(true); }} onSelect={setSelectedDomain} />
+      <DomainDetailDialog domain={selectedDomain} candidates={catalogueItems} favorite={selectedDomain ? favorites.ids.has(selectedDomain.id) : false} onClose={() => setSelectedDomain(null)} onCopy={copyDomain} onFavorite={toggleFavorite} onSelect={setSelectedDomain} />
       <PublicBottomNav favoritesOnly={favoritesOnly} favoriteCount={favorites.items.length} onShowAll={() => setFavoritesOnly(false)} onShowFavorites={showFavorites} onRandom={discoverRandom} onAdvanced={() => setAdvancedOpen(true)} />
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>

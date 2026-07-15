@@ -15,7 +15,7 @@ export function Toast({ message, onClose }: { message: ToastMessage | null; onCl
   if (!message) return null;
   return (
     <div className={`toast ${message.tone === "error" ? "toast-error" : ""}`} role="status">
-      <span>{message.tone === "error" ? "!" : "✓"}</span>
+      <span aria-hidden="true">{message.tone === "error" ? "!" : "✓"}</span>
       {message.text}
     </div>
   );

@@ -1,13 +1,9 @@
 import { Hono } from "hono";
 
-import { normalizeDomain } from "../../../shared/domain";
 import { AUTO_CATEGORY_ORDER } from "../../../shared/auto-classify";
-import { offerInputSchema, publicDomainQuerySchema } from "../../../shared/schemas/api";
+import { publicDomainQuerySchema } from "../../../shared/schemas/api";
 import type { PublicDomain } from "../../../shared/types/api";
-import { fail, ok, writeOperationLog } from "../../http";
-import { hmacSha256 } from "../../security/crypto";
-import { requestIp } from "../../security/session";
-import { loadEnabledNotificationChannels, sendChannelNotification } from "../../services/notifications";
+import { fail, ok } from "../../http";
 import type { AppBindings } from "../../types";
 
 interface PublicDomainRow {
@@ -44,7 +40,6 @@ interface SettingsRow {
   contact_x: string | null;
   contact_xiaohongshu: string | null;
   contact_qq: string | null;
-  turnstile_site_key: string | null;
 }
 
 const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.description,
@@ -77,7 +72,7 @@ publicRoutes.get("/settings", async (c) => {
     `SELECT site_name, site_description, site_bio, logo_url, favicon_url, accent_color, display_density,
       featured_first, copyright_text, icp_number, contact_email, contact_wechat,
       contact_telegram, contact_whatsapp, contact_x, contact_xiaohongshu, contact_qq,
-      wechat_qr_url, show_admin_link_in_footer, turnstile_site_key
+      wechat_qr_url, show_admin_link_in_footer
      FROM site_settings WHERE id = 1`,
   ).first<SettingsRow>();
   if (!settings) return fail(c, 503, "SETTINGS_UNAVAILABLE", "站点设置尚未初始化");
@@ -228,195 +223,4 @@ publicRoutes.get("/version", async (c) => {
   ).first<{ version: number; updated_at: string | null }>();
   c.header("Cache-Control", "no-store");
   return ok(c, { version: `${Number(row?.version ?? 0)}:${row?.updated_at ?? ""}` });
-});
-
-publicRoutes.get("/domains/:name", async (c) => {
-  const name = c.req.param("name").trim().toLowerCase();
-  if (!name || name.length > 253) return fail(c, 422, "INVALID_DOMAIN", "域名无效");
-  const row = await c.env.DB.prepare(`${PUBLIC_SELECT} WHERE d.is_listed = 1 AND d.normalized_domain = ?`)
-    .bind(name)
-    .first<PublicDomainRow>();
-  if (!row) return fail(c, 404, "DOMAIN_NOT_FOUND", "域名不存在或未上架");
-  const related = await c.env.DB.prepare(
-    `${PUBLIC_SELECT} WHERE d.is_listed = 1 AND d.id <> ?
-      AND (d.tld = ? OR length(replace(d.name, '.', '')) = ?)
-     ORDER BY d.is_featured DESC, (d.tld = ?) DESC, length(replace(d.name, '.', '')) ASC LIMIT 8`,
-  )
-    .bind(row.id, row.tld, row.name.length, row.tld)
-    .all();
-  return ok(c, {
-    domain: serializePublic(row),
-    related: (related.results as unknown as PublicDomainRow[]).map(serializePublic),
-  });
-});
-
-interface RdapEvent { eventAction?: string; eventDate?: string }
-interface RdapEntity { roles?: string[]; vcardArray?: [string, Array<[string, unknown, string, unknown]>] }
-interface RdapResponse {
-  status?: string[];
-  events?: RdapEvent[];
-  entities?: RdapEntity[];
-  nameservers?: Array<{ ldhName?: string }>;
-}
-
-const RDAP_HEADERS = {
-  Accept: "application/rdap+json",
-  "User-Agent": "WanMi-DomainShowcase/1.0 (+https://wanmi.org)",
-};
-
-interface RdapBootstrap { services?: Array<[string[], string[]]> }
-
-// IANA bootstrap：TLD → 权威 RDAP 服务；边缘缓存 24h，避免每次拉全量文件
-async function rdapBaseFor(tld: string): Promise<string | null> {
-  const response = await fetch("https://data.iana.org/rdap/dns.json", {
-    headers: RDAP_HEADERS,
-    signal: AbortSignal.timeout(8000),
-    cf: { cacheTtl: 86400, cacheEverything: true },
-  });
-  if (!response.ok) return null;
-  const bootstrap: RdapBootstrap = await response.json();
-  for (const [tlds, urls] of bootstrap.services ?? []) {
-    if (tlds.includes(tld)) return urls.find((url) => url.startsWith("https://")) ?? urls[0] ?? null;
-  }
-  return null;
-}
-
-publicRoutes.get("/rdap/:name", async (c) => {
-  const name = c.req.param("name").trim().toLowerCase();
-  if (!/^[a-z0-9.-]{3,253}$/.test(name)) return fail(c, 422, "INVALID_DOMAIN", "域名无效");
-  let payload: RdapResponse | null = null;
-  // 优先权威 RDAP（rdap.org 会拒绝部分数据中心出口），失败再兜底 rdap.org
-  const tld = name.split(".").pop() ?? "";
-  const base = await rdapBaseFor(tld).catch(() => null);
-  const endpoints = [
-    ...(base ? [`${base.replace(/\/$/, "")}/domain/${encodeURIComponent(name)}`] : []),
-    `https://rdap.org/domain/${encodeURIComponent(name)}`,
-  ];
-  for (const endpoint of endpoints) {
-    const response = await fetch(endpoint, {
-      headers: RDAP_HEADERS,
-      signal: AbortSignal.timeout(8000),
-      redirect: "follow",
-    }).catch(() => null);
-    if (response?.ok) {
-      payload = (await response.json().catch(() => null)) as RdapResponse | null;
-      if (payload) break;
-    }
-  }
-  if (!payload) return fail(c, 502, "RDAP_UNAVAILABLE", "RDAP 服务暂时不可用");
-  const events = payload.events ?? [];
-  const eventDate = (action: string) => events.find((event) => event.eventAction === action)?.eventDate ?? null;
-  const registrarEntity = (payload.entities ?? []).find((entity) => entity.roles?.includes("registrar"));
-  const registrar = registrarEntity?.vcardArray?.[1]?.find((item) => item[0] === "fn")?.[3] ?? null;
-  c.header("Cache-Control", "public, max-age=3600");
-  return ok(c, {
-    domain: name,
-    registrar: typeof registrar === "string" ? registrar : null,
-    createdAt: eventDate("registration"),
-    expiresAt: eventDate("expiration"),
-    updatedAt: eventDate("last changed"),
-    status: payload.status ?? [],
-    nameservers: (payload.nameservers ?? []).map((item) => item.ldhName?.toLowerCase()).filter(Boolean),
-  });
-});
-
-publicRoutes.post("/offers", async (c) => {
-  const parsed = offerInputSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return fail(c, 422, "INVALID_OFFER", "求购信息无效", parsed.error.issues);
-  let normalized: string;
-  try {
-    normalized = normalizeDomain(parsed.data.domain).normalizedDomain;
-  } catch {
-    return fail(c, 422, "INVALID_OFFER", "域名无效");
-  }
-  const domain = await c.env.DB.prepare("SELECT id, full_domain FROM domains WHERE normalized_domain = ? AND is_listed = 1")
-    .bind(normalized)
-    .first<{ id: number; full_domain: string }>();
-  if (!domain) return fail(c, 404, "DOMAIN_NOT_FOUND", "域名不存在或未上架");
-  const turnstile = await c.env.DB.prepare("SELECT turnstile_site_key FROM site_settings WHERE id = 1").first<{ turnstile_site_key: string | null }>();
-  if (turnstile?.turnstile_site_key) {
-    if (!c.env.TURNSTILE_SECRET_KEY || !parsed.data.turnstile_token) return fail(c, 403, "TURNSTILE_REQUIRED", "请完成人机验证");
-    const form = new FormData(); form.set("secret", c.env.TURNSTILE_SECRET_KEY); form.set("response", parsed.data.turnstile_token); form.set("remoteip", requestIp(c));
-    const verify = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form });
-    const result = await verify.json().catch(() => ({})) as { success?: boolean };
-    if (!result.success) return fail(c, 403, "TURNSTILE_FAILED", "人机验证失败，请重试");
-  }
-  const ipHash = await hmacSha256(requestIp(c), c.env.SESSION_SECRET);
-  const recent = await c.env.DB.prepare(
-    "SELECT COUNT(*) AS count FROM domain_leads WHERE ip_hash = ? AND created_at >= datetime('now', '-1 minute')",
-  )
-    .bind(ipHash)
-    .first<{ count: number }>();
-  if ((recent?.count ?? 0) >= 3) return fail(c, 429, "OFFER_RATE_LIMITED", "提交过于频繁，请稍后再试");
-  const country = c.req.header("cf-ipcountry") ?? null;
-  await c.env.DB.prepare(
-    `INSERT INTO domain_leads (domain_id, offer_amount, currency, contact, message, ip_hash, country)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  )
-    .bind(
-      domain.id,
-      parsed.data.amount ?? null,
-      parsed.data.currency ?? null,
-      parsed.data.contact,
-      parsed.data.message ?? null,
-      ipHash,
-      country,
-    )
-    .run();
-  await writeOperationLog(c.env.DB, {
-    action: "leads.create",
-    resourceType: "domain_lead",
-    resourceId: domain.id,
-    message: `收到 ${domain.full_domain} 的求购线索`,
-    success: true,
-  });
-  // 尽力通知，不阻塞响应也不影响结果
-  const notify = async () => {
-    const channels = await loadEnabledNotificationChannels(c.env);
-    const message = {
-      title: `玩米求购线索：${domain.full_domain}`,
-      content: `联系方式：${parsed.data.contact}${parsed.data.amount ? `\n报价：${parsed.data.amount} ${parsed.data.currency ?? ""}` : ""}${parsed.data.message ? `\n留言：${parsed.data.message}` : ""}`,
-    };
-    await Promise.allSettled(channels.map((channel) => sendChannelNotification(c.env, channel, message)));
-  };
-  c.executionCtx.waitUntil(notify());
-  return ok(c, { received: true }, 201);
-});
-
-publicRoutes.get("/og/:name", async (c) => {
-  const name = c.req.param("name").trim().toLowerCase().replace(/\.svg$/, "");
-  if (!/^[a-z0-9.-]{3,253}$/.test(name)) return fail(c, 422, "INVALID_DOMAIN", "域名无效");
-  const settings = await c.env.DB.prepare("SELECT site_name, accent_color FROM site_settings WHERE id = 1").first<{
-    site_name: string;
-    accent_color: string;
-  }>();
-  const accent = /^#[0-9a-f]{6}$/i.test(settings?.accent_color ?? "") ? settings!.accent_color : "#d8b638";
-  const site = (settings?.site_name ?? "玩米").replace(/[<>&"]/g, "");
-  const safeName = name.replace(/[<>&"]/g, "");
-  const fontSize = safeName.length > 24 ? 56 : safeName.length > 14 ? 76 : 96;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1c1917"/><stop offset="1" stop-color="#292019"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0" r="0.9">
-      <stop offset="0" stop-color="${accent}" stop-opacity="0.5"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <rect width="1200" height="630" fill="url(#glow)"/>
-  <rect x="80" y="88" width="72" height="72" rx="18" fill="${accent}"/>
-  <text x="116" y="140" font-family="Kaiti SC, STKaiti, KaiTi, serif" font-size="42" fill="#ffffff" text-anchor="middle">玩</text>
-  <text x="176" y="138" font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#ffffff">${site}</text>
-  <text x="600" y="360" font-family="'Courier New', monospace" font-size="${fontSize}" font-weight="700" fill="#ffffff" text-anchor="middle">${safeName}</text>
-  <text x="600" y="430" font-family="Arial, sans-serif" font-size="26" fill="${accent}" text-anchor="middle">This domain is for sale · 域名出售中</text>
-  <rect x="80" y="536" width="1040" height="2" fill="${accent}" opacity="0.45"/>
-</svg>`;
-  return new Response(svg, {
-    headers: {
-      "Content-Type": "image/svg+xml; charset=utf-8",
-      "Cache-Control": "public, max-age=3600",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 });

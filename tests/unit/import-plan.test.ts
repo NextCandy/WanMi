@@ -26,6 +26,9 @@ describe("D1 导入计划", () => {
     expect(domainsUpsert).not.toMatch(/(?:^|\s)category\s*=\s*excluded\.category/i);
     expect(domainsUpsert).not.toMatch(/notes\s*=\s*excluded/i);
     expect(domainsUpsert).not.toMatch(/description\s*=\s*excluded/i);
+    expect(domainsUpsert).toMatch(/registered_at\s*=\s*COALESCE\(excluded\.registered_at/i);
+    expect(domainsUpsert).toMatch(/expires_at\s*=\s*COALESCE\(excluded\.expires_at/i);
+    expect(domainsUpsert).toMatch(/registrar_name\s*=\s*COALESCE\(excluded\.registrar_name/i);
   });
 
   it("后台预览导入可默认跳过冲突且不会归档文件外域名", async () => {

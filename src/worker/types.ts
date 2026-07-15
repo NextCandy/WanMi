@@ -9,7 +9,6 @@ export interface Env {
   TELEGRAM_BOT_TOKEN?: string;
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
-  TURNSTILE_SECRET_KEY?: string;
 }
 
 export interface AuthUser {

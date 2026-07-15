@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { encryptCredentials } from "../../src/worker/security/crypto";
-import { parsePorkbunExpiration } from "../../src/worker/providers/porkbun";
 import { buildBarkPushUrl, sendChannelNotification, type NotificationChannel, type NotifyChannelRow } from "../../src/worker/services/notifications";
 import type { Env } from "../../src/worker/types";
 
@@ -19,7 +18,7 @@ async function channel(channel: NotificationChannel, config: Record<string, stri
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("通知与注册商兼容格式", () => {
+describe("通知渠道", () => {
   it("Bark Device Key 使用官方服务地址", () => {
     expect(buildBarkPushUrl("device_Key-123", "测试 标题", "内容/正文"))
       .toBe("https://api.day.app/device_Key-123/%E6%B5%8B%E8%AF%95%20%E6%A0%87%E9%A2%98/%E5%86%85%E5%AE%B9%2F%E6%AD%A3%E6%96%87");
@@ -35,13 +34,6 @@ describe("通知与注册商兼容格式", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ code: 200 }), { status: 200 }));
     await sendChannelNotification(env, { channel: "bark", enabled: 1, config: JSON.stringify({ server_url: "https://api.day.app", secret_encrypted: encrypted.encrypted, secret_iv: encrypted.iv }), last_test: null }, { title: "标题", content: "正文" });
     expect(fetchMock.mock.calls[0][0]).toBe("https://api.day.app/legacy-key/%E6%A0%87%E9%A2%98/%E6%AD%A3%E6%96%87");
-  });
-
-  it("Porkbun 到期时间兼容日期、完整时间与 Unix 时间戳", () => {
-    expect(parsePorkbunExpiration("2027-06-17")).toBe("2027-06-17T00:00:00.000Z");
-    expect(parsePorkbunExpiration("2027-06-17 18:30:00")).toBe("2027-06-17T18:30:00.000Z");
-    expect(parsePorkbunExpiration("1813257000")).toBe("2027-06-17T18:30:00.000Z");
-    expect(parsePorkbunExpiration("not-a-date")).toBeNull();
   });
 
   it.each([

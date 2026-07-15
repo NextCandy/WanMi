@@ -27,7 +27,7 @@ const STAGING_COLUMNS = [
   "auto_category_confidence",
   "registered_at",
   "expires_at",
-  "registrar_label",
+  "registrar_name",
 ] as const;
 
 function recordParams(
@@ -82,7 +82,7 @@ export function buildImportStatements(
           auto_category_confidence = excluded.auto_category_confidence,
           registered_at = COALESCE(excluded.registered_at, domains.registered_at),
           expires_at = COALESCE(excluded.expires_at, domains.expires_at),
-          registrar_label = COALESCE(excluded.registrar_label, domains.registrar_label),
+          registrar_name = COALESCE(excluded.registrar_name, domains.registrar_name),
           description = CASE WHEN excluded.description != '' THEN excluded.description ELSE domains.description END,
           updated_at = CURRENT_TIMESTAMP`;
   const statements: SqlStatement[] = [
@@ -108,10 +108,10 @@ export function buildImportStatements(
     {
       sql: `INSERT INTO domains (
           full_domain, normalized_domain, name, tld, is_listed, source, source_imported_at, description, is_featured,
-          auto_category, auto_subcategory, auto_category_confidence, registered_at, expires_at, registrar_label
+          auto_category, auto_subcategory, auto_category_confidence, registered_at, expires_at, registrar_name
         )
         SELECT full_domain, normalized_domain, name, tld, 1, 'domain-list', NULL, description, is_featured,
-          auto_category, auto_subcategory, auto_category_confidence, registered_at, expires_at, registrar_label
+          auto_category, auto_subcategory, auto_category_confidence, registered_at, expires_at, registrar_name
         FROM domain_import_staging WHERE import_id = ?
         ${conflictClause}`,
       params: [options.importId],

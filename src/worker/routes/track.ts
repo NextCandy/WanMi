@@ -7,7 +7,7 @@ import { requestIp } from "../security/session";
 import type { AppBindings } from "../types";
 
 const inputSchema = z.object({
-  kind: z.enum(["page_view", "domain_click", "lead_submit"]),
+  kind: z.enum(["page_view", "domain_click"]),
   path: z.string().max(500).optional(),
   domain: z.string().trim().toLowerCase().max(253).optional(),
   visitor_id: z.string().uuid(),
