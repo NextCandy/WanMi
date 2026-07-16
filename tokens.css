@@ -29,6 +29,7 @@
   --gold-bg: rgba(216, 182, 56, 0.12);
   --gold-bg-strong: rgba(216, 182, 56, 0.2);
   --gold-border: rgba(216, 182, 56, 0.32);
+  --gold-divider: rgba(216, 182, 56, 0.3);
 
   /* Text */
   --text-primary: #f5f5f7;
@@ -57,7 +58,7 @@
   /* Typography */
   --font-display: "Instrument Serif", "Songti SC", "Noto Serif SC", ui-serif, Georgia, serif;
   --font-ui: "Manrope", "Noto Sans SC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Radius */
   --radius-sm: 10px;

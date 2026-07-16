@@ -2207,3 +2207,259 @@ a { color: inherit; text-decoration: none; }
   .featured-domain-card,
   .public-shell .catalogue-toolbar { background-color: var(--background); }
 }
+
+/* ============================================================
+   目录卡片信息层级 · 主体 / 关键词 / 元数据 / 访问
+   ============================================================ */
+.public-shell .domain-list.card-view .domain-card {
+  display: grid;
+  min-height: 218px;
+  padding: 20px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "primary actions"
+    "divider divider"
+    "keywords keywords"
+    "meta meta"
+    "visit visit";
+  align-items: center;
+  column-gap: var(--space-xs);
+  row-gap: var(--space-xs);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  animation: none;
+  transform: none;
+  transition: border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
+}
+.public-shell .domain-list.card-view .domain-card:not(:has(.domain-keywords)) {
+  grid-template-areas:
+    "primary actions"
+    "divider divider"
+    "meta meta"
+    "visit visit";
+}
+.public-shell .domain-list.card-view .domain-card:hover,
+.public-shell .domain-list.card-view .domain-card:focus-within {
+  border-color: var(--gold-border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card-hover);
+  transform: none;
+}
+.public-shell .domain-list.card-view .domain-card:active { transform: none; }
+.public-shell .domain-list.card-view .domain-card.featured {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.public-shell .domain-list.card-view .domain-card.featured:hover,
+.public-shell .domain-list.card-view .domain-card.featured:focus-within {
+  border-color: var(--gold-border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card-hover);
+}
+.public-shell .domain-list.card-view .domain-card::before { content: none; }
+.domain-featured-dot {
+  position: absolute;
+  top: var(--space-xs);
+  left: var(--space-xs);
+  width: var(--space-3xs);
+  height: var(--space-3xs);
+  border-radius: var(--radius-pill);
+  background: var(--gold);
+}
+.public-shell .domain-list.card-view .domain-primary {
+  grid-area: primary;
+  min-width: 0;
+  align-self: center;
+}
+.public-shell .domain-list.card-view .domain-name {
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+.public-shell .domain-list.card-view .domain-name a {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: baseline;
+}
+.public-shell .domain-list.card-view .domain-name strong {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+.public-shell .domain-list.card-view .domain-name span {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+.public-shell .domain-list.card-view .domain-card:hover .domain-name span { color: var(--text-secondary); }
+.domain-divider {
+  grid-area: divider;
+  width: 32px;
+  height: 1px;
+  justify-self: start;
+  background: var(--gold-divider);
+}
+.public-shell .domain-list.card-view .domain-keywords {
+  grid-area: keywords;
+  align-self: start;
+}
+.public-shell .domain-list.card-view .domain-card-meta {
+  grid-area: meta;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.public-shell .domain-list.card-view .domain-actions {
+  grid-area: actions;
+  display: grid;
+  grid-template-columns: repeat(3, 38px);
+  align-self: start;
+  justify-self: end;
+  justify-content: end;
+  gap: 6px;
+  margin: 0;
+  opacity: 1;
+}
+.public-shell .domain-list.card-view .domain-actions button {
+  width: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  font-size: 0;
+}
+.domain-visit {
+  position: relative;
+  z-index: 2;
+  grid-area: visit;
+  min-width: 76px;
+  min-height: 44px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  gap: var(--space-2xs);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-sm);
+  color: var(--gold-bright);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease), border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.domain-visit:hover,
+.domain-visit:focus-visible {
+  border-color: var(--gold);
+  background: var(--gold-bg);
+}
+.domain-visit svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .public-shell .domain-list.card-view .domain-visit {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(8px);
+  }
+  .public-shell .domain-list.card-view .domain-card:hover .domain-visit,
+  .public-shell .domain-list.card-view .domain-card:focus-within .domain-visit {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+}
+
+.public-shell .domain-list.compact-view .domain-card {
+  grid-template-columns: minmax(190px, 1.2fr) minmax(180px, 1fr) minmax(220px, auto) auto auto;
+  grid-template-areas: "primary keywords meta actions visit";
+  border-color: var(--border);
+  box-shadow: none;
+  animation: none;
+  transform: none;
+}
+.public-shell .domain-list.compact-view .domain-card:hover,
+.public-shell .domain-list.compact-view .domain-card:active { transform: none; }
+.public-shell .domain-list.compact-view .domain-primary { grid-area: primary; }
+.public-shell .domain-list.compact-view .domain-divider { display: none; }
+.public-shell .domain-list.compact-view .domain-keywords { grid-area: keywords; }
+.public-shell .domain-list.compact-view .domain-card-meta { grid-area: meta; display: flex; margin: 0; }
+.public-shell .domain-list.compact-view .domain-actions { grid-area: actions; min-width: 126px; }
+.public-shell .domain-list.compact-view .domain-visit { grid-area: visit; opacity: 1; pointer-events: auto; transform: none; }
+.public-shell .domain-list.card-view .domain-card.highlighted,
+.public-shell .domain-list.compact-view .domain-card.highlighted { animation: domain-highlight 1.7s var(--ease); }
+
+@media (max-width: 1023px) {
+  .public-shell .domain-list.compact-view .domain-card,
+  .public-shell .domain-list.compact-view .domain-card:has(.domain-keywords) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "primary actions"
+      "keywords keywords"
+      "meta visit";
+  }
+  .public-shell .domain-list.compact-view .domain-card:not(:has(.domain-keywords)) {
+    grid-template-areas:
+      "primary actions"
+      "meta visit";
+  }
+}
+
+@media (max-width: 780px) {
+  .public-shell .domain-list.card-view .domain-card,
+  .public-shell .domain-list.compact-view .domain-card {
+    min-height: 220px;
+    padding: var(--space-sm);
+  }
+  .public-shell .domain-list.card-view .domain-actions,
+  .public-shell .domain-list.compact-view .domain-actions {
+    min-width: 0;
+    grid-template-columns: repeat(3, 44px);
+  }
+  .public-shell .domain-list.card-view .domain-actions button,
+  .public-shell .domain-list.compact-view .domain-actions button {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .public-shell .domain-list.card-view .domain-visit,
+  .public-shell .domain-list.compact-view .domain-visit {
+    min-height: 44px;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-shell .domain-list.card-view .domain-card,
+  .public-shell .domain-list.compact-view .domain-card,
+  .domain-visit {
+    animation: none !important;
+    transition: none !important;
+  }
+}

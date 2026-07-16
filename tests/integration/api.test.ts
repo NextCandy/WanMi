@@ -45,6 +45,24 @@ describe.sequential("WanMi API 集成", () => {
 
   function request(pathname: string, init: RequestInit = {}) { return app.request(`${origin}${pathname}`, init, env); }
 
+  it("SPA 文档允许品牌字体且 API 保持严格 CSP", async () => {
+    const [documentResponse, productionDocumentResponse, apiResponse] = await Promise.all([
+      request("/"),
+      app.request("https://wanmi.org/", {}, env),
+      request("/api/health"),
+    ]);
+    const documentPolicy = documentResponse.headers.get("content-security-policy") ?? "";
+    const productionDocumentPolicy = productionDocumentResponse.headers.get("content-security-policy") ?? "";
+    const apiPolicy = apiResponse.headers.get("content-security-policy") ?? "";
+
+    expect(documentPolicy).toContain("https://fonts.googleapis.com");
+    expect(documentPolicy).toContain("https://fonts.gstatic.com");
+    expect(documentPolicy).toContain("script-src 'self' 'unsafe-inline'");
+    expect(productionDocumentPolicy).not.toContain("script-src 'self' 'unsafe-inline'");
+    expect(apiPolicy).toContain("script-src 'self'");
+    expect(apiPolicy).not.toContain("fonts.googleapis.com");
+  });
+
   it("未登录访问管理 API 返回 401", async () => expect((await request("/api/admin/dashboard")).status).toBe(401));
 
   it("错误密码不能登录", async () => {

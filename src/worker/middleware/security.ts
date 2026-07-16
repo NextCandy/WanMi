@@ -9,13 +9,18 @@ export const securityHeaders = createMiddleware<AppBindings>(async (c, next) => 
   c.header("X-Frame-Options", "DENY");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
   c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  // /d/* 返回 SPA HTML：需要放行内联脚本（主题防闪烁、Vite dev preamble）与 Google Fonts；
-  // API/JSON 响应保持严格 CSP
-  const isHtmlDocument = c.req.path.startsWith("/d/");
+  // SPA 文档需要 Google Fonts 与 Cloudflare 前端资源；API/JSON 响应保持严格 CSP。
+  const isHtmlDocument = c.req.path === "/"
+    || c.req.path === "/domains"
+    || c.req.path.startsWith("/admin")
+    || c.req.path.startsWith("/d/");
+  const allowDevelopmentPreamble = ["localhost", "127.0.0.1"].includes(new URL(c.req.url).hostname)
+    ? " 'unsafe-inline'"
+    : "";
   c.header(
     "Content-Security-Policy",
     isHtmlDocument
-      ? "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com https://cloudflareinsights.com ws: wss:"
+      ? `default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'${allowDevelopmentPreamble} https://challenges.cloudflare.com https://static.cloudflareinsights.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com https://cloudflareinsights.com ws: wss:`
       : "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'",
   );
   if (c.req.path.startsWith("/api/admin/") || c.req.path.startsWith("/api/auth/")) {
