@@ -144,6 +144,34 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("heading", { name: "欢迎回来" })).toBeVisible();
   });
 
+  test("站点设置可保存多个 AI 简介配置并通过应用内弹窗删除", async ({ page }) => {
+    const credentials = localCredentials();
+    const configName = `E2E 备用配置 ${Date.now()}`;
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("管理员邮箱").fill(credentials.email);
+    await page.getByLabel("密码").fill(credentials.password);
+    await page.getByRole("button", { name: "登录", exact: true }).click();
+    await page.getByRole("button", { name: /站点设置/ }).click();
+    await expect(page.getByRole("heading", { name: "AI 简介配置" })).toBeVisible();
+    await expect(page.getByText("DeepSeek 默认配置", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "新增配置" }).click();
+    const dialog = page.getByRole("dialog", { name: "新增 AI 配置" });
+    await dialog.getByLabel("配置名称").fill(configName);
+    await dialog.getByLabel("提供商").selectOption("openai_compatible");
+    await dialog.getByLabel("接口地址").fill("https://ai.example.test/v1");
+    await dialog.getByLabel("模型").fill("example-chat");
+    await dialog.getByLabel("API Key").fill("sk-e2e-only-secret");
+    await dialog.getByRole("button", { name: "保存配置" }).click();
+    const card = page.locator(".ai-config-card").filter({ hasText: configName });
+    await expect(card).toBeVisible();
+    await expect(card.getByText("Key 已加密")).toBeVisible();
+    await card.getByRole("button", { name: "删除" }).click();
+    const deleteDialog = page.getByRole("dialog", { name: "删除 AI 配置" });
+    await expect(deleteDialog.getByText(configName, { exact: false })).toBeVisible();
+    await deleteDialog.getByRole("button", { name: "确认删除" }).click();
+    await expect(card).toBeHidden();
+  });
+
   test("批量关键词可应用到多个域名、清除并进入操作日志", async ({ page }) => {
     const credentials = localCredentials();
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
@@ -180,12 +208,12 @@ test.describe.serial("WanMi 生产流程", () => {
   test("关键词、简介与精品状态在刷新后同步并可恢复", async ({ page, context }) => {
     const credentials = localCredentials();
     let aiShouldFail = false;
-    await page.route("**/api/admin/domains/*/suggest-keywords", async (route) => {
+    await page.route("**/api/admin/domains/*/suggest-description", async (route) => {
       if (aiShouldFail) {
-        await route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ success: false, data: null, error: { code: "KEYWORD_SUGGESTION_FAILED", message: "生成失败，请手动填写" } }) });
+        await route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ success: false, data: null, error: { code: "DESCRIPTION_SUGGESTION_FAILED", message: "简介生成失败，请手动填写" } }) });
         return;
       }
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: { keywords: "云服务,品牌,未来", items: ["云服务", "品牌", "未来"] }, error: null }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: { description: "适合云服务与数字品牌场景，名称简洁易记，并具备清晰的科技属性与延展空间。", config: { id: "deepseek-default", name: "DeepSeek 默认配置", model: "deepseek-v4-flash" } }, error: null }) });
     });
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await page.getByLabel("管理员邮箱").fill(credentials.email);
@@ -197,13 +225,16 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: "编辑", exact: true }).click();
     const editDialog = page.getByRole("dialog", { name: "编辑域名信息" });
-    await editDialog.getByLabel("简介（可选）").fill("AI 失败不应改动此字段");
-    await editDialog.getByRole("button", { name: "AI 生成关键词" }).click();
-    await expect(editDialog.getByLabel("关键词")).toHaveValue("云服务,品牌,未来");
-    await expect(editDialog.getByText("AI 已生成，请审核后保存")).toBeVisible();
+    await editDialog.getByLabel(/^关键词/).fill("原始关键词");
+    await editDialog.getByLabel("简介（可选）").fill("AI 生成前简介");
+    await editDialog.getByRole("button", { name: "AI 生成简介" }).click();
+    await expect(editDialog.getByLabel("简介（可选）")).toHaveValue(/适合云服务与数字品牌场景/);
+    await expect(editDialog.getByLabel(/^关键词/)).toHaveValue("原始关键词");
+    await expect(editDialog.getByText("DeepSeek 默认配置 已生成，请审核后保存")).toBeVisible();
     aiShouldFail = true;
-    await editDialog.getByRole("button", { name: "AI 生成关键词" }).click();
-    await expect(editDialog.getByText("生成失败，请手动填写")).toBeVisible();
+    await editDialog.getByLabel("简介（可选）").fill("AI 失败不应改动此字段");
+    await editDialog.getByRole("button", { name: "AI 生成简介" }).click();
+    await expect(editDialog.getByText("简介生成失败，请手动填写")).toBeVisible();
     await expect(editDialog.getByLabel("简介（可选）")).toHaveValue("AI 失败不应改动此字段");
     await editDialog.getByLabel(/^关键词/).fill("云服务，品牌,未来、精选,第五");
     await editDialog.getByLabel("简介（可选）").fill("E2E 临时简介");

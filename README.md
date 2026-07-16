@@ -9,7 +9,7 @@
 - Worker：`wanmi`
 - D1：`wanmi-db`（绑定 `DB`）
 - R2：`wanmi-assets`（绑定 `UPLOADS`）
-- Workers AI：绑定 `AI`，用于生成可编辑的域名关键词建议
+- AI 简介：后台可保存多个 DeepSeek / OpenAI 兼容配置，API Key 以 AES-GCM 加密存入 D1
 - Cron：每天 `01:00 UTC`，即 `Asia/Shanghai 09:00`
 - 当前设计基线：单一黑金主题（2026-07-16）
 
@@ -56,7 +56,8 @@
 后台固定为七个模块：概览、域名、分类、站点设置、到期提醒、账户安全、操作日志。
 
 - PBKDF2 密码、HMAC 会话、CSRF、防暴力登录、会话撤销与改密；
-- 域名 CRUD、服务端筛选/排序/分页、卡片关键词、可选简介、生命周期文字资料、精品、上架状态和批量操作；支持批量设置关键词，以及通过 Workers AI 生成 2–4 个可编辑的中文关键词建议；
+- 域名 CRUD、服务端筛选/排序/分页、卡片关键词、可选简介、生命周期文字资料、精品、上架状态和批量操作；支持批量设置关键词，以及通过当前启用的 AI 配置生成可编辑的中文域名简介；
+- 站点设置内可保存多个 AI 配置，默认提供 DeepSeek V4 Flash 模板，可切换启用项且不会回传已保存的 API Key；
 - CSV 预览、关键词导入导出、跳过/更新冲突及导入错误下载；
 - 站点资料和 R2 图片；
 - Email、Telegram、Bark、Server酱、企业微信、飞书、Discord 通知；
@@ -80,7 +81,7 @@ pnpm domains:import:local
 pnpm dev --host 127.0.0.1
 ```
 
-本地 Vite 默认关闭 Cloudflare 远程 binding 代理，避免开发与 CI 依赖线上凭据；Workers AI 端点由集成测试注入 mock，真实推理由已部署 Worker 的 `AI` binding 执行。
+本地 Vite 默认关闭 Cloudflare 远程 binding 代理，避免开发与 CI 依赖线上凭据；AI 简介接口在自动化测试中使用 mock，生产环境由 Worker 使用管理员加密保存的提供商配置发起请求。
 
 `.dev.vars` 必须提供 `ADMIN_EMAIL`、`BOOTSTRAP_ADMIN_PASSWORD`、`SESSION_SECRET` 和 `CREDENTIALS_ENCRYPTION_KEY`，且已被 Git 忽略。首次使用某个管理员邮箱登录时才会创建该账号；部署不会重置已有密码。
 

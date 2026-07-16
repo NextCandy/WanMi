@@ -195,3 +195,45 @@ export const notificationChannelPatchSchema = z.object({
     to: z.union([z.string().trim().email(), z.literal("")]).optional(),
   }),
 });
+
+const aiBaseUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .max(500)
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      const hostname = url.hostname.toLowerCase();
+      const normalizedHost = hostname.replace(/^\[|\]$/g, "");
+      const privateIpv4 = /^(?:10\.|127\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(normalizedHost);
+      const privateIpv6 = normalizedHost === "::1" || /^f[cd]/.test(normalizedHost) || /^fe[89ab]/.test(normalizedHost);
+      return url.protocol === "https:"
+        && !url.username
+        && !url.password
+        && normalizedHost !== "localhost"
+        && !normalizedHost.endsWith(".local")
+        && !privateIpv4
+        && !privateIpv6;
+    } catch {
+      return false;
+    }
+  }, "AI 接口必须是可公开访问的 HTTPS 地址")
+  .transform((value) => value.replace(/\/+$/, ""));
+
+const aiConfigBaseSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  provider: z.enum(["deepseek", "openai_compatible"]),
+  baseUrl: aiBaseUrlSchema,
+  model: z.string().trim().min(1).max(160).regex(/^[A-Za-z0-9._:/-]+$/, "模型名称格式无效"),
+  promptTemplate: z.string().trim().min(20).max(2000),
+});
+
+export const aiConfigCreateSchema = aiConfigBaseSchema.extend({
+  apiKey: z.string().trim().min(8).max(2000),
+  isActive: z.boolean().optional().default(false),
+});
+
+export const aiConfigPatchSchema = aiConfigBaseSchema.partial().extend({
+  apiKey: z.string().trim().min(8).max(2000).optional(),
+}).refine((value) => Object.keys(value).length > 0, "没有可保存的 AI 配置");

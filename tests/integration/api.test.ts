@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { parseDomainCsv } from "../../src/shared/csv";
 import { buildImportStatements, statementsToSql } from "../../src/shared/import-plan";
@@ -21,8 +21,6 @@ describe.sequential("WanMi API 集成", () => {
   let cookie = "";
   let csrf = "";
   let targetId = 0;
-  let aiShouldFail = false;
-  let aiCall: { model: string; prompt: string } | null = null;
   const origin = "http://localhost";
   const password = "Integration-Test-Password-2026";
 
@@ -41,14 +39,6 @@ describe.sequential("WanMi API 集成", () => {
       CREDENTIALS_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
       ASSETS: { fetch: () => Promise.resolve(new Response("asset")) } as unknown as Fetcher,
       UPLOADS: {} as R2Bucket,
-      AI: {
-        run: async (model: string, input: unknown) => {
-          const messages = (input as { messages?: Array<{ content?: string }> }).messages ?? [];
-          aiCall = { model, prompt: messages[0]?.content ?? "" };
-          if (aiShouldFail) throw new Error("模拟 Workers AI 不可用");
-          return { response: "品牌，云服务\n未来" };
-        },
-      } as unknown as Ai,
     };
   });
   afterAll(async () => fs.rm(directory, { recursive: true, force: true }));
@@ -153,25 +143,71 @@ describe.sequential("WanMi API 集成", () => {
     expect(response.status).toBe(409);
   });
 
-  it("AI 关键词建议返回 2-4 个中文关键词且失败时明确降级", async () => {
+  it("管理员可保存多个加密 AI 配置、切换启用项并生成不自动保存的简介", async () => {
     const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
-    aiShouldFail = false;
-    const response = await request(`/api/admin/domains/${targetId}/suggest-keywords`, { method: "POST", headers });
-    expect(response.status).toBe(200);
-    const body = await response.json() as { data: { keywords: string; items: string[] } };
-    expect(body.data).toEqual({ keywords: "品牌,云服务,未来", items: ["品牌", "云服务", "未来"] });
-    expect(aiCall).toMatchObject({ model: "@cf/meta/llama-3.1-8b-instruct-fast" });
-    expect(aiCall?.prompt).toContain("02cloud.com");
-    expect(aiCall?.prompt).toContain("类型 杂米");
-    expect(aiCall?.prompt).toContain("只输出关键词本身，不要解释");
-    const unchanged = await env.DB.prepare("SELECT keywords FROM domains WHERE id = ?").bind(targetId).first<{ keywords: string }>();
-    expect(unchanged?.keywords).toBe("");
+    const initial = await (await request("/api/admin/ai-configs", { headers })).json() as { data: { items: Array<Record<string, unknown>> } };
+    expect(initial.data.items).toHaveLength(1);
+    expect(initial.data.items[0]).toMatchObject({ id: "deepseek-default", provider: "deepseek", model: "deepseek-v4-flash", isActive: true, configured: false });
+    expect(initial.data.items[0]).not.toHaveProperty("apiKey");
 
-    aiShouldFail = true;
-    const failed = await request(`/api/admin/domains/${targetId}/suggest-keywords`, { method: "POST", headers });
-    expect(failed.status).toBe(502);
-    expect(await failed.json()).toMatchObject({ error: { code: "KEYWORD_SUGGESTION_FAILED", message: "生成失败，请手动填写" } });
-    aiShouldFail = false;
+    const defaultUpdated = await request("/api/admin/ai-configs/deepseek-default", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ apiKey: "sk-integration-default" }),
+    });
+    expect(defaultUpdated.status).toBe(200);
+    expect(await defaultUpdated.json()).toMatchObject({ data: { configured: true, isActive: true } });
+
+    const created = await request("/api/admin/ai-configs", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        name: "备用兼容配置",
+        provider: "openai_compatible",
+        baseUrl: "https://ai.example.test/v1",
+        model: "example-chat",
+        apiKey: "sk-integration-secondary",
+        promptTemplate: "请为 {domain} 生成中文简介，后缀 {tld}，长度 {length}，类型 {type}，关键词 {keywords}，只输出正文。",
+      }),
+    });
+    expect(created.status).toBe(201);
+    const createdBody = await created.json() as { data: { id: string; configured: boolean; isActive: boolean } };
+    expect(createdBody.data).toMatchObject({ configured: true, isActive: false });
+    expect((await request(`/api/admin/ai-configs/${createdBody.data.id}/activate`, { method: "POST", headers })).status).toBe(200);
+    expect((await request(`/api/admin/ai-configs/${createdBody.data.id}`, { method: "DELETE", headers })).status).toBe(409);
+
+    let captured: { url: string; authorization: string; model: string; prompt: string } | null = null;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { model: string; messages: Array<{ content: string }> };
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      captured = { url, authorization: new Headers(init?.headers).get("Authorization") ?? "", model: body.model, prompt: body.messages[0].content };
+      return Response.json({ choices: [{ message: { content: "这是一枚兼具云服务联想与品牌延展空间的域名，适合科技产品、数字平台或企业服务项目使用。" } }] });
+    }));
+    try {
+      const response = await request(`/api/admin/domains/${targetId}/suggest-description`, { method: "POST", headers });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ data: { description: expect.stringContaining("云服务联想"), config: { name: "备用兼容配置", model: "example-chat" } } });
+      expect(captured).toMatchObject({ url: "https://ai.example.test/v1/chat/completions", authorization: "Bearer sk-integration-secondary", model: "example-chat" });
+      const capturedRequest = captured as unknown as { prompt: string };
+      expect(capturedRequest.prompt).toContain("02cloud.com");
+      expect(capturedRequest.prompt).toContain("杂米");
+      const unchanged = await env.DB.prepare("SELECT description FROM domains WHERE id = ?").bind(targetId).first<{ description: string }>();
+      expect(unchanged?.description).toBe("");
+
+      vi.stubGlobal("fetch", vi.fn(async () => new Response("rate limited", { status: 429 })));
+      const failed = await request(`/api/admin/domains/${targetId}/suggest-description`, { method: "POST", headers });
+      expect(failed.status).toBe(502);
+      expect(await failed.json()).toMatchObject({ error: { code: "DESCRIPTION_SUGGESTION_FAILED", message: "简介生成失败，请手动填写" } });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect((await request("/api/admin/ai-configs/deepseek-default/activate", { method: "POST", headers })).status).toBe(200);
+    expect((await request(`/api/admin/ai-configs/${createdBody.data.id}`, { method: "DELETE", headers })).status).toBe(200);
+    const secretRow = await env.DB.prepare("SELECT api_key_encrypted FROM ai_configs WHERE id = 'deepseek-default'").first<{ api_key_encrypted: string }>();
+    expect(secretRow?.api_key_encrypted).not.toContain("sk-integration-default");
+    const log = await env.DB.prepare("SELECT COUNT(*) AS count FROM operation_logs WHERE action LIKE 'ai.config.%'").first<{ count: number }>();
+    expect(Number(log?.count)).toBeGreaterThanOrEqual(5);
   });
 
   it("批量设置关键词会规范化内容并写入操作日志", async () => {
