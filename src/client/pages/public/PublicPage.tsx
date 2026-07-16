@@ -435,7 +435,7 @@ export function PublicPage() {
           {!favoritesOnly && error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}
           {!favoritesOnly && loading && <div className="domain-list skeleton-list">{Array.from({ length: 8 }, (_, index) => <div className="domain-card skeleton" key={index} />)}</div>}
           {!loading && !error && !favoritesOnly && pageData?.items.length === 0 && <section className="empty-results" aria-labelledby="empty-results-title">
-            <div className="state-panel"><strong id="empty-results-title">未找到匹配的域名</strong><span>换一个关键词，或清除筛选后再试。</span><button type="button" onClick={resetFilters}>清除筛选</button></div>
+            <div className="state-panel"><h3 id="empty-results-title">未找到匹配的域名</h3><span>换一个关键词，或清除筛选后再试。</span><button type="button" onClick={resetFilters}>清除筛选</button></div>
             {emptyRecommendations.length > 0 && <div className="empty-recommendations"><header><span>为你推荐</span><h3>试试这些精选域名</h3></header><div className="domain-list card-view">{emptyRecommendations.map((domain) => <DomainCard key={domain.id} domain={domain} favorite={favorites.ids.has(domain.id)} highlighted={highlightedId === domain.id} onCopy={copyDomain} onFavorite={toggleFavorite} onQuickView={setSelectedDomain} />)}</div></div>}
           </section>}
           {favoritesOnly && favorites.items.length === 0 && <div className="state-panel favorites-empty"><strong>还没有收藏</strong><span>点击域名卡片上的“收藏”，它会只保存在当前浏览器。</span><button type="button" onClick={() => setFavoritesOnly(false)}>浏览全部域名</button></div>}

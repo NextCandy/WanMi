@@ -27,6 +27,11 @@ function localCredentials(): { email: string; password: string } {
 }
 
 test.describe.serial("WanMi 生产流程", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route("https://fonts.googleapis.com/**", (route) => route.abort());
+    await page.route("https://fonts.gstatic.com/**", (route) => route.abort());
+  });
+
   test("精品详情页、OG、sitemap 与速览入口形成完整公开链路", async ({ page, request }) => {
     await page.goto("/d/mx.ooo", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveTitle(/mx\.ooo · .+精选域名/);
@@ -126,7 +131,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".empty-recommendations .domain-featured-dot")).toHaveCount(3);
 
     await page.getByRole("button", { name: "复制链接" }).click();
-    await expect(page.getByText("链接已复制", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("链接已复制");
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
 
     await page.locator(".empty-results").getByRole("button", { name: "清除筛选" }).click();
