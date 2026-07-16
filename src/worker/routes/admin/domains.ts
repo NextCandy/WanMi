@@ -166,8 +166,8 @@ domainAdminRoutes.post("/", async (c) => {
       `INSERT INTO domains (
         full_domain, normalized_domain, name, tld, category, is_featured, is_listed,
         public_price, public_price_currency, public_price_approved, notes, source,
-        description, registered_at, expires_at, registrar_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?)`,
+        description, keywords, registered_at, expires_at, registrar_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?, ?)`,
     )
       .bind(
         domain.fullDomain,
@@ -182,6 +182,7 @@ domainAdminRoutes.post("/", async (c) => {
         parsed.data.publicPriceApproved ? 1 : 0,
         parsed.data.notes ?? null,
         parsed.data.description ?? "",
+        parsed.data.keywords ?? "",
         dateAtUtcMidnight(parsed.data.registeredAt),
         dateAtUtcMidnight(parsed.data.expiresAt),
         parsed.data.registrarName || null,
@@ -210,12 +211,12 @@ domainAdminRoutes.get("/export", async (c) => {
   const result = await c.env.DB.prepare(
     `SELECT d.full_domain, d.tld, d.registered_at, d.expires_at,
       COALESCE(NULLIF(d.registrar_name, ''), '') AS registrar,
-      d.description
+      d.keywords, d.description
      FROM domains d
      WHERE ${where}
      ORDER BY d.normalized_domain ASC`,
   ).bind(...params).all();
-  const headers = ["域名", "后缀", "注册日期", "到期日期", "注册商", "简介"];
+  const headers = ["域名", "后缀", "注册日期", "到期日期", "注册商", "关键词", "简介"];
   const lines = [headers.map(csvCell).join(",")];
   for (const raw of result.results) {
     const row = raw;
@@ -223,7 +224,7 @@ domainAdminRoutes.get("/export", async (c) => {
       row.full_domain, typeof row.tld === "string" && row.tld ? `.${row.tld.replace(/^\./, "")}` : "",
       typeof row.registered_at === "string" ? row.registered_at.slice(0, 10) : "",
       typeof row.expires_at === "string" ? row.expires_at.slice(0, 10) : "",
-      row.registrar, row.description,
+      row.registrar, row.keywords, row.description,
     ].map(csvCell).join(","));
   }
   const user = c.get("authUser");
@@ -377,6 +378,7 @@ domainAdminRoutes.patch("/:id", async (c) => {
     ["publicPriceApproved", "public_price_approved", (value) => (value ? 1 : 0)],
     ["notes", "notes", (value) => value as string | null],
     ["description", "description", (value) => value as string],
+    ["keywords", "keywords", (value) => value as string],
     ["registeredAt", "registered_at", (value) => dateAtUtcMidnight(value as string | null)],
     ["expiresAt", "expires_at", (value) => dateAtUtcMidnight(value as string | null)],
     ["registrarName", "registrar_name", (value) => typeof value === "string" && value ? value.trim() : null],

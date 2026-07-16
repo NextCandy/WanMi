@@ -17,7 +17,7 @@ describe("D1 导入计划", () => {
     expect(statements.some((statement) => statement.sql.includes("normalized_domain NOT IN"))).toBe(true);
   });
 
-  it("重新导入 SQL 不覆盖管理员字段", async () => {
+  it("重新导入 SQL 保护管理员字段，并仅用非空关键词更新展示内容", async () => {
     const source = await fs.readFile("data/source/WanMi.csv", "utf8");
     const statements = buildImportStatements(parseDomainCsv(source).records.slice(0, 1), { importId: "test" });
     const domainsUpsert = statements.find((statement) => statement.sql.includes("INSERT INTO domains"))!.sql;
@@ -26,6 +26,7 @@ describe("D1 导入计划", () => {
     expect(domainsUpsert).not.toMatch(/(?:^|\s)category\s*=\s*excluded\.category/i);
     expect(domainsUpsert).not.toMatch(/notes\s*=\s*excluded/i);
     expect(domainsUpsert).not.toMatch(/description\s*=\s*excluded/i);
+    expect(domainsUpsert).toMatch(/keywords\s*=\s*CASE WHEN excluded\.keywords != ''/i);
     expect(domainsUpsert).toMatch(/registered_at\s*=\s*COALESCE\(excluded\.registered_at/i);
     expect(domainsUpsert).toMatch(/expires_at\s*=\s*COALESCE\(excluded\.expires_at/i);
     expect(domainsUpsert).toMatch(/registrar_name\s*=\s*COALESCE\(excluded\.registrar_name/i);

@@ -144,7 +144,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("heading", { name: "欢迎回来" })).toBeVisible();
   });
 
-  test("简介与精品状态在刷新后同步并可恢复", async ({ page, context }) => {
+  test("关键词、简介与精品状态在刷新后同步并可恢复", async ({ page, context }) => {
     const credentials = localCredentials();
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await page.getByLabel("管理员邮箱").fill(credentials.email);
@@ -154,9 +154,12 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByPlaceholder("搜索完整域名").fill("02cloud.com");
     const row = page.getByRole("row").filter({ hasText: "02cloud.com" });
     await expect(row).toBeVisible();
-    page.once("dialog", async (dialog) => dialog.accept("E2E 临时简介"));
-    await row.getByRole("button", { name: "编辑简介" }).click();
-    await expect(page.getByText("简介已保存")).toBeVisible();
+    await row.getByRole("button", { name: "编辑", exact: true }).click();
+    const editDialog = page.getByRole("dialog", { name: "编辑域名信息" });
+    await editDialog.getByLabel(/^关键词/).fill("云服务，品牌,未来、精选,第五");
+    await editDialog.getByLabel("简介（可选）").fill("E2E 临时简介");
+    await editDialog.getByRole("button", { name: "保存修改" }).click();
+    await expect(page.getByText("02cloud.com 已更新")).toBeVisible();
     const featuredSwitch = row.locator("button.switch").first();
     const wasFeatured = (await featuredSwitch.getAttribute("class"))?.includes("on") ?? false;
     if (!wasFeatured) await featuredSwitch.click();
@@ -164,17 +167,24 @@ test.describe.serial("WanMi 生产流程", () => {
     const publicPage = await context.newPage();
     await publicPage.goto("/?q=02cloud.com", { waitUntil: "domcontentloaded" });
     const publicDomainCard = publicPage.locator(".domain-list .domain-card").filter({ hasText: "02cloud.com" });
-    await expect(publicDomainCard.getByText("E2E 临时简介", { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(publicDomainCard.locator(".keyword-pill")).toHaveText(["云服务", "品牌", "未来", "精选", "+1"]);
+    await expect(publicDomainCard.getByText("E2E 临时简介", { exact: true })).toHaveCount(0);
     await expect(publicDomainCard).toHaveClass(/featured/);
-    await publicPage.reload({ waitUntil: "domcontentloaded" });
-    await expect(publicDomainCard.getByText("E2E 临时简介", { exact: true })).toBeVisible();
+    await publicPage.getByRole("button", { name: "速览 02cloud.com" }).click();
+    const quickView = publicPage.getByRole("dialog", { name: /02cloud\.com/ });
+    await expect(quickView.locator(".keyword-pill")).toHaveText(["云服务", "品牌", "未来", "精选", "第五"]);
+    await expect(quickView.getByText("E2E 临时简介", { exact: true })).toBeVisible();
+    await quickView.getByRole("button", { name: "关闭域名速览" }).click();
 
-    page.once("dialog", async (dialog) => dialog.accept(""));
-    await row.getByRole("button", { name: "编辑简介" }).click();
-    await expect(page.getByText("简介已清空")).toBeVisible();
+    await row.getByRole("button", { name: "编辑", exact: true }).click();
+    await editDialog.getByLabel(/^关键词/).fill("");
+    await editDialog.getByLabel("简介（可选）").fill("");
+    await editDialog.getByRole("button", { name: "保存修改" }).click();
+    await expect(page.getByText("02cloud.com 已更新")).toBeVisible();
     if (!wasFeatured) await row.locator("button.switch").first().click();
     await publicPage.reload({ waitUntil: "domcontentloaded" });
-    await expect(publicPage.locator(".domain-description")).toHaveText("暂无简介");
+    await expect(publicDomainCard.locator(".domain-keywords")).toHaveCount(0);
+    await expect(publicDomainCard.locator(".domain-description")).toHaveCount(0);
     await publicPage.close();
   });
 

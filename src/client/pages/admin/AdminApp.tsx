@@ -16,6 +16,7 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { ApiError, api, download } from "../../lib/api";
 import { formatExact, formatRelative } from "../../lib/format-time";
+import { parseKeywords } from "../../../shared/keywords";
 
 type AdminView = "overview" | "domains" | "categories" | "settings" | "notifications" | "security" | "logs";
 
@@ -45,6 +46,7 @@ interface AdminDomain {
   is_listed: number;
   notes: string | null;
   description: string;
+  keywords: string;
   auto_category: string;
   auto_subcategory: string;
   auto_category_confidence: number;
@@ -134,8 +136,8 @@ function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string)
 }
 
 type DomainOrderBy = "domain";
-const OPTIONAL_COLUMNS: Array<[string, string]> = [["description", "简介"], ["category", "人工分类"]];
-const DEFAULT_COLUMNS = ["description", "category"];
+const OPTIONAL_COLUMNS: Array<[string, string]> = [["keywords", "关键词"], ["description", "简介"], ["category", "人工分类"]];
+const DEFAULT_COLUMNS = ["keywords", "category"];
 
 function loadColumns(): Set<string> {
   try {
@@ -154,6 +156,7 @@ function DomainEditModal({ domain, onClose, onSaved, notify }: { domain: AdminDo
   const [registeredAt, setRegisteredAt] = useState(domain.registered_at?.slice(0, 10) ?? "");
   const [expiresAt, setExpiresAt] = useState(domain.expires_at?.slice(0, 10) ?? "");
   const [registrarName, setRegistrarName] = useState(domain.registrar_name ?? "");
+  const [keywords, setKeywords] = useState(domain.keywords ?? "");
   const [description, setDescription] = useState(domain.description ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -169,6 +172,7 @@ function DomainEditModal({ domain, onClose, onSaved, notify }: { domain: AdminDo
           registeredAt: registeredAt || null,
           expiresAt: expiresAt || null,
           registrarName: registrarName || null,
+          keywords,
           description,
         }),
       });
@@ -191,7 +195,8 @@ function DomainEditModal({ domain, onClose, onSaved, notify }: { domain: AdminDo
       <label>注册商<input value={registrarName} onChange={(event) => setRegistrarName(event.target.value)} placeholder="例如 Spaceship" /></label>
       <label>注册日期<input type="date" value={registeredAt} onChange={(event) => setRegisteredAt(event.target.value)} /></label>
       <label>到期日期<input type="date" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
-      <label className="wide">简介<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={4} /></label>
+      <label className="wide">关键词<input value={keywords} onChange={(event) => setKeywords(event.target.value)} maxLength={500} placeholder="梦想, 模型, 品牌" /><small>用逗号分隔，建议 2-4 个，用于卡片展示</small></label>
+      <label className="wide">简介（可选）<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={4} /></label>
     </div>
     <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>取消</button><button className="primary-button" disabled={saving}>{saving ? "保存中…" : "保存修改"}</button></div>
   </form></div>;
@@ -331,13 +336,6 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
     } catch (reason) { notify(reason instanceof Error ? reason.message : "保存失败", "error"); }
   }
 
-  async function editDescription(domain: AdminDomain) {
-    const value = window.prompt(`编辑 ${domain.full_domain} 的公开简介（最多 500 字，可留空）`, domain.description);
-    if (value === null) return;
-    if (value.length > 500) { notify("简介不能超过 500 个字符", "error"); return; }
-    await patch(domain.id, { description: value }, value ? "简介已保存" : "简介已清空");
-  }
-
   async function bulk(action: string) {
     if (!selected.size) return;
     if (action === "delete" && !window.confirm(`确认删除所选 ${selected.size} 个真实域名？此操作不可撤销。`)) return;
@@ -417,13 +415,15 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
     <div className="admin-table-wrap domains-table-wrap"><table className="admin-table domains-table"><thead><tr>
       <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(data?.items.map((domain) => domain.id)))} aria-label="全选当前页" /></th>
       <th className="sortable" onClick={() => toggleSort("domain")}>域名{arrow("domain")}</th>
+      {has("keywords") && <th>关键词</th>}
       {has("description") && <th>简介</th>}
       {has("category") && <th>分类</th>}
       <th>精品</th><th>前台展示</th><th>操作</th>
     </tr></thead><tbody>{data?.items.map((domain) => <tr key={domain.id}>
       <td data-label="选择"><input type="checkbox" checked={selected.has(domain.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(domain.id)) next.delete(domain.id); else next.add(domain.id); return next; })} /></td>
       <td data-label="域名"><strong>{domain.full_domain}</strong><small>.{domain.tld}</small></td>
-      {has("description") && <td data-label="简介" className="description-cell"><span>{domain.description}</span><button className="table-link" onClick={() => void editDescription(domain)}>编辑简介</button></td>}
+      {has("keywords") && <td data-label="关键词" className="keywords-cell"><div>{parseKeywords(domain.keywords).slice(0, 4).map((keyword) => <span className="keyword-pill" key={keyword}>{keyword}</span>)}</div><button className="table-link" aria-label={`编辑 ${domain.full_domain} 关键词`} onClick={() => setEditing(domain)}>编辑关键词</button></td>}
+      {has("description") && <td data-label="简介" className="description-cell"><span>{domain.description}</span><button className="table-link" aria-label={`编辑 ${domain.full_domain} 简介`} onClick={() => setEditing(domain)}>编辑简介</button></td>}
       {has("category") && <td data-label="分类"><small>{domain.category_source === "manual" ? "人工" : "自动"} · {domain.auto_category}/{domain.auto_subcategory}</small><select className="table-link" value={domain.category && manualCategoryNames.has(domain.category) ? domain.category : domain.category ?? ""} onChange={(event) => void setCategoryFor(domain, event.target.value)} aria-label={`${domain.full_domain} 分类`}>
         <option value="">恢复自动（{domain.auto_category}）</option>
         {domain.category && !manualCategoryNames.has(domain.category) && <option value={domain.category}>{domain.category}</option>}

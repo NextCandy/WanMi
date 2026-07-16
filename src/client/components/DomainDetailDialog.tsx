@@ -38,7 +38,8 @@ export function DomainDetailDialog({ domain, candidates, favorite, onClose, onCo
         <span className="detail-kicker">DOMAIN QUICK VIEW</span>
         <h2 id="quick-domain-title">{domain.name}<span>.{domain.tld}</span></h2>
         <div className="detail-badges">{domain.is_featured && <span className="chip chip-featured">精品域名</span>}{categories.map((category) => <span className="chip" key={category}>{category}</span>)}</div>
-        <p className="detail-description">{domain.description || "这个域名暂未填写公开简介。"}</p>
+        {domain.keywords.length > 0 && <div className="detail-keywords" aria-label={`${domain.domain} 关键词`}>{domain.keywords.map((keyword) => <span className="keyword-pill" key={keyword}>{keyword}</span>)}</div>}
+        {domain.description && <p className="detail-description">{domain.description}</p>}
         <dl className="quick-detail-grid">
           <div><dt>完整域名</dt><dd>{domain.domain}</dd></div>
           <div><dt>主体长度</dt><dd>{domain.name.length} 字符</dd></div>

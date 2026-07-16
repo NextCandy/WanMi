@@ -64,6 +64,7 @@ export interface ParsedDomainRecord extends NormalizedDomain {
   dateAddedAt: string | null;
   rawMetadataJson: string;
   initialDescription: string;
+  initialKeywords: string;
   initialFeatured: boolean;
   initialRegisteredAt: string | null;
   initialExpiresAt: string | null;

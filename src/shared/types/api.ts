@@ -14,6 +14,7 @@ export interface PublicDomain {
   name: string;
   tld: string;
   description: string;
+  keywords: string[];
   category: string | null;
   categories: string[];
   is_featured: boolean;

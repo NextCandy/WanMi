@@ -21,6 +21,7 @@ const STAGING_COLUMNS = [
   "source_file",
   "raw_metadata_json",
   "description",
+  "keywords",
   "is_featured",
   "auto_category",
   "auto_subcategory",
@@ -46,6 +47,7 @@ function recordParams(
     "domain-list",
     "{}",
     record.initialDescription,
+    record.initialKeywords,
     record.initialFeatured ? 1 : 0,
     classification.primary,
     classification.subtype,
@@ -84,6 +86,7 @@ export function buildImportStatements(
           expires_at = COALESCE(excluded.expires_at, domains.expires_at),
           registrar_name = COALESCE(excluded.registrar_name, domains.registrar_name),
           description = CASE WHEN excluded.description != '' THEN excluded.description ELSE domains.description END,
+          keywords = CASE WHEN excluded.keywords != '' THEN excluded.keywords ELSE domains.keywords END,
           updated_at = CURRENT_TIMESTAMP`;
   const statements: SqlStatement[] = [
     {
@@ -107,10 +110,10 @@ export function buildImportStatements(
     },
     {
       sql: `INSERT INTO domains (
-          full_domain, normalized_domain, name, tld, is_listed, source, source_imported_at, description, is_featured,
+          full_domain, normalized_domain, name, tld, is_listed, source, source_imported_at, description, keywords, is_featured,
           auto_category, auto_subcategory, auto_category_confidence, registered_at, expires_at, registrar_name
         )
-        SELECT full_domain, normalized_domain, name, tld, 1, 'domain-list', NULL, description, is_featured,
+        SELECT full_domain, normalized_domain, name, tld, 1, 'domain-list', NULL, description, keywords, is_featured,
           auto_category, auto_subcategory, auto_category_confidence, registered_at, expires_at, registrar_name
         FROM domain_import_staging WHERE import_id = ?
         ${conflictClause}`,

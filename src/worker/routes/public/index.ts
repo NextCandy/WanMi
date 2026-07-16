@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import { AUTO_CATEGORY_ORDER } from "../../../shared/auto-classify";
+import { parseKeywords } from "../../../shared/keywords";
 import { publicDomainQuerySchema } from "../../../shared/schemas/api";
 import type { PublicDomain } from "../../../shared/types/api";
 import { fail, ok } from "../../http";
@@ -12,6 +13,7 @@ interface PublicDomainRow {
   name: string;
   tld: string;
   description: string;
+  keywords: string;
   category: string | null;
   manual_category: string | null;
   auto_categories: string | null;
@@ -42,7 +44,7 @@ interface SettingsRow {
   contact_qq: string | null;
 }
 
-const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.description,
+const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.description, d.keywords,
   NULLIF(d.category, '') AS manual_category,
   COALESCE(NULLIF(d.category, ''), d.auto_category) AS category,
   (SELECT GROUP_CONCAT(dac.category, '|') FROM domain_auto_categories dac WHERE dac.domain_id = d.id) AS auto_categories,
@@ -55,6 +57,7 @@ function serializePublic(row: PublicDomainRow): PublicDomain & Record<string, un
     name: row.name,
     tld: row.tld,
     description: row.description,
+    keywords: parseKeywords(row.keywords),
     category: row.category,
     categories: row.manual_category
       ? [row.manual_category]

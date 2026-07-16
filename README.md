@@ -55,8 +55,8 @@
 后台固定为七个模块：概览、域名、分类、站点设置、到期提醒、账户安全、操作日志。
 
 - PBKDF2 密码、HMAC 会话、CSRF、防暴力登录、会话撤销与改密；
-- 域名 CRUD、服务端筛选/排序/分页、生命周期文字资料、简介、精品、上架状态和批量操作；
-- CSV 预览、跳过/更新冲突、导入错误下载及导出；
+- 域名 CRUD、服务端筛选/排序/分页、卡片关键词、可选简介、生命周期文字资料、精品、上架状态和批量操作；
+- CSV 预览、关键词导入导出、跳过/更新冲突及导入错误下载；
 - 站点资料和 R2 图片；
 - Email、Telegram、Bark、Server酱、企业微信、飞书、Discord 通知；
 - 操作日志筛选、分页与 CSV 导出。
@@ -100,6 +100,7 @@ pnpm verify:production
 
 - `0015_restore_domain_management_schema.sql`：仅作为历史列名兼容桥，为全新安装准备临时文字列并回填权威 CSV；不会恢复被移除的业务表。
 - `0016_remove_registrar_dns_leads.sql`：兼容历史线上和全新安装两种 schema，规范化 `registrar_name`，重建导入暂存表，删除注册商账户、DNS 和求购线索表，并保护分类与通知历史。
+- `0017_domain_keywords_field.sql`：为域名和导入暂存记录增加逗号分隔关键词，按中英文逗号与顿号迁移有效简介，同时完整保留原 `description`。
 
 所有远程 Token 只能通过环境变量、CI Secret 或交互式输入提供。不得写入 README、`.dev.vars.example`、Wrangler 配置、构建产物、Issue 或日志；聊天中暴露过的长期凭据应在发布后轮换。
 

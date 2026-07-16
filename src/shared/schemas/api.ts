@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseKeywords, serializeKeywords } from "../keywords";
+
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(1).max(1024),
@@ -60,6 +62,15 @@ export const categoryInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
 });
 
+const keywordsInputSchema = z
+  .union([
+    z.string().max(500),
+    z.array(z.string().max(40)).max(20),
+  ])
+  .transform(serializeKeywords)
+  .refine((value) => parseKeywords(value).length <= 20, "关键词最多 20 个")
+  .refine((value) => parseKeywords(value).every((keyword) => keyword.length <= 40), "每个关键词最多 40 个字符");
+
 export const logsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
@@ -81,6 +92,7 @@ export const domainInputSchema = z.object({
   publicPriceApproved: z.boolean().optional(),
   notes: z.string().trim().max(4000).nullable().optional(),
   description: z.string().max(500).optional(),
+  keywords: keywordsInputSchema.optional(),
   registeredAt: calendarDateSchema.nullable().optional(),
   expiresAt: calendarDateSchema.nullable().optional(),
   registrarName: z.string().trim().max(120).nullable().optional(),

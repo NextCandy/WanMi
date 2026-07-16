@@ -25,13 +25,14 @@ interface DomainCardProps {
 
 function DomainCardComponent({ domain, favorite, highlighted, onCopy, onFavorite, onQuickView }: DomainCardProps) {
   const categories = domain.categories.length ? domain.categories : domain.category ? [domain.category] : [];
+  const visibleKeywords = domain.keywords.slice(0, 4);
   return (
     <article id={`domain-card-${domain.id}`} className={`domain-card${domain.is_featured ? " featured" : ""}${highlighted ? " highlighted" : ""}`} aria-labelledby={`domain-${domain.id}`}>
       <div className="domain-primary">
         <div className="domain-name"><a id={`domain-${domain.id}`} href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow"><strong>{domain.name}</strong><span>.{domain.tld}</span></a></div>
         <div className="domain-tags">{domain.is_featured && <span className="chip chip-featured">精品</span>}{categories.slice(0, 3).map((category) => <span className="chip" key={category}>{category}</span>)}{categories.length > 3 && <span className="chip">+{categories.length - 3}</span>}</div>
       </div>
-      <p className="domain-description">{domain.description || "暂无简介"}</p>
+      {visibleKeywords.length > 0 && <div className="domain-keywords" aria-label={`${domain.domain} 关键词`}>{visibleKeywords.map((keyword) => <span className="keyword-pill" key={keyword}>{keyword}</span>)}{domain.keywords.length > 4 && <span className="keyword-pill">+{domain.keywords.length - 4}</span>}</div>}
       <div className="domain-card-meta"><span>{domain.name.length} 字符</span><span>.{domain.tld}</span></div>
       <div className="domain-actions">
         <button type="button" className={`favorite-button${favorite ? " active" : ""}`} aria-label={favorite ? `取消收藏 ${domain.domain}` : `收藏 ${domain.domain}`} aria-pressed={favorite} title={favorite ? "取消收藏" : "收藏"} onClick={() => onFavorite(domain)}><HeartIcon /></button>

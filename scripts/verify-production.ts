@@ -8,7 +8,7 @@ interface ApiEnvelope<T> {
 
 interface PublicList {
   total: number;
-  items: Array<{ id: number; domain: string; is_featured: boolean; description: string }>;
+  items: Array<{ id: number; domain: string; is_featured: boolean; description: string; keywords: string[] }>;
 }
 
 function invariant(condition: unknown, message: string): asserts condition {
@@ -107,6 +107,7 @@ const removedPublicResponses = await Promise.all([
 invariant(adminResponse.ok, `/admin 返回 HTTP ${adminResponse.status}`);
 invariant(health.data.status === "ok", "健康检查状态不是 ok");
 invariant(domains.data.total >= 859, "公开域名数量异常");
+invariant(domains.data.items.every((domain) => Array.isArray(domain.keywords)), "公开域名 API 缺少关键词数组");
 invariant(facets.data.total === domains.data.total, "列表与分类统计不一致");
 invariant(rootHtml.includes('"@type":"ItemList"'), "首页缺少 ItemList JSON-LD");
 invariant(rootHtml.includes(`"numberOfItems":${domains.data.total}`), "首页 JSON-LD 数量不是实时值");
@@ -159,14 +160,16 @@ if (write) {
     const created = await api<{ id: number }>(origin, "/api/admin/domains", {
       method: "POST",
       headers: writeHeaders,
-      body: JSON.stringify({ fullDomain: temporaryDomain, description: "生产冒烟临时记录，完成后自动清理", isListed: true }),
+      body: JSON.stringify({ fullDomain: temporaryDomain, keywords: "生产,冒烟", description: "生产冒烟临时记录，完成后自动清理", isListed: true }),
     });
     temporaryId = created.data.id;
     checks.created = Number.isInteger(temporaryId) && temporaryId > 0;
 
     await eventually(
       async () => (await api<PublicList>(origin, `/api/public/domains?q=${encodeURIComponent(temporaryDomain)}&probe=${Date.now()}`)).data,
-      (value) => value.total === 1 && value.items[0]?.description.startsWith("生产冒烟") === true,
+      (value) => value.total === 1
+        && value.items[0]?.description.startsWith("生产冒烟") === true
+        && value.items[0]?.keywords.join(",") === "生产,冒烟",
       "新建域名未同步到公开 API",
     );
     checks.publicSync = true;

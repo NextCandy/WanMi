@@ -56,13 +56,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      # Worker 运行时密钥（SESSION_SECRET 等）已由 wrangler secret 配置在线上；
-      # 部署不携带 --secrets-file，避免覆盖 CREDENTIALS_ENCRYPTION_KEY 导致已加密凭据失效
-      - run: pnpm wrangler deploy
+      - run: pnpm db:migrate:remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - run: pnpm db:migrate:remote
+      # Worker 运行时密钥（SESSION_SECRET 等）已由 wrangler secret 配置在线上；
+      # 部署不携带 --secrets-file，避免覆盖 CREDENTIALS_ENCRYPTION_KEY 导致已加密凭据失效
+      - run: pnpm wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

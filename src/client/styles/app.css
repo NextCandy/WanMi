@@ -246,6 +246,8 @@ a { color: inherit; text-decoration: none; }
 .domain-description { min-height: 2.8em; margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .description-cell { min-width: 220px; max-width: 320px; }
 .description-cell > span { display: block; min-height: 1.3em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.keywords-cell { min-width: 220px; max-width: 320px; }
+.keywords-cell > div { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
 .detail-description { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); line-height: 1.7; }
 .premium-corner {
   position: absolute; top: -1px; right: -1px; z-index: 2;
@@ -355,6 +357,7 @@ a { color: inherit; text-decoration: none; }
 .domain-edit-grid label { display: grid; gap: 7px; color: var(--fg-2); font-size: 11px; font-weight: 650; }
 .domain-edit-grid label.wide { grid-column: 1 / -1; }
 .domain-edit-grid input, .domain-edit-grid textarea { width: 100%; border: 1px solid var(--border); border-radius: 9px; padding: 10px 11px; background: var(--surface-2); color: var(--fg); font: inherit; font-weight: 450; outline: none; }
+.domain-edit-grid label > small { color: var(--muted); font-size: 10px; font-weight: 450; }
 .domain-edit-grid textarea { resize: vertical; min-height: 94px; }
 .domain-edit-grid input:focus, .domain-edit-grid textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
@@ -1568,6 +1571,14 @@ a { color: inherit; text-decoration: none; }
 .public-shell .domain-name { letter-spacing: .02em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 .public-shell .domain-name a { max-width: 100%; }
 .public-shell .domain-name strong { overflow: hidden; text-overflow: ellipsis; }
+.domain-keywords, .detail-keywords { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.keyword-pill {
+  display: inline-flex; align-items: center; max-width: 100%; min-height: 22px; padding: 2px 8px;
+  overflow: hidden; border: 1px solid color-mix(in oklab, var(--gold) 30%, transparent); border-radius: var(--radius-pill);
+  color: var(--gold-bright); background: none; font-family: var(--font-cjk); font-size: 10px; line-height: 1.35;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.detail-keywords { margin: 0 0 18px; }
 .public-shell .domain-description { min-height: 3.2em; line-height: 1.6; letter-spacing: .01em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal !important; overflow: hidden; }
 .domain-card-meta { display: flex; align-items: center; gap: 8px; margin-top: auto; color: var(--muted); font-family: var(--font-mono); font-size: 10px; }
 .domain-card-meta span + span::before { content: "·"; margin-right: 8px; }
@@ -1671,11 +1682,12 @@ a { color: inherit; text-decoration: none; }
   .public-shell .domain-actions button { min-height: 44px; }
   .public-shell .domain-list.compact-view { border: 0; overflow: visible; gap: 8px; }
   .public-shell .domain-list.compact-view .domain-card {
-    display: grid; grid-template-columns: 1fr auto; grid-template-areas: "primary actions" "description description" "meta meta";
+    display: grid; grid-template-columns: 1fr auto; grid-template-areas: "primary actions" "meta meta";
     gap: 9px; min-height: 132px; padding: 14px; border: 1px solid var(--border); border-radius: 15px; background: var(--surface);
   }
+  .public-shell .domain-list.compact-view .domain-card:has(.domain-keywords) { grid-template-areas: "primary actions" "keywords keywords" "meta meta"; }
   .public-shell .domain-list.compact-view .domain-primary { grid-area: primary; }
-  .public-shell .domain-list.compact-view .domain-description { grid-area: description; display: -webkit-box; }
+  .public-shell .domain-list.compact-view .domain-keywords { grid-area: keywords; }
   .public-shell .domain-list.compact-view .domain-card-meta { grid-area: meta; display: flex; }
   .public-shell .domain-list.compact-view .domain-actions { grid-area: actions; min-width: 0; }
   .public-shell .domain-list.compact-view .domain-actions button { width: 44px; flex: 0 0 44px; }
@@ -1738,6 +1750,7 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-transparency: reduce) {
   .public-bottom-nav, .domain-detail-dialog::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; }
   .public-bottom-nav { background: var(--background); }
+  .keyword-pill { border-color: var(--gold-muted); }
 }
 
 /* Admin CSV preview and auditable log table. */

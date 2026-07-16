@@ -3,21 +3,24 @@ import { useCallback, useMemo, useState } from "react";
 import type { PublicDomain } from "../../shared/types/api";
 
 const STORAGE_KEY = "wanmi-domain-favorites";
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
 const MAX_FAVORITES = 200;
+
+type StoredPublicDomain = Omit<PublicDomain, "keywords"> & { keywords?: string[] };
 
 interface StoredFavorites {
   version: typeof STORAGE_VERSION;
-  items: PublicDomain[];
+  items: StoredPublicDomain[];
 }
 
-function normalizeFavorite(domain: PublicDomain): PublicDomain {
+function normalizeFavorite(domain: StoredPublicDomain | PublicDomain): PublicDomain {
   return {
     id: domain.id,
     domain: domain.domain,
     name: domain.name,
     tld: domain.tld,
     description: domain.description,
+    keywords: Array.isArray(domain.keywords) ? [...domain.keywords] : [],
     category: domain.category,
     categories: [...domain.categories],
     is_featured: domain.is_featured,
@@ -26,7 +29,7 @@ function normalizeFavorite(domain: PublicDomain): PublicDomain {
   };
 }
 
-function isPublicDomain(value: unknown): value is PublicDomain {
+function isPublicDomain(value: unknown): value is StoredPublicDomain {
   if (!value || typeof value !== "object") return false;
   const item = value as Partial<PublicDomain>;
   return Number.isInteger(item.id)
@@ -34,6 +37,7 @@ function isPublicDomain(value: unknown): value is PublicDomain {
     && typeof item.name === "string"
     && typeof item.tld === "string"
     && typeof item.description === "string"
+    && (item.keywords === undefined || (Array.isArray(item.keywords) && item.keywords.every((keyword) => typeof keyword === "string")))
     && (item.category === null || typeof item.category === "string")
     && Array.isArray(item.categories)
     && item.categories.every((category) => typeof category === "string")
@@ -48,7 +52,7 @@ function readFavorites(): PublicDomain[] {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Partial<StoredFavorites>;
-    if (parsed.version !== STORAGE_VERSION || !Array.isArray(parsed.items)) return [];
+    if (![1, STORAGE_VERSION].includes(Number(parsed.version)) || !Array.isArray(parsed.items)) return [];
     const seen = new Set<number>();
     return parsed.items.filter(isPublicDomain).filter((item) => {
       if (seen.has(item.id)) return false;
