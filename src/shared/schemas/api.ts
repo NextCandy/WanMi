@@ -102,13 +102,18 @@ export const domainPatchSchema = domainInputSchema.partial();
 
 export const bulkDomainSchema = z.object({
   ids: z.array(z.number().int().positive()).min(1).max(500),
-  action: z.enum(["delete", "feature", "unfeature", "list", "hide", "categorize", "price"]),
+  action: z.enum(["delete", "feature", "unfeature", "list", "hide", "categorize", "price", "keywords"]),
   category: z.string().trim().max(80).nullable().optional(),
+  keywords: keywordsInputSchema.optional(),
   price: z
     .string()
     .regex(/^\d+(?:\.\d+)?$/)
     .nullable()
     .optional(),
+}).superRefine((value, context) => {
+  if (value.action === "keywords" && value.keywords === undefined) {
+    context.addIssue({ code: "custom", path: ["keywords"], message: "批量设置关键词时必须提供 keywords" });
+  }
 });
 
 const booleanSettingSchema = z

@@ -159,6 +159,22 @@ function DomainEditModal({ domain, onClose, onSaved, notify }: { domain: AdminDo
   const [keywords, setKeywords] = useState(domain.keywords ?? "");
   const [description, setDescription] = useState(domain.description ?? "");
   const [saving, setSaving] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestionFeedback, setSuggestionFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+
+  async function suggestKeywords() {
+    setSuggesting(true);
+    setSuggestionFeedback(null);
+    try {
+      const result = await api<{ keywords: string }>(`/api/admin/domains/${domain.id}/suggest-keywords`, { method: "POST" });
+      setKeywords(result.keywords);
+      setSuggestionFeedback({ tone: "success", text: "AI 已生成，请审核后保存" });
+    } catch {
+      setSuggestionFeedback({ tone: "error", text: "生成失败，请手动填写" });
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -195,10 +211,40 @@ function DomainEditModal({ domain, onClose, onSaved, notify }: { domain: AdminDo
       <label>注册商<input value={registrarName} onChange={(event) => setRegistrarName(event.target.value)} placeholder="例如 Spaceship" /></label>
       <label>注册日期<input type="date" value={registeredAt} onChange={(event) => setRegisteredAt(event.target.value)} /></label>
       <label>到期日期<input type="date" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
-      <label className="wide">关键词<input value={keywords} onChange={(event) => setKeywords(event.target.value)} maxLength={500} placeholder="梦想, 模型, 品牌" /><small>用逗号分隔，建议 2-4 个，用于卡片展示</small></label>
+      <div className="wide domain-edit-field"><div className="field-label-row"><label htmlFor="domain-keywords">关键词</label><button type="button" className="secondary-button ai-keyword-button" disabled={suggesting || saving} onClick={() => void suggestKeywords()}>{suggesting ? "生成中…" : "AI 生成关键词"}</button></div><input id="domain-keywords" value={keywords} onChange={(event) => { setKeywords(event.target.value); setSuggestionFeedback(null); }} maxLength={500} placeholder="梦想, 模型, 品牌" /><small>用逗号分隔，建议 2-4 个，用于卡片展示</small>{suggestionFeedback ? <small className={`field-feedback ${suggestionFeedback.tone}`}>{suggestionFeedback.text}</small> : null}</div>
       <label className="wide">简介（可选）<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={4} /></label>
     </div>
     <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>取消</button><button className="primary-button" disabled={saving}>{saving ? "保存中…" : "保存修改"}</button></div>
+  </form></div>;
+}
+
+function BulkKeywordsModal({ count, onClose, onConfirm }: { count: number; onClose: () => void; onConfirm: (keywords: string) => Promise<void> }) {
+  const [keywords, setKeywords] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const preview = parseKeywords(keywords);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await onConfirm(keywords);
+      onClose();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量设置失败");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="domain-edit-modal bulk-keywords-modal" onSubmit={(event) => void submit(event)} onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="bulk-keywords-title">
+    <button type="button" className="modal-close" aria-label="关闭批量关键词" onClick={onClose}>×</button>
+    <div><span className="eyebrow">BULK KEYWORDS</span><h2 id="bulk-keywords-title">批量设置关键词</h2><p>将同一组关键词应用到已选的 {count} 个域名。</p></div>
+    <div className="domain-edit-grid bulk-keywords-form"><label className="wide">关键词<input autoFocus value={keywords} onChange={(event) => setKeywords(event.target.value)} maxLength={500} placeholder="梦想, 模型, 品牌" /><small>用逗号分隔；留空提交可批量清除关键词。</small></label></div>
+    {preview.length > 0 ? <div className="bulk-keywords-preview" aria-label="关键词预览">{preview.slice(0, 4).map((keyword) => <span className="keyword-pill" key={keyword}>{keyword}</span>)}{preview.length > 4 ? <span className="keyword-pill">+{preview.length - 4}</span> : null}</div> : null}
+    {error ? <div className="inline-error">{error}</div> : null}
+    <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>取消</button><button className="primary-button" disabled={saving}>{saving ? "应用中…" : `应用到 ${count} 个域名`}</button></div>
   </form></div>;
 }
 
@@ -276,6 +322,7 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
   const [refresh, setRefresh] = useState(0);
   const [editing, setEditing] = useState<AdminDomain | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
+  const [bulkKeywordsOpen, setBulkKeywordsOpen] = useState(false);
   const manualCategories = useMemo(() => categories.filter((item) => !item.is_auto), [categories]);
   const manualCategoryNames = useMemo(() => new Set(manualCategories.map((item) => item.name)), [manualCategories]);
 
@@ -350,6 +397,16 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
     } catch (reason) { notify(reason instanceof Error ? reason.message : "批量操作失败", "error"); }
   }
 
+  async function applyBulkKeywords(keywords: string) {
+    const result = await api<{ changed: number }>("/api/admin/domains/bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids: [...selected], action: "keywords", keywords }),
+    });
+    notify(keywords.trim() ? `已为 ${result.changed} 个域名设置关键词` : `已清除 ${result.changed} 个域名的关键词`);
+    setSelected(new Set());
+    setRefresh((value) => value + 1);
+  }
+
   function exportSelected() {
     if (!selected.size) return;
     void exportCsv(`/api/admin/domains/export?ids=${[...selected].join(",")}`);
@@ -411,7 +468,7 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
       <details className="column-picker"><summary>列显示 ▾</summary><div>{OPTIONAL_COLUMNS.map(([key, label]) => <label key={key}><input type="checkbox" checked={columns.has(key)} onChange={() => toggleColumn(key)} />{label}</label>)}</div></details>
       <span>{loading ? "读取中…" : `共 ${data?.total ?? 0} 个`}</span>
     </div>
-    {selected.size > 0 && <div className="bulk-bar"><strong>已选 {selected.size}</strong><button onClick={() => void bulk("feature")}>设为精品</button><button onClick={() => void bulk("unfeature")}>取消精品</button><button onClick={() => void bulk("list")}>上架</button><button onClick={() => void bulk("hide")}>隐藏</button><button onClick={() => void bulk("categorize")}>设置分类</button><button onClick={() => exportSelected()}>导出选中</button><button className="danger-text" onClick={() => void bulk("delete")}>删除</button><button onClick={() => setSelected(new Set())}>清空选择</button></div>}
+    {selected.size > 0 && <div className="bulk-bar"><strong>已选 {selected.size}</strong><button onClick={() => setBulkKeywordsOpen(true)}>批量设置关键词</button><button onClick={() => void bulk("feature")}>设为精品</button><button onClick={() => void bulk("unfeature")}>取消精品</button><button onClick={() => void bulk("list")}>上架</button><button onClick={() => void bulk("hide")}>隐藏</button><button onClick={() => void bulk("categorize")}>设置分类</button><button onClick={() => exportSelected()}>导出选中</button><button className="danger-text" onClick={() => void bulk("delete")}>删除</button><button onClick={() => setSelected(new Set())}>清空选择</button></div>}
     <div className="admin-table-wrap domains-table-wrap"><table className="admin-table domains-table"><thead><tr>
       <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(data?.items.map((domain) => domain.id)))} aria-label="全选当前页" /></th>
       <th className="sortable" onClick={() => toggleSort("domain")}>域名{arrow("domain")}</th>
@@ -435,7 +492,7 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
       <td data-label="操作"><button className="table-link" onClick={() => setEditing(domain)}>编辑</button><button className="table-link danger-text" onClick={() => void removeDomain(domain)}>删除</button></td>
     </tr>)}</tbody></table></div>
     {data && data.totalPages > 1 && <div className="pagination admin-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {data.totalPages} 页</span><button disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}
-  </Panel>{editing && <DomainEditModal domain={editing} notify={notify} onClose={() => setEditing(null)} onSaved={() => setRefresh((value) => value + 1)} />}{importPreview && <ImportPreviewModal data={importPreview} onClose={() => setImportPreview(null)} onConfirm={confirmImport} />}</>;
+  </Panel>{editing ? <DomainEditModal domain={editing} notify={notify} onClose={() => setEditing(null)} onSaved={() => setRefresh((value) => value + 1)} /> : null}{bulkKeywordsOpen ? <BulkKeywordsModal count={selected.size} onClose={() => setBulkKeywordsOpen(false)} onConfirm={applyBulkKeywords} /> : null}{importPreview ? <ImportPreviewModal data={importPreview} onClose={() => setImportPreview(null)} onConfirm={confirmImport} /> : null}</>;
 }
 
 function CategoriesView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
@@ -574,6 +631,7 @@ const LOG_ACTIONS: Array<[string, string]> = [
   ["domains.bulk.feature", "批量设为精品"],
   ["domains.bulk.unfeature", "批量取消精品"],
   ["domains.bulk.categorize", "批量设置分类"],
+  ["domains.bulk.keywords", "批量设置关键词"],
   ["domains.bulk.delete", "批量删除"],
   ["settings.update", "系统设置"],
 ];

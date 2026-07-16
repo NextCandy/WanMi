@@ -2,6 +2,7 @@ export interface Env {
   DB: D1Database;
   UPLOADS: R2Bucket;
   ASSETS: Fetcher;
+  AI: Ai;
   ADMIN_EMAIL: string;
   BOOTSTRAP_ADMIN_PASSWORD: string;
   SESSION_SECRET: string;

@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { parseDomainCsv } from "../../../shared/csv";
 import { normalizeDomain } from "../../../shared/domain";
 import { buildImportStatements } from "../../../shared/import-plan";
+import { parseKeywords } from "../../../shared/keywords";
 import {
   adminDomainQuerySchema,
   bulkDomainSchema,
@@ -10,6 +11,11 @@ import {
   domainPatchSchema,
 } from "../../../shared/schemas/api";
 import { fail, ok, writeOperationLog } from "../../http";
+import {
+  buildDomainKeywordPrompt,
+  DOMAIN_KEYWORDS_MODEL,
+  extractDomainKeywordSuggestion,
+} from "../../services/domain-keywords-ai";
 import type { AppBindings } from "../../types";
 
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
@@ -326,7 +332,7 @@ domainAdminRoutes.get("/import-errors/:id", async (c) => {
 domainAdminRoutes.post("/bulk", async (c) => {
   const parsed = bulkDomainSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return fail(c, 422, "INVALID_BULK_ACTION", "批量操作参数无效", parsed.error.issues);
-  const { ids, action, category, price } = parsed.data;
+  const { ids, action, category, price, keywords } = parsed.data;
   const placeholders = ids.map(() => "?").join(",");
   let sql: string;
   let params: Array<string | number | null> = ids;
@@ -339,21 +345,62 @@ domainAdminRoutes.post("/bulk", async (c) => {
     // 设置公开报价并自动过审；price 为 null 时清除报价
     sql = `UPDATE domains SET public_price = ?, public_price_approved = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
     params = [price ?? null, price ? 1 : 0, ...ids];
+  } else if (action === "keywords") {
+    sql = `UPDATE domains SET keywords = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
+    params = [keywords ?? "", ...ids];
   } else {
     sql = `UPDATE domains SET category = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
     params = [category ?? null, ...ids];
   }
-  const result = await c.env.DB.prepare(sql).bind(...params).run();
+  const matched = await c.env.DB.prepare(`SELECT COUNT(*) AS count FROM domains WHERE id IN (${placeholders})`).bind(...ids).first<{ count: number }>();
+  const changed = Number(matched?.count ?? 0);
+  await c.env.DB.prepare(sql).bind(...params).run();
   const user = c.get("authUser");
+  const message = action === "keywords"
+    ? `批量设置关键词，影响 ${changed} 个域名`
+    : `批量操作 ${action}，影响 ${changed} 个域名`;
   await writeOperationLog(c.env.DB, {
     action: `domains.bulk.${action}`,
     resourceType: "domain",
-    message: `批量操作 ${action}，影响 ${result.meta.changes} 个域名`,
-    details: { count: result.meta.changes },
+    message,
+    details: { count: changed, ...(action === "keywords" ? { keywords: parseKeywords(keywords) } : {}) },
     actorUserId: user.id,
     success: true,
   });
-  return ok(c, { changed: result.meta.changes });
+  return ok(c, { changed });
+});
+
+domainAdminRoutes.post("/:id/suggest-keywords", async (c) => {
+  const id = Number(c.req.param("id"));
+  const domain = await c.env.DB.prepare(
+    `SELECT full_domain, tld, length(replace(name, '.', '')) AS name_length,
+      COALESCE(NULLIF(category, ''), NULLIF(auto_category, ''), NULLIF(auto_subcategory, ''), '未分类') AS domain_type
+     FROM domains WHERE id = ?`,
+  ).bind(id).first<{ full_domain: string; tld: string; name_length: number; domain_type: string }>();
+  if (!domain) return fail(c, 404, "DOMAIN_NOT_FOUND", "域名不存在");
+
+  try {
+    const prompt = buildDomainKeywordPrompt({
+      domain: domain.full_domain,
+      tld: domain.tld,
+      length: Number(domain.name_length),
+      type: domain.domain_type,
+    });
+    const result = await c.env.AI.run(DOMAIN_KEYWORDS_MODEL, {
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_tokens: 64,
+    });
+    const response = result && typeof result === "object" && "response" in result && typeof result.response === "string"
+      ? result.response
+      : "";
+    const suggested = extractDomainKeywordSuggestion(response);
+    if (suggested.length < 2) throw new Error("AI 未返回足够的中文关键词");
+    return ok(c, { keywords: suggested.join(","), items: suggested });
+  } catch (error) {
+    console.warn("域名关键词 AI 生成失败", error instanceof Error ? error.message : "未知错误");
+    return fail(c, 502, "KEYWORD_SUGGESTION_FAILED", "生成失败，请手动填写");
+  }
 });
 
 domainAdminRoutes.get("/:id", async (c) => {

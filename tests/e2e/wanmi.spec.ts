@@ -144,8 +144,49 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("heading", { name: "欢迎回来" })).toBeVisible();
   });
 
+  test("批量关键词可应用到多个域名、清除并进入操作日志", async ({ page }) => {
+    const credentials = localCredentials();
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("管理员邮箱").fill(credentials.email);
+    await page.getByLabel("密码").fill(credentials.password);
+    await page.getByRole("button", { name: "登录", exact: true }).click();
+    await page.getByRole("button", { name: /域名管理/ }).click();
+    await page.getByPlaceholder("搜索完整域名").fill("cloud");
+    const rows = page.locator(".admin-table tbody tr");
+    await expect(rows.nth(0)).toBeVisible();
+    await expect(rows.nth(1)).toBeVisible();
+    await rows.nth(0).getByRole("checkbox").check();
+    await rows.nth(1).getByRole("checkbox").check();
+    await page.getByRole("button", { name: "批量设置关键词" }).click();
+    const dialog = page.getByRole("dialog", { name: "批量设置关键词" });
+    await dialog.getByRole("textbox", { name: /^关键词/ }).fill("批量，品牌、测试");
+    await dialog.getByRole("button", { name: "应用到 2 个域名" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(rows.nth(0).locator(".keywords-cell .keyword-pill")).toHaveText(["批量", "品牌", "测试"]);
+    await expect(rows.nth(1).locator(".keywords-cell .keyword-pill")).toHaveText(["批量", "品牌", "测试"]);
+
+    await rows.nth(0).getByRole("checkbox").check();
+    await rows.nth(1).getByRole("checkbox").check();
+    await page.getByRole("button", { name: "批量设置关键词" }).click();
+    await page.getByRole("dialog", { name: "批量设置关键词" }).getByRole("button", { name: "应用到 2 个域名" }).click();
+    await expect(rows.nth(0).locator(".keywords-cell .keyword-pill")).toHaveCount(0);
+    await expect(rows.nth(1).locator(".keywords-cell .keyword-pill")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /操作日志/ }).click();
+    await page.getByLabel("操作类型筛选").selectOption("domains.bulk.keywords");
+    await expect(page.locator(".log-table").getByText("批量设置关键词", { exact: true }).first()).toBeVisible();
+  });
+
   test("关键词、简介与精品状态在刷新后同步并可恢复", async ({ page, context }) => {
     const credentials = localCredentials();
+    let aiShouldFail = false;
+    await page.route("**/api/admin/domains/*/suggest-keywords", async (route) => {
+      if (aiShouldFail) {
+        await route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ success: false, data: null, error: { code: "KEYWORD_SUGGESTION_FAILED", message: "生成失败，请手动填写" } }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: { keywords: "云服务,品牌,未来", items: ["云服务", "品牌", "未来"] }, error: null }) });
+    });
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await page.getByLabel("管理员邮箱").fill(credentials.email);
     await page.getByLabel("密码").fill(credentials.password);
@@ -156,6 +197,14 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: "编辑", exact: true }).click();
     const editDialog = page.getByRole("dialog", { name: "编辑域名信息" });
+    await editDialog.getByLabel("简介（可选）").fill("AI 失败不应改动此字段");
+    await editDialog.getByRole("button", { name: "AI 生成关键词" }).click();
+    await expect(editDialog.getByLabel("关键词")).toHaveValue("云服务,品牌,未来");
+    await expect(editDialog.getByText("AI 已生成，请审核后保存")).toBeVisible();
+    aiShouldFail = true;
+    await editDialog.getByRole("button", { name: "AI 生成关键词" }).click();
+    await expect(editDialog.getByText("生成失败，请手动填写")).toBeVisible();
+    await expect(editDialog.getByLabel("简介（可选）")).toHaveValue("AI 失败不应改动此字段");
     await editDialog.getByLabel(/^关键词/).fill("云服务，品牌,未来、精选,第五");
     await editDialog.getByLabel("简介（可选）").fill("E2E 临时简介");
     await editDialog.getByRole("button", { name: "保存修改" }).click();

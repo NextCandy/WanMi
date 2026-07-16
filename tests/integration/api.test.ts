@@ -21,6 +21,8 @@ describe.sequential("WanMi API 集成", () => {
   let cookie = "";
   let csrf = "";
   let targetId = 0;
+  let aiShouldFail = false;
+  let aiCall: { model: string; prompt: string } | null = null;
   const origin = "http://localhost";
   const password = "Integration-Test-Password-2026";
 
@@ -39,6 +41,14 @@ describe.sequential("WanMi API 集成", () => {
       CREDENTIALS_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
       ASSETS: { fetch: () => Promise.resolve(new Response("asset")) } as unknown as Fetcher,
       UPLOADS: {} as R2Bucket,
+      AI: {
+        run: async (model: string, input: unknown) => {
+          const messages = (input as { messages?: Array<{ content?: string }> }).messages ?? [];
+          aiCall = { model, prompt: messages[0]?.content ?? "" };
+          if (aiShouldFail) throw new Error("模拟 Workers AI 不可用");
+          return { response: "品牌，云服务\n未来" };
+        },
+      } as unknown as Ai,
     };
   });
   afterAll(async () => fs.rm(directory, { recursive: true, force: true }));
@@ -141,6 +151,43 @@ describe.sequential("WanMi API 集成", () => {
       body: JSON.stringify({ fullDomain: "02cloud.com" }),
     });
     expect(response.status).toBe(409);
+  });
+
+  it("AI 关键词建议返回 2-4 个中文关键词且失败时明确降级", async () => {
+    const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
+    aiShouldFail = false;
+    const response = await request(`/api/admin/domains/${targetId}/suggest-keywords`, { method: "POST", headers });
+    expect(response.status).toBe(200);
+    const body = await response.json() as { data: { keywords: string; items: string[] } };
+    expect(body.data).toEqual({ keywords: "品牌,云服务,未来", items: ["品牌", "云服务", "未来"] });
+    expect(aiCall).toMatchObject({ model: "@cf/meta/llama-3.1-8b-instruct-fast" });
+    expect(aiCall?.prompt).toContain("02cloud.com");
+    expect(aiCall?.prompt).toContain("类型 杂米");
+    expect(aiCall?.prompt).toContain("只输出关键词本身，不要解释");
+    const unchanged = await env.DB.prepare("SELECT keywords FROM domains WHERE id = ?").bind(targetId).first<{ keywords: string }>();
+    expect(unchanged?.keywords).toBe("");
+
+    aiShouldFail = true;
+    const failed = await request(`/api/admin/domains/${targetId}/suggest-keywords`, { method: "POST", headers });
+    expect(failed.status).toBe(502);
+    expect(await failed.json()).toMatchObject({ error: { code: "KEYWORD_SUGGESTION_FAILED", message: "生成失败，请手动填写" } });
+    aiShouldFail = false;
+  });
+
+  it("批量设置关键词会规范化内容并写入操作日志", async () => {
+    const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
+    const second = await env.DB.prepare("SELECT id FROM domains WHERE id != ? ORDER BY id LIMIT 1").bind(targetId).first<{ id: number }>();
+    expect(second).toBeTruthy();
+    const ids = [targetId, second!.id];
+    const response = await request("/api/admin/domains/bulk", { method: "POST", headers, body: JSON.stringify({ ids, action: "keywords", keywords: "品牌，云服务、未来" }) });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ data: { changed: 2 } });
+    const rows = await env.DB.prepare(`SELECT keywords FROM domains WHERE id IN (${ids.map(() => "?").join(",")}) ORDER BY id`).bind(...ids).all<{ keywords: string }>();
+    expect(rows.results.map((row) => row.keywords)).toEqual(["品牌,云服务,未来", "品牌,云服务,未来"]);
+    const log = await env.DB.prepare("SELECT action, message, details_json FROM operation_logs WHERE action = 'domains.bulk.keywords' ORDER BY id DESC LIMIT 1").first<{ action: string; message: string; details_json: string }>();
+    expect(log).toMatchObject({ action: "domains.bulk.keywords", message: "批量设置关键词，影响 2 个域名" });
+    expect(JSON.parse(log!.details_json)).toMatchObject({ count: 2, keywords: ["品牌", "云服务", "未来"] });
+    expect((await request("/api/admin/domains/bulk", { method: "POST", headers, body: JSON.stringify({ ids, action: "keywords", keywords: "" }) })).status).toBe(200);
   });
 
   it("精品状态会影响默认排序", async () => {

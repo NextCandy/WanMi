@@ -356,10 +356,22 @@ a { color: inherit; text-decoration: none; }
 .domain-edit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
 .domain-edit-grid label { display: grid; gap: 7px; color: var(--fg-2); font-size: 11px; font-weight: 650; }
 .domain-edit-grid label.wide { grid-column: 1 / -1; }
-.domain-edit-grid input, .domain-edit-grid textarea { width: 100%; border: 1px solid var(--border); border-radius: 9px; padding: 10px 11px; background: var(--surface-2); color: var(--fg); font: inherit; font-weight: 450; outline: none; }
+.domain-edit-grid .domain-edit-field { display: grid; gap: 7px; color: var(--fg-2); font-size: 11px; font-weight: 650; }
+.domain-edit-grid .domain-edit-field.wide { grid-column: 1 / -1; }
+.field-label-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); }
+.field-label-row label { display: block; }
+.ai-keyword-button { min-height: 32px; padding: 6px 10px; font-size: 10px; }
+.domain-edit-grid input, .domain-edit-grid textarea, .domain-edit-grid .domain-edit-field > input { width: 100%; border: 1px solid var(--border); border-radius: 9px; padding: 10px 11px; background: var(--surface-2); color: var(--fg); font: inherit; font-weight: 450; outline: none; }
 .domain-edit-grid label > small { color: var(--muted); font-size: 10px; font-weight: 450; }
+.domain-edit-grid .domain-edit-field > small { color: var(--muted); font-size: 10px; font-weight: 450; }
+.domain-edit-grid .field-feedback.success { color: var(--success); }
+.domain-edit-grid .field-feedback.error { color: var(--danger); }
 .domain-edit-grid textarea { resize: vertical; min-height: 94px; }
-.domain-edit-grid input:focus, .domain-edit-grid textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+.domain-edit-grid input:focus, .domain-edit-grid textarea:focus, .domain-edit-grid .domain-edit-field > input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+.bulk-keywords-modal { width: min(520px, 100%); }
+.bulk-keywords-form { grid-template-columns: 1fr; }
+.bulk-keywords-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-sm); }
+.bulk-keywords-modal .inline-error { margin-top: var(--space-sm); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
 .modal-close {
   position: absolute; top: 13px; right: 13px; width: 32px; height: 32px;
