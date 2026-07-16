@@ -10,6 +10,7 @@ import { CatalogueHero } from "../../components/CatalogueHero";
 import { ContactIcons } from "../../components/ContactIcons";
 import { DomainCard } from "../../components/DomainCard";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
+import { FeaturedDomainCard } from "../../components/FeaturedDomainCard";
 import { PublicBottomNav } from "../../components/PublicBottomNav";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { useDomainFavorites } from "../../hooks/useDomainFavorites";
@@ -18,7 +19,7 @@ import { useTracker } from "../../hooks/useTracker";
 import { api } from "../../lib/api";
 import { clearCatalogueCache, loadCatalogue } from "../../lib/catalogue-cache";
 import { copyText } from "../../lib/clipboard";
-import type { Paginated, PublicDomain } from "../../../shared/types/api";
+import type { Paginated, PublicDomain, PublicHomeData } from "../../../shared/types/api";
 
 interface SiteSettings {
   site_name: string;
@@ -38,16 +39,6 @@ interface SiteSettings {
   contact_x: string | null;
   contact_xiaohongshu: string | null;
   contact_qq: string | null;
-}
-
-interface DomainFacets {
-  tlds: string[];
-  categories: string[];
-  categoryCounts: Record<string, number>;
-  total: number;
-  tldCount: number;
-  featuredCount: number;
-  latestAddedAt: string | null;
 }
 
 type SortKey = "default" | "added_desc" | "length_asc" | "domain_asc";
@@ -80,12 +71,13 @@ function initialFilters(): Filters {
   const params = new URLSearchParams(window.location.search);
   const sort = params.get("sort") as SortKey | null;
   const group = params.get("group") as GroupKey | null;
+  const category = params.get("category") ?? "";
   const kind = params.get("kind") as DomainKind | null;
   return {
     q: params.get("q") ?? "",
     tld: params.get("tld") ?? "",
-    category: params.get("category") ?? "",
-    group: group && ["all", "featured", "two", "three"].includes(group) ? group : "all",
+    category: category === "精品" ? "" : category,
+    group: category === "精品" ? "featured" : group && ["all", "featured", "two", "three"].includes(group) ? group : "all",
     sort: sort && SORTS.some(([key]) => key === sort) ? sort : "default",
     page: Math.max(1, Number(params.get("page") ?? 1) || 1),
     advanced: {
@@ -153,7 +145,7 @@ function SearchIcon() {
 export function PublicPage() {
   useTracker("/");
   const [settings, setSettings] = useState<SiteSettings | null>(null);
-  const [facets, setFacets] = useState<DomainFacets | null>(null);
+  const [facets, setFacets] = useState<PublicHomeData | null>(null);
   const [pageData, setPageData] = useState<Paginated<PublicDomain> | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const [draftSearch, setDraftSearch] = useState(filters.q);
@@ -181,7 +173,7 @@ export function PublicPage() {
     let active = true;
     void Promise.allSettled([
       api<SiteSettings>("/api/public/settings"),
-      api<DomainFacets>("/api/public/facets"),
+      api<PublicHomeData>("/api/public/facets"),
     ]).then(([settingsResult, facetsResult]) => {
       if (!active) return;
       if (settingsResult.status === "fulfilled") {
@@ -203,11 +195,13 @@ export function PublicPage() {
     if (filters.q) params.set("q", filters.q);
     if (filters.tld) params.set("tld", filters.tld);
     if (filters.category) params.set("category", filters.category);
-    if (filters.group !== "all") params.set("group", filters.group);
+    if (filters.group === "featured") params.set("category", "精品");
+    else if (filters.group !== "all") params.set("group", filters.group);
     if (filters.sort !== "default") params.set("sort", filters.sort);
     if (filters.page > 1) params.set("page", String(filters.page));
     Object.entries(advancedParams(filters.advanced)).forEach(([key, value]) => params.set(key, value));
-    window.history.replaceState(null, "", params.size ? `/?${params}` : "/");
+    const basePath = window.location.pathname.startsWith("/domains") ? "/domains" : "/";
+    window.history.replaceState(null, "", params.size ? `${basePath}?${params}` : basePath);
 
     const sequence = ++requestSequence.current;
     setLoading(true);
@@ -270,8 +264,8 @@ export function PublicPage() {
   const hasContact = Boolean(settings?.contact_email || settings?.contact_wechat || settings?.contact_telegram || settings?.contact_whatsapp || settings?.contact_x || settings?.contact_xiaohongshu || settings?.contact_qq);
   const hasActiveFilter = Boolean(filters.q || filters.tld || filters.category || filters.group !== "all" || filters.sort !== "default" || hasAdvancedFilters(filters.advanced));
   const categories = useMemo(() => [
-    { value: "", label: "全部", count: facets?.total ?? 0, icon: "▦" },
-    { value: "__featured", label: "精品", count: facets?.featuredCount ?? 0, icon: "☆" },
+    { value: "", label: "全部", count: facets?.total_domains ?? 0, icon: "▦" },
+    { value: "__featured", label: "精品", count: facets?.total_featured ?? 0, icon: "☆" },
     ...(facets?.categories ?? []).map((category) => ({ value: category, label: category, count: facets?.categoryCounts[category] ?? 0, icon: CATEGORY_ICONS[category] ?? category.slice(0, 1) })),
   ], [facets]);
   const catalogueItems = pageData?.items ?? [];
@@ -350,32 +344,40 @@ export function PublicPage() {
         <div className="header-actions"><button type="button" className="header-discover" onClick={discoverRandom}>随机发现</button></div>
       </header>
 
-      <main className="catalogue-layout" id="domains">
+      <main className="catalogue-layout">
         <CatalogueHero
-          title={settings?.site_name ?? "玩米"}
-          description={settings?.site_description ?? "发现值得珍藏的域名"}
-          bio={settings?.site_bio ?? null}
-          total={facets?.total ?? 0}
-          tldCount={facets?.tldCount ?? 0}
-          featuredCount={facets?.featuredCount ?? 0}
-          latestAddedAt={facets?.latestAddedAt ?? null}
-          categoryCounts={facets?.categoryCounts ?? {}}
+          totalDomains={facets?.total_domains ?? 0}
+          totalTlds={facets?.total_tlds ?? 0}
+          totalFeatured={facets?.total_featured ?? 0}
         />
 
-        <aside className="category-rail" aria-label="域名分类">
-          <div className="category-list">
-            {categories.slice(0, 8).map((option) => {
-              const active = !favoritesOnly && (option.value === "__featured" ? filters.group === "featured" : filters.group !== "featured" && filters.category === option.value);
-              return <button type="button" className={active ? "category-item active" : "category-item"} aria-pressed={active} key={option.value || "all"} onClick={() => selectCategory(option.value)}>
-                <span className="category-icon" aria-hidden="true">{option.icon}</span><span className="category-label">{option.label}</span><span className="category-count">{option.count}</span>
-              </button>;
-            })}
-            {categories.length > 8 && <button type="button" className="category-item more-categories" onClick={() => setCategoryOpen(true)}><span className="category-icon" aria-hidden="true">＋</span><span className="category-label">更多</span><span className="category-count">{categories.length - 8}</span></button>}
+        {(facets?.featured_domains.length ?? 0) > 0 ? <section className="featured-assets-section" aria-labelledby="featured-assets-title">
+          <header className="asset-section-heading">
+            <h2 id="featured-assets-title">精选资产</h2>
+            <span>{facets?.total_featured ?? 0} 件精品</span>
+          </header>
+          <div className="featured-assets-grid">
+            {facets?.featured_domains.map((domain) => <FeaturedDomainCard key={domain.id} domain={domain} />)}
           </div>
-        </aside>
+          <a className="featured-assets-all" href="/domains?category=%E7%B2%BE%E5%93%81">查看全部精选 <span aria-hidden="true">→</span></a>
+        </section> : null}
 
-        <section className="domain-section" aria-labelledby="domain-section-title">
-          <h2 id="domain-section-title" className="visually-hidden">公开域名目录</h2>
+        <section className="domain-section" id="domains" aria-labelledby="domain-section-title">
+          <header className="asset-section-heading all-assets-heading">
+            <h2 id="domain-section-title">全部资产</h2>
+            <span>{facets?.total_domains ?? 0} 个域名</span>
+          </header>
+          <aside className="category-rail" aria-label="域名分类">
+            <div className="category-list">
+              {categories.slice(0, 8).map((option) => {
+                const active = !favoritesOnly && (option.value === "__featured" ? filters.group === "featured" : filters.group !== "featured" && filters.category === option.value);
+                return <button type="button" className={active ? "category-item active" : "category-item"} aria-pressed={active} key={option.value || "all"} onClick={() => selectCategory(option.value)}>
+                  <span className="category-icon" aria-hidden="true">{option.icon}</span><span className="category-label">{option.label}</span><span className="category-count">{option.count}</span>
+                </button>;
+              })}
+              {categories.length > 8 && <button type="button" className="category-item more-categories" onClick={() => setCategoryOpen(true)}><span className="category-icon" aria-hidden="true">＋</span><span className="category-label">更多</span><span className="category-count">{categories.length - 8}</span></button>}
+            </div>
+          </aside>
           <div className="catalogue-toolbar">
             <div className="search-area" onFocus={() => setHistoryFocused(true)} onBlur={() => window.setTimeout(() => setHistoryFocused(false), 100)}>
               <form className="filter-search" onSubmit={submitSearch}>

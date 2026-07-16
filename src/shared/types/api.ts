@@ -23,6 +23,20 @@ export interface PublicDomain {
   public_price?: string | null;
 }
 
+export interface PublicHomeData {
+  tlds: string[];
+  categories: string[];
+  categoryCounts: Record<string, number>;
+  total_domains: number;
+  total_tlds: number;
+  total_featured: number;
+  featured_domains: PublicDomain[];
+  latestAddedAt: string | null;
+  total: number;
+  tldCount: number;
+  featuredCount: number;
+}
+
 export interface Paginated<T> {
   items: T[];
   page: number;

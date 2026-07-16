@@ -87,7 +87,7 @@ publicRoutes.get("/settings", async (c) => {
 });
 
 publicRoutes.get("/facets", async (c) => {
-  const [tldResult, categoryResult, statsResult] = await c.env.DB.batch([
+  const [tldResult, categoryResult, statsResult, featuredResult] = await c.env.DB.batch([
     c.env.DB.prepare("SELECT tld, COUNT(*) AS count FROM domains WHERE is_listed = 1 GROUP BY tld ORDER BY count DESC, tld ASC"),
     c.env.DB.prepare(
       `SELECT category, COUNT(*) AS count FROM (
@@ -106,6 +106,10 @@ publicRoutes.get("/facets", async (c) => {
     c.env.DB.prepare(
       "SELECT COUNT(*) AS total, COUNT(DISTINCT tld) AS tld_count, SUM(is_featured) AS featured_count, MAX(updated_at) AS latest_added FROM domains WHERE is_listed = 1",
     ),
+    c.env.DB.prepare(
+      `${PUBLIC_SELECT} WHERE d.is_listed = 1 AND d.is_featured = 1
+       ORDER BY d.updated_at DESC, d.normalized_domain ASC LIMIT 9`,
+    ),
   ]);
   const stats = (statsResult.results[0] ?? {}) as { total?: number; tld_count?: number; featured_count?: number; latest_added?: string | null };
   const categoryOrder = new Map<string, number>(AUTO_CATEGORY_ORDER.map((name, index) => [name, index]));
@@ -113,13 +117,20 @@ publicRoutes.get("/facets", async (c) => {
     (categoryOrder.get(a.category) ?? Number.MAX_SAFE_INTEGER) - (categoryOrder.get(b.category) ?? Number.MAX_SAFE_INTEGER)
       || a.category.localeCompare(b.category, "zh-CN"),
   );
+  const totalDomains = Number(stats.total ?? 0);
+  const totalTlds = Number(stats.tld_count ?? 0);
+  const totalFeatured = Number(stats.featured_count ?? 0);
   return ok(c, {
     tlds: (tldResult.results as unknown as Array<{ tld: string }>).map((row) => row.tld),
     categories: categoryRows.map((row) => row.category),
     categoryCounts: Object.fromEntries(categoryRows.map((row) => [row.category, Number(row.count)])),
-    total: Number(stats.total ?? 0),
-    tldCount: Number(stats.tld_count ?? 0),
-    featuredCount: Number(stats.featured_count ?? 0),
+    total_domains: totalDomains,
+    total_tlds: totalTlds,
+    total_featured: totalFeatured,
+    featured_domains: (featuredResult.results as unknown as PublicDomainRow[]).map(serializePublic),
+    total: totalDomains,
+    tldCount: totalTlds,
+    featuredCount: totalFeatured,
     latestAddedAt: stats.latest_added ?? null,
   });
 });

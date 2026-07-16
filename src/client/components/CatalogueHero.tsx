@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 interface CatalogueHeroProps {
-  title: string;
-  description: string;
-  bio: string | null;
-  total: number;
-  tldCount: number;
-  featuredCount: number;
-  latestAddedAt: string | null;
-  categoryCounts: Record<string, number>;
+  totalDomains: number;
+  totalTlds: number;
+  totalFeatured: number;
 }
+
+const QUICK_LINKS = [
+  { label: "全部", href: "/domains" },
+  { label: "纯字母", href: "/domains?category=%E7%BA%AF%E5%AD%97%E6%AF%8D" },
+  { label: "纯数字", href: "/domains?category=%E7%BA%AF%E6%95%B0%E5%AD%97" },
+  { label: "拼音", href: "/domains?category=%E6%8B%BC%E9%9F%B3" },
+  { label: "精品", href: "/domains?category=%E7%B2%BE%E5%93%81" },
+] as const;
 
 function useAnimatedCount(value: number): number {
   const [display, setDisplay] = useState(0);
@@ -21,7 +24,7 @@ function useAnimatedCount(value: number): number {
       return;
     }
     const startedAt = performance.now();
-    const duration = 900;
+    const duration = 800;
     let frame = 0;
     const tick = (now: number) => {
       const progress = Math.min(1, (now - startedAt) / duration);
@@ -36,33 +39,26 @@ function useAnimatedCount(value: number): number {
   return display;
 }
 
-export function CatalogueHero({ title, description, bio, total, tldCount, featuredCount, latestAddedAt, categoryCounts }: CatalogueHeroProps) {
-  const animatedTotal = useAnimatedCount(total);
-  const composition = useMemo(() => {
-    const entries = Object.entries(categoryCounts).sort((left, right) => right[1] - left[1]).slice(0, 6);
-    const sum = entries.reduce((count, [, value]) => count + value, 0);
-    return entries.map(([name, count]) => ({ name, count, percent: sum ? (count / sum) * 100 : 0 }));
-  }, [categoryCounts]);
-  const latest = latestAddedAt ? new Date(latestAddedAt) : null;
-  const latestLabel = latest && !Number.isNaN(latest.getTime()) ? latest.toLocaleDateString("zh-CN") : "持续更新";
+export function CatalogueHero({ totalDomains, totalTlds, totalFeatured }: CatalogueHeroProps) {
+  const animatedDomains = useAnimatedCount(totalDomains);
+  const animatedTlds = useAnimatedCount(totalTlds);
+  const animatedFeatured = useAnimatedCount(totalFeatured);
 
   return (
     <section className="catalogue-hero" aria-labelledby="catalogue-title">
       <div className="hero-copy">
-        <span className="hero-eyebrow">WANMI DOMAIN COLLECTION</span>
-        <h1 id="catalogue-title">{title}</h1>
-        <p>{bio || description}</p>
+        <span className="hero-subtitle">WANMI DOMAIN VAULT</span>
+        <h1 id="catalogue-title">玩米 · 精选域名资产</h1>
+        <p>精选短字符域名资产，安全托管与展示</p>
       </div>
       <dl className="hero-stats" aria-label="域名资产概览">
-        <div className="hero-value"><dt>公开资产</dt><dd><strong>{animatedTotal.toLocaleString("zh-CN")}</strong><span>个域名</span></dd></div>
-        <div><dt>后缀覆盖</dt><dd><strong>{tldCount}</strong><span>种后缀</span></dd></div>
-        <div><dt>精品收藏</dt><dd><strong>{featuredCount}</strong><span>个精品</span></dd></div>
-        <div><dt>最近更新</dt><dd><b>{latestLabel}</b></dd></div>
+        <div><dd><strong>{animatedDomains.toLocaleString("zh-CN")}</strong><span>个域名</span></dd><dt>公开资产</dt></div>
+        <div><dd><strong>{animatedTlds.toLocaleString("zh-CN")}</strong><span>种后缀</span></dd><dt>后缀覆盖</dt></div>
+        <div><dd><strong>{animatedFeatured.toLocaleString("zh-CN")}</strong><span>件精品</span></dd><dt>精选收藏</dt></div>
       </dl>
-      {composition.length > 0 && <div className="hero-composition" aria-label="主要分类构成">
-        <div className="hero-bar">{composition.map((item) => <i key={item.name} style={{ width: `${item.percent}%` }} title={`${item.name}：${item.count}`} />)}</div>
-        <div className="hero-legend">{composition.map((item) => <span key={item.name}><i />{item.name}<b>{item.count}</b></span>)}</div>
-      </div>}
+      <nav className="hero-quick-links" aria-label="快速分类入口">
+        {QUICK_LINKS.map((item) => <a key={item.label} href={item.href}>{item.label}</a>)}
+      </nav>
     </section>
   );
 }

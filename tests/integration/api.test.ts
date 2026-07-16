@@ -79,6 +79,37 @@ describe.sequential("WanMi API 集成", () => {
     expect(all.data.total).toBe(859);
   });
 
+  it("首页元数据返回动态统计与最近更新的九件精品", async () => {
+    const featuredRows = await env.DB.prepare("SELECT id, is_featured, updated_at FROM domains ORDER BY id LIMIT 10")
+      .all<{ id: number; is_featured: number; updated_at: string }>();
+    const ids = featuredRows.results.map((row) => row.id);
+    const placeholders = ids.map(() => "?").join(",");
+    await env.DB.prepare(`UPDATE domains SET is_featured = 1, updated_at = datetime('2099-07-16 00:00:00', '+' || id || ' seconds') WHERE id IN (${placeholders})`)
+      .bind(...ids).run();
+    try {
+      const response = await request("/api/public/facets");
+      const body = await response.json() as { data: {
+        tlds: string[];
+        total_domains: number;
+        total_tlds: number;
+        total_featured: number;
+        featured_domains: Array<{ id: number; is_featured: boolean }>;
+      } };
+      expect(response.status).toBe(200);
+      expect(body.data.total_domains).toBe(859);
+      expect(body.data.total_tlds).toBe(body.data.tlds.length);
+      expect(body.data.total_featured).toBeGreaterThanOrEqual(10);
+      expect(body.data.featured_domains).toHaveLength(9);
+      expect(body.data.featured_domains.every((domain) => domain.is_featured)).toBe(true);
+      expect(body.data.featured_domains.map((domain) => domain.id)).toEqual([...ids].sort((left, right) => right - left).slice(0, 9));
+    } finally {
+      for (const row of featuredRows.results) {
+        await env.DB.prepare("UPDATE domains SET is_featured = ?, updated_at = ? WHERE id = ?")
+          .bind(row.is_featured, row.updated_at, row.id).run();
+      }
+    }
+  });
+
   it("公共 API 高级筛选保持真实分页并校验长度范围", async () => {
     const response = await request("/api/public/domains?contains=cloud&kind=alphanumeric&pageSize=100");
     expect(response.status).toBe(200);
