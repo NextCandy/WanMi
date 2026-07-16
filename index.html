@@ -3,21 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <script>
-      // 首帧前解析主题：localStorage 显式选择优先，否则跟随系统，避免深色闪白
-      (function () {
-        try {
-          var stored = localStorage.getItem("wanmi-theme");
-          var theme = stored === "dark" || stored === "light"
-            ? stored
-            : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-          document.documentElement.dataset.theme = theme;
-          document.cookie = "wanmi_theme=" + theme + "; path=/; max-age=31536000; SameSite=Lax";
-        } catch (e) { document.documentElement.dataset.theme = "light"; }
-      })();
-    </script>
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#d8b638" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1c1917" />
+    <meta name="theme-color" content="#000000" />
     <meta name="description" content="玩米 域名展示与管理系统" />
     <meta property="og:title" content="玩米" />
     <meta property="og:description" content="精选域名展示与安全管理" />

@@ -11,7 +11,6 @@ import { ContactIcons } from "../../components/ContactIcons";
 import { DomainCard } from "../../components/DomainCard";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
 import { PublicBottomNav } from "../../components/PublicBottomNav";
-import { ThemeToggle } from "../../components/ThemeToggle";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { useDomainFavorites } from "../../hooks/useDomainFavorites";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
@@ -348,7 +347,7 @@ export function PublicPage() {
           <button type="button" className={favoritesOnly ? "active text-button" : "text-button"} onClick={showFavorites}>收藏 <small>{favorites.items.length}</small></button>
           {hasContact && <button type="button" className="text-button" onClick={() => setContactOpen(true)}>联系</button>}
         </nav>
-        <div className="header-actions"><button type="button" className="header-discover" onClick={discoverRandom}>随机发现</button><ThemeToggle /></div>
+        <div className="header-actions"><button type="button" className="header-discover" onClick={discoverRandom}>随机发现</button></div>
       </header>
 
       <main className="catalogue-layout" id="domains">

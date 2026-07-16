@@ -1,10 +1,12 @@
 # Design — WanMi / 玩米
 
+本系统为单一黑金主题，不提供明暗切换。所有组件引用 `tokens.css` 变量，禁止硬编码色值。
+
 这是 WanMi 前台、后台与移动端共享的锁定设计系统。后续页面先读取本文件，保持产品一致性。
 
 ## Genre
 
-modern-minimal，结构优先，采用克制的纸张、墨色与金色规则。
+modern-minimal，结构优先，采用克制的纯黑 OLED、暖黑表面与香槟金规则。
 
 ## Macrostructure
 
@@ -12,12 +14,12 @@ modern-minimal，结构优先，采用克制的纸张、墨色与金色规则。
 - 后台：Workbench；侧轨、指标、表单和数据记录承担视觉结构。
 - 速览与登录：延续 Catalogue/Workbench 的字体、规则和控件语言。
 
-## Theme
+## Theme — Black Gold
 
-- Paper：`oklch(98.2% 0.006 55)`
-- Ink：`oklch(19% 0.012 45)`
-- Rule：`oklch(88.5% 0.01 55)`
-- Accent：默认 `#d8b638`，强调态 `#a88416`
+- Background：`#000000`（纯黑 OLED）
+- Surface：`#151515` / `#1a1a1a` / `#1e1e1e`（暖黑分层）
+- Brand Gold：`#d8b638`（唯一强调色）
+- Text：`#f5f5f7` / `#a1a1a6` / `#6e6e73`
 - 禁止大面积金色渐变、重玻璃拟态、持续模糊、装饰光晕和渐变文字。
 
 ## Typography
