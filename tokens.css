@@ -56,7 +56,7 @@
 
   /* Typography */
   --font-display: "Instrument Serif", "Songti SC", "Noto Serif SC", ui-serif, Georgia, serif;
-  --font-ui: "Inter", "Noto Sans SC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-ui: "Manrope", "Noto Sans SC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Radius */
