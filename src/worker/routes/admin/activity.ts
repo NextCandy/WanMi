@@ -1,8 +1,11 @@
 import { Hono } from "hono";
 
+import { buildLogTrend, summarizeLogGroups, type LogTrendRow } from "../../../shared/log-analytics";
 import { logsQuerySchema } from "../../../shared/schemas/api";
 import { fail, ok } from "../../http";
 import type { AppBindings } from "../../types";
+
+const TREND_DAYS = 7;
 
 function logFilters(query: ReturnType<typeof logsQuerySchema.parse>): { where: string; params: Array<string | number> } {
   const clauses: string[] = [];
@@ -50,6 +53,20 @@ activityRoutes.get("/logs", async (c) => {
   ]);
   const total = Number((count.results[0] as { total?: number } | undefined)?.total ?? 0);
   return ok(c, { items: rows.results, page: query.page, pageSize: query.pageSize, total, totalPages: Math.ceil(total / query.pageSize) });
+});
+
+activityRoutes.get("/logs/trend", async (c) => {
+  // created_at 形如 'YYYY-MM-DD HH:MM:SS'，与 date() 的 'YYYY-MM-DD' 前缀比较即可取到当天 00:00 起
+  const rows = await c.env.DB.prepare(
+    `SELECT date(l.created_at) AS day, l.action, COUNT(*) AS count
+     FROM operation_logs l
+     WHERE l.created_at >= date('now', ?)
+     GROUP BY date(l.created_at), l.action`,
+  )
+    .bind(`-${TREND_DAYS - 1} days`)
+    .all<LogTrendRow>();
+  const days = buildLogTrend(rows.results, new Date().toISOString().slice(0, 10), TREND_DAYS);
+  return ok(c, { days, groups: summarizeLogGroups(days) });
 });
 
 activityRoutes.get("/logs/export", async (c) => {

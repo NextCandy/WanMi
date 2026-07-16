@@ -10,6 +10,44 @@ export function buildRemoteQueryBody(statements: SqlStatement[]): { batch: SqlSt
   return { batch: statements };
 }
 
+export interface ExistingDomainSnapshot {
+  registered_at: string | null;
+  expires_at: string | null;
+  registrar_name: string | null;
+  description: string | null;
+  keywords: string | null;
+}
+
+export interface ImportFieldDiff {
+  field: string;
+  label: string;
+  currentValue: string;
+  incomingValue: string;
+}
+
+/** 只比较日期部分，避免 CSV 与库内时间格式差异被误判为变更 */
+function dateKey(value: string | null): string {
+  return value ? value.slice(0, 10) : "";
+}
+
+/**
+ * 列出 update 模式下真正会被改写的字段，规则必须与下方 ON CONFLICT 子句一致：
+ * 日期和注册商走 COALESCE（CSV 为空则保留原值），简介和关键词走 CASE WHEN != ''（空串保留原值）。
+ * category、is_featured、is_listed、notes 不在更新列内，因此不参与比较。
+ */
+export function diffImportRecord(record: ParsedDomainRecord, existing: ExistingDomainSnapshot): ImportFieldDiff[] {
+  const diffs: ImportFieldDiff[] = [];
+  const push = (field: string, label: string, currentValue: string, incomingValue: string) => {
+    if (currentValue !== incomingValue) diffs.push({ field, label, currentValue, incomingValue });
+  };
+  if (record.initialRegisteredAt !== null) push("registered_at", "注册日期", dateKey(existing.registered_at), dateKey(record.initialRegisteredAt));
+  if (record.initialExpiresAt !== null) push("expires_at", "到期日期", dateKey(existing.expires_at), dateKey(record.initialExpiresAt));
+  if (record.initialRegistrarName !== null) push("registrar_name", "注册商", existing.registrar_name ?? "", record.initialRegistrarName);
+  if (record.initialDescription !== "") push("description", "简介", existing.description ?? "", record.initialDescription);
+  if (record.initialKeywords !== "") push("keywords", "关键词", existing.keywords ?? "", record.initialKeywords);
+  return diffs;
+}
+
 const STAGING_COLUMNS = [
   "import_id",
   "row_number",

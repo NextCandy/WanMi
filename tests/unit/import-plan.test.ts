@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { parseDomainCsv } from "../../src/shared/csv";
-import { buildImportStatements, buildRemoteQueryBody } from "../../src/shared/import-plan";
+import { buildImportStatements, buildRemoteQueryBody, diffImportRecord } from "../../src/shared/import-plan";
 
 describe("D1 导入计划", () => {
   it("本次记录保持在 D1 免费层单批上限内", async () => {
@@ -44,5 +44,59 @@ describe("D1 导入计划", () => {
     expect(domainsInsert).toContain("DO NOTHING");
     expect(statements.some((statement) => statement.sql.includes("normalized_domain NOT IN"))).toBe(false);
     expect(statements.find((statement) => statement.sql.includes("INSERT INTO operation_logs"))?.params).toContain(1);
+  });
+});
+
+describe("dry-run 字段差异", () => {
+  async function firstRecord() {
+    const source = await fs.readFile("data/source/WanMi.csv", "utf8");
+    return parseDomainCsv(source).records[0];
+  }
+
+  it("库内值与 CSV 一致时没有差异", async () => {
+    const record = await firstRecord();
+    expect(diffImportRecord(record, {
+      registered_at: record.initialRegisteredAt,
+      expires_at: record.initialExpiresAt,
+      registrar_name: record.initialRegistrarName,
+      description: record.initialDescription,
+      keywords: record.initialKeywords,
+    })).toEqual([]);
+  });
+
+  it("库内 ISO 时间与 CSV 日期只比较日期部分", async () => {
+    const record = { ...(await firstRecord()), initialRegisteredAt: "2015-05-12", initialExpiresAt: null, initialRegistrarName: null, initialDescription: "", initialKeywords: "" };
+    expect(diffImportRecord(record, {
+      registered_at: "2015-05-12T00:00:00.000Z",
+      expires_at: null,
+      registrar_name: null,
+      description: "",
+      keywords: "",
+    })).toEqual([]);
+  });
+
+  it("CSV 留空的字段不算差异，因为导入会保留原值", async () => {
+    const record = { ...(await firstRecord()), initialRegisteredAt: null, initialExpiresAt: null, initialRegistrarName: null, initialDescription: "", initialKeywords: "" };
+    expect(diffImportRecord(record, {
+      registered_at: "2015-05-12T00:00:00.000Z",
+      expires_at: null,
+      registrar_name: "Spaceship",
+      description: "现有简介",
+      keywords: "现有关键词",
+    })).toEqual([]);
+  });
+
+  it("列出会被改写字段的新旧值", async () => {
+    const record = { ...(await firstRecord()), initialRegisteredAt: null, initialExpiresAt: null, initialRegistrarName: "Spaceship", initialDescription: "", initialKeywords: "新关键词" };
+    expect(diffImportRecord(record, {
+      registered_at: null,
+      expires_at: null,
+      registrar_name: "易名",
+      description: "保留的简介",
+      keywords: "旧关键词",
+    })).toEqual([
+      { field: "registrar_name", label: "注册商", currentValue: "易名", incomingValue: "Spaceship" },
+      { field: "keywords", label: "关键词", currentValue: "旧关键词", incomingValue: "新关键词" },
+    ]);
   });
 });

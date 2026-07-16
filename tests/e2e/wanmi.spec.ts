@@ -231,7 +231,8 @@ test.describe.serial("WanMi 生产流程", () => {
     const preview = page.getByRole("dialog", { name: /确认导入 preview\.csv/ });
     await expect(preview).toBeVisible();
     await expect(preview.getByText("跳过现有记录（默认）")).toBeVisible();
-    await expect(preview.getByText("已存在 / 冲突")).toBeVisible();
+    await expect(preview.getByText("已存在", { exact: true })).toBeVisible();
+    await expect(preview.getByText("字段冲突", { exact: true })).toBeVisible();
     await preview.getByRole("button", { name: "关闭导入预览" }).click();
 
     await page.locator(".sidebar-user > summary").click();
@@ -239,6 +240,61 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("heading", { name: "欢迎回来" })).toBeVisible();
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "欢迎回来" })).toBeVisible();
+  });
+
+  test("域名管理虚拟滚动、批量弹窗与日志趋势可用且无横向溢出", async ({ page }) => {
+    const credentials = localCredentials();
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("管理员邮箱").fill(credentials.email);
+    await page.getByLabel("密码").fill(credentials.password);
+    await page.getByRole("button", { name: "登录", exact: true }).click();
+    await page.getByRole("button", { name: /域名管理/ }).click();
+
+    // 首屏按 100 条累积，桌面下开启虚拟化
+    await expect(page.getByText(/已加载 100 \/ \d+ 个/)).toBeVisible();
+    await expect(page.locator("table.domains-table.is-virtualized")).toBeVisible();
+    // 虚拟化的意义：真实渲染的行数必须远少于已加载条数
+    const renderedRows = page.locator("tr[data-virtual-row]");
+    expect(await renderedRows.count()).toBeLessThan(60);
+
+    // 滚到底触发无限滚动，继续累积下一页
+    await page.locator(".infinite-sentinel").scrollIntoViewIfNeeded();
+    await expect(page.getByText(/已加载 200 \/ \d+ 个/)).toBeVisible();
+    expect(await renderedRows.count()).toBeLessThan(60);
+
+    // 批量操作确认弹窗显示选中数量与即将执行的动作
+    await page.mouse.wheel(0, -40000);
+    await renderedRows.first().locator('input[type="checkbox"]').check();
+    await expect(page.getByText("已选 1", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "设为精品", exact: true }).click();
+    const confirmDialog = page.getByRole("dialog", { name: "设为精品" });
+    await expect(confirmDialog.getByText("选中域名", { exact: true })).toBeVisible();
+    await expect(confirmDialog.getByRole("button", { name: "确认设为精品 1 个" })).toBeVisible();
+    await confirmDialog.getByRole("button", { name: "取消" }).click();
+
+    // 批量分类改为弹窗选择，不再是 window.prompt
+    await page.getByRole("button", { name: "设置分类", exact: true }).click();
+    const categoryDialog = page.getByRole("dialog", { name: "批量设置分类" });
+    await expect(categoryDialog.getByLabel("选择分类")).toBeVisible();
+    await categoryDialog.getByRole("button", { name: "关闭批量分类" }).click();
+    await page.getByRole("button", { name: "清空选择" }).click();
+
+    // 操作日志 7 天趋势图与分组计数
+    await page.getByRole("button", { name: /操作日志/ }).click();
+    await expect(page.locator(".log-trend")).toBeVisible();
+    await expect(page.getByText("近 7 天操作")).toBeVisible();
+    await expect(page.locator(".log-trend-groups").getByText("批量", { exact: true })).toBeVisible();
+    await expect(page.locator(".log-trend-chart svg").first()).toBeVisible();
+
+    // 768 与 390px 下页面本身不得横向滚动（宽表格只在自身容器内滚动）
+    await page.getByRole("button", { name: /域名管理/ }).click();
+    await expect(page.getByText(/已加载 \d+ \/ \d+ 个/)).toBeVisible();
+    for (const width of [768, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(async () => page.evaluate(() =>
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )).toBeLessThanOrEqual(0);
+    }
   });
 
   test("AI 配置独立导航可保存、测试并通过应用内弹窗删除", async ({ page }) => {
@@ -283,8 +339,9 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByRole("button", { name: /域名管理/ }).click();
     await page.getByPlaceholder("搜索完整域名").fill("cloud");
     const rows = page.locator(".admin-table tbody tr");
-    await expect(rows.nth(0)).toBeVisible();
-    await expect(rows.nth(1)).toBeVisible();
+    // 搜索有去抖，必须等筛选真正生效后再勾选，否则选中的是筛选前的行
+    await expect(rows.nth(0)).toContainText("cloud");
+    await expect(rows.nth(1)).toContainText("cloud");
     await rows.nth(0).getByRole("checkbox").check();
     await rows.nth(1).getByRole("checkbox").check();
     await page.getByRole("button", { name: "批量设置关键词" }).click();

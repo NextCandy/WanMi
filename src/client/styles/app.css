@@ -594,6 +594,17 @@ a { color: inherit; text-decoration: none; }
 .admin-table tbody tr { transition: background var(--dur-1) var(--ease); }
 .admin-table tbody tr:hover { background: color-mix(in oklab, var(--brand) 2.5%, var(--surface-2)); }
 .admin-table tr:last-child td { border-bottom: 0; }
+
+/* 虚拟滚动用占位行撑出未渲染区域的高度；行高必须一致才能正确换算滚动偏移，
+   因此虚拟化时关键词不换行（移动端卡片式布局不虚拟化，不受此限制） */
+.virtual-spacer td { padding: 0; border: 0; }
+.domains-table.is-virtualized .keywords-cell > div { flex-wrap: nowrap; overflow: hidden; }
+.infinite-sentinel { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 12px 0; color: var(--muted); font-size: 11px; }
+.infinite-sentinel.is-end { color: var(--faint); }
+.bulk-confirm-summary { display: grid; gap: 8px; margin-top: var(--space-sm); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--surface-1); }
+.bulk-confirm-summary > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bulk-confirm-summary span { color: var(--muted); font-size: 11px; }
+.bulk-confirm-summary strong { font-size: 13px; }
 .admin-table td strong { display: block; font-size: 12.5px; font-family: var(--font-mono); font-weight: 600; letter-spacing: -.02em; }
 .admin-table td small { display: block; color: var(--faint); margin-top: 2px; font-size: 10px; }
 .table-link { min-height: 30px; border: 0; background: var(--surface-1); border-radius: 7px; padding: 4px 9px; font-size: 10.5px; cursor: pointer; transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
@@ -715,6 +726,16 @@ a { color: inherit; text-decoration: none; }
 .session-list span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg-2); font-size: 10.5px; }
 .session-list small { color: var(--muted); font-size: 10px; }
 .session-list button { border: 0; background: transparent; cursor: pointer; font-size: 10px; }
+
+.log-trend { display: grid; grid-template-columns: minmax(200px, .7fr) minmax(0, 1.3fr); gap: 18px; margin-bottom: 16px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.log-trend-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(74px, 1fr)); gap: 8px; align-content: start; }
+.log-trend-groups > div { min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+.log-trend-groups span { display: block; color: var(--muted); font-size: 10px; }
+.log-trend-groups strong { display: block; margin-top: 3px; font-family: var(--font-display); font-size: 19px; font-variant-numeric: tabular-nums; }
+.log-trend-groups > div.log-trend-total { border-color: color-mix(in oklab, var(--brand) 35%, var(--border)); }
+.log-trend-total strong { color: var(--brand); }
+.log-trend-chart { min-width: 0; }
+@media (max-width: 760px) { .log-trend { grid-template-columns: 1fr; } }
 
 .log-filter { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 13px; }
 .log-filter input, .log-filter select { height: 34px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; background: var(--surface-2); color: var(--fg); outline: none; font-size: 11.5px; }
@@ -1838,7 +1859,7 @@ a { color: inherit; text-decoration: none; }
 }
 .import-preview-heading h2 { margin: 5px 42px 3px 0; letter-spacing: -.035em; }
 .import-preview-heading p { margin: 0; color: var(--muted); font-size: 12px; }
-.import-preview-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 20px 0; }
+.import-preview-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; margin: 20px 0; }
 .import-preview-stats > div { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-1); }
 .import-preview-stats span { display: block; color: var(--muted); font-size: 10px; }
 .import-preview-stats strong { display: block; margin-top: 4px; font-family: var(--font-display); font-size: 23px; font-variant-numeric: tabular-nums; }
@@ -2012,6 +2033,16 @@ a { color: inherit; text-decoration: none; }
 .import-preview-tables { display: grid; grid-template-columns: 1.15fr .85fr; gap: 14px; margin-top: 18px; }
 .import-preview-tables h3 { margin: 0 0 8px; font-size: 12px; }
 .preview-table, .preview-errors { max-height: 280px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+.import-conflict-list { margin-top: 18px; }
+.import-conflict-list h3 { margin: 0 0 8px; font-size: 12px; }
+.import-conflict-list > .import-conflict-row { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+.import-conflict-list > .import-conflict-row + .import-conflict-row { margin-top: 8px; }
+.import-conflict-fields { display: grid; gap: 4px; }
+.import-conflict-fields > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 11px; }
+.import-conflict-fields span { flex: 0 0 auto; min-width: 52px; color: var(--muted); font-size: 10px; }
+.import-conflict-fields del { color: var(--faint); text-decoration: line-through; overflow-wrap: anywhere; }
+.import-conflict-fields ins { color: var(--brand); text-decoration: none; overflow-wrap: anywhere; }
+.import-conflict-fields ins::before { content: "→ "; color: var(--faint); }
 .preview-table table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .preview-table th { position: sticky; top: 0; z-index: 1; padding: 8px; background: var(--surface-1); color: var(--muted); text-align: left; }
 .preview-table td { padding: 8px; border-top: 1px solid var(--border); }

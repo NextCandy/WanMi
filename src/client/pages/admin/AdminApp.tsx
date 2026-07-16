@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   Bell,
   BrainCircuit,
@@ -15,9 +15,12 @@ import {
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 import { Toast, type ToastMessage } from "../../components/Toast";
+import { useIsCompactLayout, useVirtualRows } from "../../hooks/useVirtualRows";
 import { ApiError, api, download } from "../../lib/api";
 import { formatExact, formatRelative } from "../../lib/format-time";
+import { chunkIds, hasMoreRows } from "../../lib/virtual-rows";
 import { parseKeywords } from "../../../shared/keywords";
+import { LOG_GROUP_LABELS, type LogActionGroup } from "../../../shared/log-analytics";
 import {
   DEFAULT_AI_BASE_URL,
   DEFAULT_AI_MODEL,
@@ -148,6 +151,15 @@ function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string)
 type DomainOrderBy = "domain";
 const OPTIONAL_COLUMNS: Array<[string, string]> = [["keywords", "关键词"], ["description", "简介"], ["category", "人工分类"]];
 const DEFAULT_COLUMNS = ["keywords", "category"];
+const DOMAIN_PAGE_SIZE = 100;
+const DOMAIN_SEARCH_DEBOUNCE_MS = 300;
+/** 必须与 bulkDomainSchema 的 ids 上限一致；选中数超过时前端自动分批提交 */
+const BULK_ID_LIMIT = 500;
+const ESTIMATED_ROW_HEIGHT = 72;
+/** 行数低于此值时虚拟化收益为零，直接整段渲染 */
+const VIRTUAL_MIN_ROWS = 60;
+/** 选择、域名、精品、前台展示、操作五列固定存在，其余由列显示开关决定 */
+const FIXED_COLUMN_COUNT = 5;
 
 function loadColumns(): Set<string> {
   try {
@@ -159,6 +171,15 @@ function loadColumns(): Set<string> {
 
 interface CategoryRow { id: number; name: string; domain_count: number; is_auto?: number }
 interface DomainFilterOptions { tlds: Array<{ tld: string; count: number }>; categories: Array<{ name: string; count: number }> }
+
+type BulkAction = "feature" | "unfeature" | "list" | "hide" | "delete" | "categorize" | "keywords";
+/** 分类与关键词有各自的输入弹窗，其余动作走统一的确认弹窗 */
+interface BulkConfirmState {
+  action: Exclude<BulkAction, "categorize" | "keywords">;
+  title: string;
+  description: string;
+  danger: boolean;
+}
 
 function DomainEditModal({ domain, onClose, onSaved, notify }: { domain: AdminDomain; onClose: () => void; onSaved: () => void; notify: (text: string, tone?: "success" | "error") => void }) {
   const [fullDomain, setFullDomain] = useState(domain.full_domain);
@@ -258,6 +279,77 @@ function BulkKeywordsModal({ count, onClose, onConfirm }: { count: number; onClo
   </form></div>;
 }
 
+function BulkCategoryModal({ count, categories, onClose, onConfirm }: { count: number; categories: CategoryRow[]; onClose: () => void; onConfirm: (category: string | null) => Promise<void> }) {
+  const [choice, setChoice] = useState("");
+  const [newName, setNewName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const creating = choice === "__new__";
+  const resolved = creating ? newName.trim() : choice;
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (creating && !newName.trim()) { setError("请填写新分类名称"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      if (creating) await api("/api/admin/categories", { method: "POST", body: JSON.stringify({ name: newName.trim() }) });
+      await onConfirm(resolved || null);
+      onClose();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量设置分类失败");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="domain-edit-modal bulk-category-modal" onSubmit={(event) => void submit(event)} onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="bulk-category-title">
+    <button type="button" className="modal-close" aria-label="关闭批量分类" onClick={onClose}>×</button>
+    <div><span className="eyebrow">BULK CATEGORY</span><h2 id="bulk-category-title">批量设置分类</h2><p>将同一个人工分类应用到已选的 {count} 个域名。</p></div>
+    <div className="domain-edit-grid bulk-category-form">
+      <label className="wide">分类<select autoFocus value={choice} onChange={(event) => { setChoice(event.target.value); setError(""); }} aria-label="选择分类">
+        <option value="">清除分类（恢复自动分类）</option>
+        {categories.map((item) => <option key={item.id} value={item.name}>{item.name}（{item.domain_count}）</option>)}
+        <option value="__new__">＋ 新建分类…</option>
+      </select></label>
+      {creating ? <label className="wide">新分类名称<input value={newName} onChange={(event) => { setNewName(event.target.value); setError(""); }} maxLength={80} placeholder="例如 四字母" /><small>提交时会先创建该分类，再应用到选中域名。</small></label> : null}
+    </div>
+    {error ? <div className="inline-error">{error}</div> : null}
+    <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose} disabled={saving}>取消</button><button className="primary-button" disabled={saving}>{saving ? "应用中…" : resolved ? `归入「${resolved}」· ${count} 个` : `清除分类 · ${count} 个`}</button></div>
+  </form></div>;
+}
+
+function BulkConfirmModal({ state, count, onClose, onConfirm }: { state: BulkConfirmState; count: number; onClose: () => void; onConfirm: () => Promise<void> }) {
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState("");
+  const batches = Math.ceil(count / BULK_ID_LIMIT);
+
+  async function confirm() {
+    setRunning(true);
+    setError("");
+    try {
+      await onConfirm();
+      onClose();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量操作失败");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return <div className="modal-backdrop" onMouseDown={onClose}><div className="domain-edit-modal compact-confirm-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="bulk-confirm-title">
+    <button type="button" className="modal-close" aria-label="关闭批量确认" onClick={onClose}>×</button>
+    <div><span className="eyebrow">CONFIRM BULK ACTION</span><h2 id="bulk-confirm-title">{state.title}</h2><p>{state.description}</p></div>
+    <div className="bulk-confirm-summary">
+      <div><span>选中域名</span><strong>{count}</strong></div>
+      <div><span>即将执行</span><strong>{state.title}</strong></div>
+      {batches > 1 ? <div><span>提交批次</span><strong>{batches} 批</strong></div> : null}
+    </div>
+    {error ? <div className="inline-error" role="alert">{error}</div> : null}
+    <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose} disabled={running}>取消</button><button type="button" className={`primary-button ${state.danger ? "danger-button" : ""}`} onClick={() => void confirm()} disabled={running}>{running ? "执行中…" : `确认${state.title} ${count} 个`}</button></div>
+  </div></div>;
+}
+
 interface ImportPreviewData {
   file: File;
   report: { parsedCount: number; invalidCount: number; duplicateCount: number };
@@ -268,7 +360,13 @@ interface ImportPreviewData {
     duplicateRows: number;
     newRows: number;
     existingRows: number;
+    conflictRows: number;
     rows: Array<{ rowNumber: number; domain: string; status: "new" | "existing" }>;
+    conflicts: Array<{
+      rowNumber: number;
+      domain: string;
+      diffs: Array<{ field: string; label: string; currentValue: string; incomingValue: string }>;
+    }>;
     issues: Array<{ rowNumber: number; domain: string; code: string; reason: string }>;
     truncated: boolean;
   };
@@ -298,8 +396,9 @@ function ImportPreviewModal({ data, onClose, onConfirm }: { data: ImportPreviewD
     <div className="import-preview-stats">
       <div><span>CSV 总行数</span><strong>{preview.totalRows}</strong></div>
       <div><span>有效唯一</span><strong>{preview.validRows}</strong></div>
-      <div><span>新增</span><strong>{preview.newRows}</strong></div>
-      <div><span>已存在 / 冲突</span><strong>{preview.existingRows}</strong></div>
+      <div><span>将新增</span><strong>{preview.newRows}</strong></div>
+      <div><span>已存在</span><strong>{preview.existingRows}</strong></div>
+      <div><span>字段冲突</span><strong>{preview.conflictRows}</strong></div>
       <div><span>无效</span><strong>{preview.invalidRows}</strong></div>
       <div><span>文件内重复</span><strong>{preview.duplicateRows}</strong></div>
     </div>
@@ -308,6 +407,18 @@ function ImportPreviewModal({ data, onClose, onConfirm }: { data: ImportPreviewD
       <div><h3>记录预览</h3><div className="preview-table"><table><thead><tr><th>行号</th><th>域名</th><th>状态</th></tr></thead><tbody>{preview.rows.map((row) => <tr key={`${row.rowNumber}-${row.domain}`}><td>{row.rowNumber}</td><td className="mono">{row.domain}</td><td><span className={row.status === "new" ? "badge-status badge-listed" : "badge-status badge-warning"}>{row.status === "new" ? "新增" : mode === "update" ? "将更新" : "将跳过"}</span></td></tr>)}</tbody></table></div></div>
       <div><h3>错误行</h3>{preview.issues.length ? <div className="preview-errors">{preview.issues.map((issue) => <div key={`${issue.rowNumber}-${issue.code}-${issue.domain}`}><strong>第 {issue.rowNumber} 行 · {issue.domain || "空域名"}</strong><span>{issue.reason}</span></div>)}</div> : <div className="empty-inline">没有错误行</div>}</div>
     </div>
+    {preview.conflicts.length > 0 ? <div className="import-conflict-list">
+      <h3>字段差异 · {preview.conflictRows} 条</h3>
+      <p className="preview-note">只有选择「更新现有记录」才会写入下列变更；「跳过」模式不会改动这些域名。人工分类、精品和展示状态在两种模式下都受保护。</p>
+      {preview.conflicts.map((conflict) => <div className="import-conflict-row" key={`${conflict.rowNumber}-${conflict.domain}`}>
+        <strong className="mono">{conflict.domain}</strong>
+        <div className="import-conflict-fields">{conflict.diffs.map((diff) => <div key={diff.field}>
+          <span>{diff.label}</span>
+          <del>{diff.currentValue || "（空）"}</del>
+          <ins>{diff.incomingValue || "（空）"}</ins>
+        </div>)}</div>
+      </div>)}
+    </div> : null}
     {preview.truncated && <p className="preview-note">预览仅显示前 120 条；统计数字覆盖完整文件。</p>}
     {error && <div className="inline-error" role="alert">{error}</div>}
     <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose} disabled={submitting}>取消</button><button type="button" className="primary-button" onClick={() => void confirm()} disabled={submitting}>{submitting ? "正在重新校验并导入…" : mode === "update" ? `确认新增 ${preview.newRows}、更新 ${preview.existingRows}` : `确认新增 ${preview.newRows}、跳过 ${preview.existingRows}`}</button></div>
@@ -315,13 +426,15 @@ function ImportPreviewModal({ data, onClose, onConfirm }: { data: ImportPreviewD
 }
 
 function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string, tone?: "success" | "error") => void; presetTld?: string; presetQuery?: string }) {
-  const [data, setData] = useState<AdminDomainPage | null>(null);
+  const [items, setItems] = useState<AdminDomain[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loadedPage, setLoadedPage] = useState(0);
   const [q, setQ] = useState(presetQuery ?? "");
+  const [debouncedQ, setDebouncedQ] = useState(presetQuery ?? "");
   const [listed, setListed] = useState("");
   const [featured, setFeatured] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [tld, setTld] = useState(presetTld ?? "");
-  const [page, setPage] = useState(1);
   const [orderBy, setOrderBy] = useState<DomainOrderBy | null>(null);
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [columns, setColumns] = useState<Set<string>>(loadColumns);
@@ -329,32 +442,85 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
   const [filterOptions, setFilterOptions] = useState<DomainFilterOptions>({ tlds: [], categories: [] });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [editing, setEditing] = useState<AdminDomain | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
   const [bulkKeywordsOpen, setBulkKeywordsOpen] = useState(false);
+  const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false);
+  const [bulkConfirm, setBulkConfirm] = useState<BulkConfirmState | null>(null);
+  const requestRef = useRef(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const manualCategories = useMemo(() => categories.filter((item) => !item.is_auto), [categories]);
   const manualCategoryNames = useMemo(() => new Set(manualCategories.map((item) => item.name)), [manualCategories]);
 
-  const load = useCallback(() => {
-    const params = new URLSearchParams({ page: String(page), pageSize: "50" });
-    if (q) params.set("q", q);
+  // 搜索按键去抖：否则每敲一个字符都会重置累积并重新拉取整页
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(q), DOMAIN_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  const buildParams = useCallback((targetPage: number) => {
+    const params = new URLSearchParams({ page: String(targetPage), pageSize: String(DOMAIN_PAGE_SIZE) });
+    if (debouncedQ) params.set("q", debouncedQ);
     if (listed) params.set("listed", listed);
     if (featured) params.set("featured", featured);
     if (categoryFilter) params.set("category", categoryFilter);
     if (tld) params.set("tld", tld);
     if (orderBy) { params.set("orderBy", orderBy); params.set("dir", dir); }
-    setLoading(true);
-    api<AdminDomainPage>(`/api/admin/domains?${params}`)
-      .then(setData)
-      .catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "域名加载失败", "error"))
-      .finally(() => setLoading(false));
-  }, [categoryFilter, dir, featured, listed, notify, orderBy, page, q, tld]);
-  useEffect(load, [load, refresh]);
+    return params;
+  }, [categoryFilter, debouncedQ, dir, featured, listed, orderBy, tld]);
+
+  // token 用于丢弃已被新筛选取代的过期响应，避免旧结果覆盖新列表
+  const loadPage = useCallback(async (targetPage: number, mode: "replace" | "append") => {
+    const token = ++requestRef.current;
+    if (mode === "replace") setLoading(true); else setLoadingMore(true);
+    try {
+      const result = await api<AdminDomainPage>(`/api/admin/domains?${buildParams(targetPage)}`);
+      if (token !== requestRef.current) return;
+      setItems((current) => (mode === "replace" ? result.items : [...current, ...result.items]));
+      setTotal(result.total);
+      setLoadedPage(targetPage);
+    } catch (reason) {
+      if (token !== requestRef.current) return;
+      notify(reason instanceof Error ? reason.message : "域名加载失败", "error");
+    } finally {
+      if (token === requestRef.current) { setLoading(false); setLoadingMore(false); }
+    }
+  }, [buildParams, notify]);
+
+  // 筛选、排序或写操作后回到第一页重新累积
+  useEffect(() => { void loadPage(1, "replace"); }, [loadPage, refresh]);
+  // 换筛选条件后清空选择：否则批量操作会作用到当前列表里看不见的域名
+  useEffect(() => { setSelected(new Set()); }, [debouncedQ, listed, featured, categoryFilter, tld]);
   useEffect(() => {
     api<CategoryRow[]>("/api/admin/categories").then(setCategories).catch(() => setCategories([]));
     api<DomainFilterOptions>("/api/admin/domains/filters").then(setFilterOptions).catch(() => setFilterOptions({ tlds: [], categories: [] }));
   }, [refresh]);
+
+  const hasMore = hasMoreRows(items.length, total);
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasMore || loading || loadingMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) void loadPage(loadedPage + 1, "append"); },
+      { rootMargin: "320px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, loadedPage, loadPage]);
+
+  const compact = useIsCompactLayout();
+  const columnKey = useMemo(() => [...columns].sort().join(","), [columns]);
+  const virtualEnabled = !compact && items.length >= VIRTUAL_MIN_ROWS;
+  const { containerRef, start, end, topPad, bottomPad } = useVirtualRows({
+    count: items.length,
+    enabled: virtualEnabled,
+    estimatedRowHeight: ESTIMATED_ROW_HEIGHT,
+    measureKey: columnKey,
+  });
+  const visibleItems = useMemo(() => items.slice(start, end), [items, start, end]);
+  const columnCount = FIXED_COLUMN_COUNT + OPTIONAL_COLUMNS.filter(([key]) => columns.has(key)).length;
 
   function toggleColumn(key: string) {
     setColumns((current) => {
@@ -368,7 +534,6 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
   function toggleSort(key: DomainOrderBy) {
     if (orderBy === key) setDir((current) => (current === "asc" ? "desc" : "asc"));
     else { setOrderBy(key); setDir(key === "domain" ? "asc" : "desc"); }
-    setPage(1);
   }
   const arrow = (key: DomainOrderBy) => orderBy === key ? <span className="sort-arrow">{dir === "asc" ? "↑" : "↓"}</span> : null;
 
@@ -393,28 +558,36 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
     } catch (reason) { notify(reason instanceof Error ? reason.message : "保存失败", "error"); }
   }
 
-  async function bulk(action: string) {
-    if (!selected.size) return;
-    if (action === "delete" && !window.confirm(`确认删除所选 ${selected.size} 个真实域名？此操作不可撤销。`)) return;
-    let category: string | null | undefined;
-    if (action === "categorize") category = window.prompt("输入新分类；留空将清除分类") ?? undefined;
-    if (action === "categorize" && category === undefined) return;
-    try {
-      const result = await api<{ changed: number }>("/api/admin/domains/bulk", { method: "POST", body: JSON.stringify({ ids: [...selected], action, category }) });
-      notify(`已更新 ${result.changed} 个域名`);
-      setSelected(new Set());
-      setRefresh((value) => value + 1);
-    } catch (reason) { notify(reason instanceof Error ? reason.message : "批量操作失败", "error"); }
+  /** 后端单次最多接受 BULK_ID_LIMIT 个 id，超出上限时按批依次提交并累加结果 */
+  async function runBulk(action: BulkAction, extra?: { category?: string | null; keywords?: string }) {
+    const ids = [...selected];
+    if (!ids.length) return 0;
+    let changed = 0;
+    for (const chunk of chunkIds(ids, BULK_ID_LIMIT)) {
+      const result = await api<{ changed: number }>("/api/admin/domains/bulk", {
+        method: "POST",
+        body: JSON.stringify({ ids: chunk, action, ...extra }),
+      });
+      changed += result.changed;
+    }
+    setSelected(new Set());
+    setRefresh((value) => value + 1);
+    return changed;
   }
 
   async function applyBulkKeywords(keywords: string) {
-    const result = await api<{ changed: number }>("/api/admin/domains/bulk", {
-      method: "POST",
-      body: JSON.stringify({ ids: [...selected], action: "keywords", keywords }),
-    });
-    notify(keywords.trim() ? `已为 ${result.changed} 个域名设置关键词` : `已清除 ${result.changed} 个域名的关键词`);
-    setSelected(new Set());
-    setRefresh((value) => value + 1);
+    const changed = await runBulk("keywords", { keywords });
+    notify(keywords.trim() ? `已为 ${changed} 个域名设置关键词` : `已清除 ${changed} 个域名的关键词`);
+  }
+
+  async function applyBulkCategory(category: string | null) {
+    const changed = await runBulk("categorize", { category });
+    notify(category ? `已将 ${changed} 个域名归入「${category}」` : `已清除 ${changed} 个域名的分类`);
+  }
+
+  async function applyBulkConfirm(state: BulkConfirmState) {
+    const changed = await runBulk(state.action);
+    notify(`${state.title}完成，影响 ${changed} 个域名`);
   }
 
   function exportSelected() {
@@ -466,27 +639,29 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
     setRefresh((value) => value + 1);
   }
 
-  const allSelected = Boolean(data?.items.length) && data!.items.every((domain) => selected.has(domain.id));
+  const allSelected = useMemo(() => items.length > 0 && items.every((domain) => selected.has(domain.id)), [items, selected]);
   const has = (key: string) => columns.has(key);
   return <><Panel title="域名管理" description="前后台共享同一份 D1 数据" actions={<><button className="secondary-button" onClick={() => void exportCsv("/api/admin/domains/export")}>导出全部</button><button className="secondary-button" onClick={() => void exportCsv(`/api/admin/domains/export?q=${encodeURIComponent(q)}&listed=${listed}${tld ? `&tld=${encodeURIComponent(tld)}` : ""}`)}>导出筛选</button><label className="secondary-button file-button">导入 CSV<input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); event.currentTarget.value = ""; }} /></label><button className="primary-button" onClick={() => void addDomain()}>添加域名</button></>}>
     <div className="admin-toolbar">
-      <input value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="搜索完整域名" />
-      <select value={listed} onChange={(event) => { setListed(event.target.value); setPage(1); }}><option value="">全部展示状态</option><option value="true">前台展示</option><option value="false">已隐藏</option></select>
-      <select value={featured} onChange={(event) => { setFeatured(event.target.value); setPage(1); }}><option value="">全部精品状态</option><option value="true">精品</option><option value="false">非精品</option></select>
-      <select value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setPage(1); }} aria-label="分类筛选"><option value="">全部分类</option>{filterOptions.categories.map((item) => <option key={item.name} value={item.name}>{item.name}（{item.count}）</option>)}</select>
-      <select value={tld} onChange={(event) => { setTld(event.target.value); setPage(1); }} aria-label="后缀筛选"><option value="">全部后缀</option>{filterOptions.tlds.map((item) => <option key={item.tld} value={item.tld}>.{item.tld}（{item.count}）</option>)}</select>
+      <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="搜索完整域名" />
+      <select value={listed} onChange={(event) => setListed(event.target.value)}><option value="">全部展示状态</option><option value="true">前台展示</option><option value="false">已隐藏</option></select>
+      <select value={featured} onChange={(event) => setFeatured(event.target.value)}><option value="">全部精品状态</option><option value="true">精品</option><option value="false">非精品</option></select>
+      <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} aria-label="分类筛选"><option value="">全部分类</option>{filterOptions.categories.map((item) => <option key={item.name} value={item.name}>{item.name}（{item.count}）</option>)}</select>
+      <select value={tld} onChange={(event) => setTld(event.target.value)} aria-label="后缀筛选"><option value="">全部后缀</option>{filterOptions.tlds.map((item) => <option key={item.tld} value={item.tld}>.{item.tld}（{item.count}）</option>)}</select>
       <details className="column-picker"><summary>列显示 ▾</summary><div>{OPTIONAL_COLUMNS.map(([key, label]) => <label key={key}><input type="checkbox" checked={columns.has(key)} onChange={() => toggleColumn(key)} />{label}</label>)}</div></details>
-      <span>{loading ? "读取中…" : `共 ${data?.total ?? 0} 个`}</span>
+      <span aria-live="polite">{loading ? "读取中…" : `已加载 ${items.length} / ${total} 个`}</span>
     </div>
-    {selected.size > 0 && <div className="bulk-bar"><strong>已选 {selected.size}</strong><button onClick={() => setBulkKeywordsOpen(true)}>批量设置关键词</button><button onClick={() => void bulk("feature")}>设为精品</button><button onClick={() => void bulk("unfeature")}>取消精品</button><button onClick={() => void bulk("list")}>上架</button><button onClick={() => void bulk("hide")}>隐藏</button><button onClick={() => void bulk("categorize")}>设置分类</button><button onClick={() => exportSelected()}>导出选中</button><button className="danger-text" onClick={() => void bulk("delete")}>删除</button><button onClick={() => setSelected(new Set())}>清空选择</button></div>}
-    <div className="admin-table-wrap domains-table-wrap"><table className="admin-table domains-table"><thead><tr>
-      <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(data?.items.map((domain) => domain.id)))} aria-label="全选当前页" /></th>
+    {selected.size > 0 && <div className="bulk-bar"><strong>已选 {selected.size}</strong><button onClick={() => setBulkKeywordsOpen(true)}>批量设置关键词</button><button onClick={() => setBulkConfirm({ action: "feature", title: "设为精品", description: "选中域名会标记为精品，并在前台获得独立详情页。", danger: false })}>设为精品</button><button onClick={() => setBulkConfirm({ action: "unfeature", title: "取消精品", description: "选中域名会取消精品标记，独立详情页将不再对外提供。", danger: false })}>取消精品</button><button onClick={() => setBulkConfirm({ action: "list", title: "上架", description: "选中域名会在前台展示。", danger: false })}>上架</button><button onClick={() => setBulkConfirm({ action: "hide", title: "隐藏", description: "选中域名会从前台隐藏，数据仍然保留。", danger: false })}>隐藏</button><button onClick={() => setBulkCategoryOpen(true)}>设置分类</button><button onClick={() => exportSelected()}>导出选中</button><button className="danger-text" onClick={() => setBulkConfirm({ action: "delete", title: "删除", description: "选中域名会被永久删除，此操作不可撤销。", danger: true })}>删除</button><button onClick={() => setSelected(new Set())}>清空选择</button></div>}
+    <div className="admin-table-wrap domains-table-wrap"><table className={`admin-table domains-table${virtualEnabled ? " is-virtualized" : ""}`}><thead><tr>
+      <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(items.map((domain) => domain.id)))} aria-label="全选已加载域名" /></th>
       <th className="sortable" onClick={() => toggleSort("domain")}>域名{arrow("domain")}</th>
       {has("keywords") && <th>关键词</th>}
       {has("description") && <th>简介</th>}
       {has("category") && <th>分类</th>}
       <th>精品</th><th>前台展示</th><th>操作</th>
-    </tr></thead><tbody>{data?.items.map((domain) => <tr key={domain.id}>
+    </tr></thead><tbody ref={containerRef}>
+      {topPad > 0 ? <tr className="virtual-spacer" aria-hidden="true"><td colSpan={columnCount} style={{ height: topPad }} /></tr> : null}
+      {visibleItems.map((domain) => <tr key={domain.id} data-virtual-row="">
       <td data-label="选择"><input type="checkbox" checked={selected.has(domain.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(domain.id)) next.delete(domain.id); else next.add(domain.id); return next; })} /></td>
       <td data-label="域名"><strong>{domain.full_domain}</strong><small>.{domain.tld}</small></td>
       {has("keywords") && <td data-label="关键词" className="keywords-cell"><div>{parseKeywords(domain.keywords).slice(0, 4).map((keyword) => <span className="keyword-pill" key={keyword}>{keyword}</span>)}</div><button className="table-link" aria-label={`编辑 ${domain.full_domain} 关键词`} onClick={() => setEditing(domain)}>编辑关键词</button></td>}
@@ -500,9 +675,14 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
       <td data-label="精品"><button className={`switch ${domain.is_featured ? "on gold" : ""}`} aria-label={`${domain.full_domain} 精品状态`} onClick={() => void patch(domain.id, { isFeatured: !domain.is_featured }, domain.is_featured ? "已取消精品" : "已设为精品")}><i /></button></td>
       <td data-label="展示"><button className={`switch ${domain.is_listed ? "on" : ""}`} aria-label={`${domain.full_domain} 展示状态`} onClick={() => void patch(domain.id, { isListed: !domain.is_listed }, domain.is_listed ? "已从前台隐藏" : "已恢复展示")}><i /></button></td>
       <td data-label="操作"><button className="table-link" onClick={() => setEditing(domain)}>编辑</button><button className="table-link danger-text" onClick={() => void removeDomain(domain)}>删除</button></td>
-    </tr>)}</tbody></table></div>
-    {data && data.totalPages > 1 && <div className="pagination admin-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {data.totalPages} 页</span><button disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}
-  </Panel>{editing ? <DomainEditModal domain={editing} notify={notify} onClose={() => setEditing(null)} onSaved={() => setRefresh((value) => value + 1)} /> : null}{bulkKeywordsOpen ? <BulkKeywordsModal count={selected.size} onClose={() => setBulkKeywordsOpen(false)} onConfirm={applyBulkKeywords} /> : null}{importPreview ? <ImportPreviewModal data={importPreview} onClose={() => setImportPreview(null)} onConfirm={confirmImport} /> : null}</>;
+    </tr>)}
+      {bottomPad > 0 ? <tr className="virtual-spacer" aria-hidden="true"><td colSpan={columnCount} style={{ height: bottomPad }} /></tr> : null}
+    </tbody></table></div>
+    {!loading && items.length === 0 ? <div className="empty-inline">没有匹配的域名</div> : null}
+    {hasMore
+      ? <div ref={sentinelRef} className="infinite-sentinel" aria-live="polite">{loadingMore ? "正在加载更多…" : "向下滚动加载更多"}</div>
+      : items.length > 0 && !loading ? <div className="infinite-sentinel is-end">已加载全部 {items.length} 个域名</div> : null}
+  </Panel>{editing ? <DomainEditModal domain={editing} notify={notify} onClose={() => setEditing(null)} onSaved={() => setRefresh((value) => value + 1)} /> : null}{bulkKeywordsOpen ? <BulkKeywordsModal count={selected.size} onClose={() => setBulkKeywordsOpen(false)} onConfirm={applyBulkKeywords} /> : null}{bulkCategoryOpen ? <BulkCategoryModal count={selected.size} categories={manualCategories} onClose={() => setBulkCategoryOpen(false)} onConfirm={applyBulkCategory} /> : null}{bulkConfirm ? <BulkConfirmModal state={bulkConfirm} count={selected.size} onClose={() => setBulkConfirm(null)} onConfirm={() => applyBulkConfirm(bulkConfirm)} /> : null}{importPreview ? <ImportPreviewModal data={importPreview} onClose={() => setImportPreview(null)} onConfirm={confirmImport} /> : null}</>;
 }
 
 function CategoriesView({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
@@ -812,6 +992,35 @@ const LOG_ACTIONS: Array<[string, string]> = [
   ["settings.update", "系统设置"],
 ];
 
+interface LogTrendData {
+  days: Array<{ day: string; label: string; total: number } & Record<LogActionGroup, number>>;
+  groups: Record<LogActionGroup, number>;
+}
+
+function LogsTrendPanel() {
+  const [trend, setTrend] = useState<LogTrendData | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { api<LogTrendData>("/api/admin/logs/trend").then(setTrend).catch(() => setFailed(true)); }, []);
+  if (failed) return null;
+  if (!trend) return <div className="state-panel">正在读取操作趋势…</div>;
+  const total = trend.days.reduce((sum, point) => sum + point.total, 0);
+  return <div className="log-trend">
+    <div className="log-trend-groups">
+      <div className="log-trend-total"><span>近 7 天操作</span><strong>{total}</strong></div>
+      {(Object.keys(LOG_GROUP_LABELS) as LogActionGroup[]).map((group) => <div key={group}><span>{LOG_GROUP_LABELS[group]}</span><strong>{trend.groups[group]}</strong></div>)}
+    </div>
+    <div className="log-trend-chart">
+      <ResponsiveContainer width="100%" height={160}>
+        <LineChart data={trend.days} margin={{ top: 8, right: 10, bottom: 0, left: 0 }}>
+          <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={10} />
+          <Tooltip />
+          <Line type="monotone" dataKey="total" name="操作数" stroke="var(--brand)" strokeWidth={2} dot={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  </div>;
+}
+
 function LogsView() {
   const [data, setData] = useState<LogPage | null>(null);
   const [level, setLevel] = useState("");
@@ -831,6 +1040,7 @@ function LogsView() {
   }, [action, from, keyword, level, page, to]);
   useEffect(() => { void api<LogPage>(`/api/admin/logs?${params()}`).then(setData).catch(() => setData({ items: [], page: 1, pageSize: 50, total: 0, totalPages: 0 })); }, [params]);
   return <Panel title="操作日志" description="日志来自 D1，不记录密码、Token 或完整凭据；90 天前的日志由 Cron 自动清理" actions={<button className="secondary-button" onClick={() => void download(`/api/admin/logs/export?${params()}`)}>导出 CSV</button>}>
+    <LogsTrendPanel />
     <div className="log-filter">
       <select value={level} onChange={(event) => { setLevel(event.target.value); setPage(1); }} aria-label="级别筛选"><option value="">全部级别</option><option value="info">信息</option><option value="warning">警告</option><option value="error">错误</option></select>
       <select value={action} onChange={(event) => { setAction(event.target.value); setPage(1); }} aria-label="操作类型筛选"><option value="">全部操作类型</option>{LOG_ACTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>

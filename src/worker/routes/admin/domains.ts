@@ -2,7 +2,7 @@ import { Hono } from "hono";
 
 import { parseDomainCsv } from "../../../shared/csv";
 import { normalizeDomain } from "../../../shared/domain";
-import { buildImportStatements } from "../../../shared/import-plan";
+import { buildImportStatements, diffImportRecord, type ExistingDomainSnapshot } from "../../../shared/import-plan";
 import { parseKeywords } from "../../../shared/keywords";
 import {
   adminDomainQuerySchema,
@@ -30,21 +30,24 @@ function dateAtUtcMidnight(value: string | null | undefined): string | null {
   return value ? `${value}T00:00:00.000Z` : null;
 }
 
-async function existingNormalizedDomains(db: D1Database, normalizedDomains: string[]): Promise<Set<string>> {
+type ExistingDomainRow = ExistingDomainSnapshot & { normalized_domain: string };
+
+/** 取回 CSV 中已存在域名的当前值，用于 dry-run 的字段级差异比较 */
+async function existingDomainRows(db: D1Database, normalizedDomains: string[]): Promise<Map<string, ExistingDomainRow>> {
   const unique = [...new Set(normalizedDomains)];
   const statements = [];
   for (let index = 0; index < unique.length; index += 80) {
     const chunk = unique.slice(index, index + 80);
     statements.push(
-      db.prepare(`SELECT normalized_domain FROM domains WHERE normalized_domain IN (${chunk.map(() => "?").join(",")})`)
-        .bind(...chunk),
+      db.prepare(
+        `SELECT normalized_domain, registered_at, expires_at, registrar_name, description, keywords
+         FROM domains WHERE normalized_domain IN (${chunk.map(() => "?").join(",")})`,
+      ).bind(...chunk),
     );
   }
-  if (!statements.length) return new Set();
-  const results = await db.batch(statements);
-  return new Set(results.flatMap((result) =>
-    (result.results as unknown as Array<{ normalized_domain: string }>).map((row) => row.normalized_domain),
-  ));
+  if (!statements.length) return new Map();
+  const results = await db.batch<ExistingDomainRow>(statements);
+  return new Map(results.flatMap((result) => result.results.map((row) => [row.normalized_domain, row] as const)));
 }
 
 function adminFilters(query: ReturnType<typeof adminDomainQuerySchema.parse>): {
@@ -257,7 +260,14 @@ domainAdminRoutes.post("/import", async (c) => {
   const result = parseDomainCsv(await file.text(), file.name.replace(/[^a-zA-Z0-9._-]/g, "_"));
   if (result.records.length === 0) return fail(c, 422, "CSV_EMPTY", "CSV 中没有可导入的合法域名", result.report.issues);
   if (result.records.length > MAX_IMPORT_RECORDS) return fail(c, 413, "CSV_TOO_MANY_ROWS", `单次最多导入 ${MAX_IMPORT_RECORDS} 条`);
-  const existing = await existingNormalizedDomains(c.env.DB, result.records.map((record) => record.normalizedDomain));
+  const existing = await existingDomainRows(c.env.DB, result.records.map((record) => record.normalizedDomain));
+  // 冲突 = 已存在且在 update 模式下确实会有字段被改写；仅同名但内容一致的不算冲突
+  const conflicts = result.records.flatMap((record) => {
+    const current = existing.get(record.normalizedDomain);
+    if (!current) return [];
+    const diffs = diffImportRecord(record, current);
+    return diffs.length ? [{ rowNumber: record.rowNumber, domain: record.normalizedDomain, diffs }] : [];
+  });
   const preview = {
     totalRows: result.report.rawRecordCount,
     validRows: result.records.length,
@@ -265,13 +275,15 @@ domainAdminRoutes.post("/import", async (c) => {
     duplicateRows: result.report.duplicateCount,
     newRows: result.records.length - existing.size,
     existingRows: existing.size,
+    conflictRows: conflicts.length,
     rows: result.records.slice(0, 120).map((record) => ({
       rowNumber: record.rowNumber,
       domain: record.normalizedDomain,
       status: existing.has(record.normalizedDomain) ? "existing" : "new",
     })),
+    conflicts: conflicts.slice(0, 120),
     issues: result.report.issues.slice(0, 120),
-    truncated: result.records.length > 120 || result.report.issues.length > 120,
+    truncated: result.records.length > 120 || result.report.issues.length > 120 || conflicts.length > 120,
   };
   const dryRun = form.dryRun === "true";
   if (dryRun) return ok(c, { dryRun: true, report: result.report, preview });
