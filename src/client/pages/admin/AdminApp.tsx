@@ -15,6 +15,8 @@ import {
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 import { Toast, type ToastMessage } from "../../components/Toast";
+// 后台专属样式：AdminApp 本身是懒加载的，样式随 admin chunk 一起按需加载，不进前台首屏
+import "../../styles/admin.css";
 import { useIsCompactLayout, useVirtualRows } from "../../hooks/useVirtualRows";
 import { ApiError, api, download } from "../../lib/api";
 import { formatExact, formatRelative } from "../../lib/format-time";

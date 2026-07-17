@@ -44,13 +44,18 @@ test.describe("后台视觉基线", () => {
       await login(page);
       await page.locator(".stat-card").first().waitFor();
       await page.evaluate(() => document.fonts.ready);
-      // 概览页有两处真实动态数据，遮盖内容但保留布局：
+      // 概览页有三处真实动态数据，遮盖内容但保留布局检测：
+      // .stats-overview 今日 PV/UV 每次访问都增长（AdminApp.tsx:140）
+      // .admin-two-columns 访客地区 visitors 与域名点击 clicks/相对时间同样随访问变化（AdminApp.tsx:141）
       // .activity-list 用 formatRelative 渲染相对时间，且每次登录都新增一条日志（AdminApp.tsx:145）
-      // .stats-overview 的今日 PV/UV 每次访问都增长（AdminApp.tsx:138）
       await expect(page).toHaveScreenshot(`admin-overview-${width}.png`, {
         fullPage: true,
         animations: "disabled",
-        mask: [page.locator(".activity-list"), page.locator(".stats-overview")],
+        mask: [
+          page.locator(".stats-overview"),
+          page.locator(".admin-two-columns"),
+          page.locator(".activity-list"),
+        ],
       });
     });
 
