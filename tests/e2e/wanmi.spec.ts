@@ -349,9 +349,10 @@ test.describe.serial("WanMi 生产流程", () => {
       expect(widths.scroll, `${viewport.width}x${viewport.height} 不应横向溢出`).toBeLessThanOrEqual(widths.client);
     }
 
+    // 「随机发现」已在 cc742dd 移除；改用首张卡片的速览验证手机端对话框可用
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "随机" }).click();
+    await page.locator(".domain-actions button[aria-label^='速览']").first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByRole("button", { name: "关闭域名速览" }).click();
   });
