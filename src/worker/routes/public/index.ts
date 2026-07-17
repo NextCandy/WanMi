@@ -4,6 +4,7 @@ import { AUTO_CATEGORY_ORDER } from "../../../shared/auto-classify";
 import { publicDomainQuerySchema } from "../../../shared/schemas/api";
 import type { PublicDomain } from "../../../shared/types/api";
 import { fail, ok } from "../../http";
+import { PUBLIC_CACHE_CONTROL } from "../../middleware/edge-cache";
 import type { AppBindings } from "../../types";
 import { renderFeaturedDomainOg } from "./og";
 
@@ -79,6 +80,7 @@ publicRoutes.get("/settings", async (c) => {
      FROM site_settings WHERE id = 1`,
   ).first<SettingsRow>();
   if (!settings) return fail(c, 503, "SETTINGS_UNAVAILABLE", "站点设置尚未初始化");
+  c.header("Cache-Control", PUBLIC_CACHE_CONTROL);
   return ok(c, {
     ...settings,
     featured_first: settings.featured_first === 1,
@@ -120,6 +122,7 @@ publicRoutes.get("/facets", async (c) => {
   const totalDomains = Number(stats.total ?? 0);
   const totalTlds = Number(stats.tld_count ?? 0);
   const totalFeatured = Number(stats.featured_count ?? 0);
+  c.header("Cache-Control", PUBLIC_CACHE_CONTROL);
   return ok(c, {
     tlds: (tldResult.results as unknown as Array<{ tld: string }>).map((row) => row.tld),
     categories: categoryRows.map((row) => row.category),
@@ -190,6 +193,13 @@ function publicFilters(query: ReturnType<typeof publicDomainQuerySchema.parse>):
     where.push("d.is_featured = ?");
     params.push(query.featured === "true" ? 1 : 0);
   }
+  if (query.expiry === "7d") {
+    where.push("d.expires_at IS NOT NULL AND date(d.expires_at) >= date('now') AND date(d.expires_at) <= date('now', '+7 days')");
+  } else if (query.expiry === "30d") {
+    where.push("d.expires_at IS NOT NULL AND date(d.expires_at) >= date('now') AND date(d.expires_at) <= date('now', '+30 days')");
+  } else if (query.expiry === "expired") {
+    where.push("d.expires_at IS NOT NULL AND date(d.expires_at) < date('now')");
+  }
   if (query.kind === "digits") where.push("d.name != '' AND d.name NOT GLOB '*[^0-9]*'");
   if (query.kind === "letters") where.push("d.name != '' AND d.name NOT GLOB '*[^a-z]*'");
   if (query.kind === "alphanumeric") {
@@ -222,7 +232,7 @@ publicRoutes.get("/domains", async (c) => {
     c.env.DB.prepare(`${PUBLIC_SELECT} WHERE ${where} ORDER BY ${sortSql} LIMIT ? OFFSET ?`).bind(...params, query.pageSize, offset),
   ]);
   const total = Number((countResult.results[0] as { total?: number } | undefined)?.total ?? 0);
-  c.header("Cache-Control", query.sort === "random" ? "no-store" : "public, max-age=0, must-revalidate");
+  c.header("Cache-Control", query.sort === "random" ? "no-store" : PUBLIC_CACHE_CONTROL);
   return ok(c, {
     items: (dataResult.results as unknown as PublicDomainRow[]).map(serializePublic),
     page: query.page,

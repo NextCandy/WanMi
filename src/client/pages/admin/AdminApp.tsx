@@ -32,6 +32,9 @@ interface AdminUser {
 
 interface DashboardData {
   counts: { total: number; listed: number; hidden: number; featured: number };
+  expiringSoonCount: number;
+  expiringTrend: Array<{ month: string; count: number }>;
+  categorySpread: Array<{ category: string; count: number }>;
   expiring90d: Array<{ full_domain: string; expires_at: string }>;
   tlds: Array<{ tld: string; count: number }>;
   recentLogs: Array<{ id: number; level: string; action: string; message: string; success: number; created_at: string }>;
@@ -112,7 +115,7 @@ function Panel({ title, description, actions, children }: { title: string; descr
   return <section className="admin-panel"><div className="panel-heading"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{actions && <div className="panel-actions">{actions}</div>}</div>{children}</section>;
 }
 
-function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string) => void; onDomainClick?: (domain: string) => void }) {
+function OverviewView({ onTldClick, onDomainClick, onNavigate, notify }: { onTldClick: (tld: string) => void; onDomainClick?: (domain: string) => void; onNavigate: (view: AdminView) => void; notify: (text: string, tone?: "success" | "error") => void }) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -120,12 +123,35 @@ function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string)
   }, []);
   if (error) return <div className="state-panel error-panel">{error}</div>;
   if (!data) return <div className="state-panel">正在读取真实统计…</div>;
-  const cards = [
-    ["域名总数", data.counts.total], ["前台展示", data.counts.listed], ["已隐藏", data.counts.hidden], ["精品域名", data.counts.featured],
+  const cards: Array<[string, number, string]> = [
+    ["域名总数", data.counts.total, "tone-a"],
+    ["即将到期", data.expiringSoonCount, "tone-b"],
+    ["精品域名", data.counts.featured, "tone-c"],
+    ["已隐藏", data.counts.hidden, "tone-d"],
   ];
+  const trendData = data.expiringTrend.map((point) => ({ ...point, label: `${Number(point.month.slice(5))} 月` }));
+  const maxCategory = Math.max(1, ...data.categorySpread.map((item) => Number(item.count)));
+  async function exportAll() {
+    try { await download("/api/admin/domains/export"); notify("CSV 已开始下载"); }
+    catch (reason) { notify(reason instanceof Error ? reason.message : "CSV 导出失败", "error"); }
+  }
   return <div className="admin-stack">
-    <div className="stat-grid">{cards.map(([label, value]) => <div className="stat-card" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
-    <div className="stats-overview"><div className="stats-kpis"><div><span>今日 PV</span><strong>{data.stats.today.pv ?? 0}</strong></div><div><span>今日 UV</span><strong>{data.stats.today.uv ?? 0}</strong></div><div><span>域名点击</span><strong>{data.stats.topDomains.reduce((total, item) => total + Number(item.clicks || 0), 0)}</strong></div></div><div className="stats-chart"><ResponsiveContainer width="100%" height={180}><LineChart data={data.stats.sevenDays}><XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={10} /><Tooltip /><Line type="monotone" dataKey="pv" stroke="var(--brand)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="uv" stroke="var(--ink)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div></div>
+    <div className="stat-grid">{cards.map(([label, value, tone]) => <div className={`stat-card ${tone}`} key={label}><span>{label}</span><strong>{Number(value).toLocaleString("zh-CN")}</strong></div>)}</div>
+    <div className="quick-actions" role="group" aria-label="快捷操作">
+      <button type="button" onClick={() => onNavigate("domains")}><Globe aria-hidden="true" />添加域名</button>
+      <button type="button" onClick={() => onNavigate("domains")}><LayoutDashboard aria-hidden="true" />批量 CSV 导入</button>
+      <button type="button" onClick={() => void exportAll()}><History aria-hidden="true" />导出 CSV</button>
+      <button type="button" onClick={() => onNavigate("notifications")}><Bell aria-hidden="true" />到期提醒设置</button>
+    </div>
+    <div className="admin-two-columns">
+      <Panel title="到期趋势" description="未来 6 个月按月统计">
+        {trendData.length ? <ResponsiveContainer width="100%" height={200}><LineChart data={trendData} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}><XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={11} /><Tooltip formatter={(value) => [`${Number(value ?? 0)} 个`, "到期域名"]} /><Line type="monotone" dataKey="count" name="到期域名" stroke="var(--brand)" strokeWidth={2.5} dot={{ r: 3, fill: "var(--brand)" }} /></LineChart></ResponsiveContainer> : <div className="empty-inline">暂无未来 6 个月内到期的域名</div>}
+      </Panel>
+      <Panel title="分类分布" description="人工分类优先，其余按自动标签">
+        <div className="distribution-list">{data.categorySpread.map((item) => <div className="distribution-static" key={item.category}><span>{item.category}</span><div className="bar"><i style={{ width: `${Math.max(4, Number(item.count) / maxCategory * 100)}%` }} /></div><strong>{item.count}</strong></div>)}</div>
+      </Panel>
+    </div>
+    <div className="stats-overview"><div className="stats-kpis"><div><span>今日 PV</span><strong>{data.stats.today.pv ?? 0}</strong></div><div><span>今日 UV</span><strong>{data.stats.today.uv ?? 0}</strong></div><div><span>域名点击</span><strong>{data.stats.topDomains.reduce((total, item) => total + Number(item.clicks || 0), 0)}</strong></div></div><div className="stats-chart"><ResponsiveContainer width="100%" height={180}><LineChart data={data.stats.sevenDays}><XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={10} /><Tooltip /><Line type="monotone" dataKey="pv" stroke="var(--brand)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="uv" stroke="var(--premium)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div></div>
     <div className="admin-two-columns"><Panel title="域名点击 Top 10"><div className="kpi-list">{data.stats.topDomains.length ? data.stats.topDomains.map((item) => <button key={item.domain} onClick={() => onDomainClick?.(item.domain)}><span className="mono">{item.domain}</span><b>{item.clicks} 次</b><small title={formatExact(item.latest * 1000)}>{formatRelative(item.latest * 1000)}</small></button>) : <div className="empty-inline">尚无域名点击</div>}</div></Panel><Panel title="访客地区 Top 5"><div className="kpi-list">{data.stats.countries.map((item) => <div key={item.country}><span>{item.country}</span><b>{item.visitors}</b></div>)}</div></Panel></div>
     <Panel title="后缀分布" description="点击跳转到筛选后的域名管理"><div className="distribution-list">{data.tlds.slice(0, 12).map((item) => <a key={item.tld} onClick={() => onTldClick(item.tld)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onTldClick(item.tld); }}><span>.{item.tld}</span><div className="bar"><i style={{ width: `${Math.max(4, item.count / Math.max(data.counts.total, 1) * 100)}%` }} /></div><strong>{item.count}</strong></a>)}</div></Panel>
     <div className="admin-two-columns">
@@ -138,9 +164,9 @@ function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string)
   </div>;
 }
 
-type DomainOrderBy = "domain";
-const OPTIONAL_COLUMNS: Array<[string, string]> = [["description", "简介"], ["category", "人工分类"]];
-const DEFAULT_COLUMNS = ["category"];
+type DomainOrderBy = "domain" | "expires_at";
+const OPTIONAL_COLUMNS: Array<[string, string]> = [["description", "简介"], ["category", "人工分类"], ["expiry", "到期日期"], ["registrar", "注册商"]];
+const DEFAULT_COLUMNS = ["category", "expiry"];
 const DOMAIN_PAGE_SIZE = 100;
 const DOMAIN_SEARCH_DEBOUNCE_MS = 300;
 /** 必须与 bulkDomainSchema 的 ids 上限一致；选中数超过时前端自动分批提交 */
@@ -472,9 +498,22 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
 
   function toggleSort(key: DomainOrderBy) {
     if (orderBy === key) setDir((current) => (current === "asc" ? "desc" : "asc"));
-    else { setOrderBy(key); setDir(key === "domain" ? "asc" : "desc"); }
+    else { setOrderBy(key); setDir("asc"); }
   }
   const arrow = (key: DomainOrderBy) => orderBy === key ? <span className="sort-arrow">{dir === "asc" ? "↑" : "↓"}</span> : null;
+
+  /** 到期单元格：30 天内红色警示，已过期同样标红并注明 */
+  function expiryCell(domain: AdminDomain) {
+    if (!domain.expires_at) return <span className="expiry-none">—</span>;
+    const date = new Date(domain.expires_at);
+    if (Number.isNaN(date.getTime())) return <span className="expiry-none">—</span>;
+    const text = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const remaining = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
+    if (remaining < 0) return <span className="expiry-danger">{text}<small>已过期</small></span>;
+    if (remaining <= 30) return <span className="expiry-danger">{text}<small>剩 {remaining} 天</small></span>;
+    if (remaining <= 90) return <span className="expiry-warning">{text}<small>剩 {remaining} 天</small></span>;
+    return <span>{text}</span>;
+  }
 
   async function setCategoryFor(domain: AdminDomain, value: string) {
     if (value === "__new__") {
@@ -589,6 +628,8 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
     <div className="admin-table-wrap domains-table-wrap"><table className={`admin-table domains-table${virtualEnabled ? " is-virtualized" : ""}`}><thead><tr>
       <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(items.map((domain) => domain.id)))} aria-label="全选已加载域名" /></th>
       <th className="sortable" onClick={() => toggleSort("domain")}>域名{arrow("domain")}</th>
+      {has("expiry") && <th className="sortable" onClick={() => toggleSort("expires_at")}>到期日期{arrow("expires_at")}</th>}
+      {has("registrar") && <th>注册商</th>}
       {has("description") && <th>简介</th>}
       {has("category") && <th>分类</th>}
       <th>精品</th><th>前台展示</th><th>操作</th>
@@ -597,6 +638,8 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
       {visibleItems.map((domain) => <tr key={domain.id} data-virtual-row="">
       <td data-label="选择"><input type="checkbox" checked={selected.has(domain.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(domain.id)) next.delete(domain.id); else next.add(domain.id); return next; })} /></td>
       <td data-label="域名"><strong>{domain.full_domain}</strong><small>.{domain.tld}</small></td>
+      {has("expiry") && <td data-label="到期日期" className="expiry-cell">{expiryCell(domain)}</td>}
+      {has("registrar") && <td data-label="注册商" className="registrar-cell">{domain.registrar_name || <span className="expiry-none">—</span>}</td>}
       {has("description") && <td data-label="简介" className="description-cell"><span>{domain.description}</span><button className="table-link" aria-label={`编辑 ${domain.full_domain} 简介`} onClick={() => setEditing(domain)}>编辑简介</button></td>}
       {has("category") && <td data-label="分类"><small>{domain.category_source === "manual" ? "人工" : "自动"} · {domain.auto_category}/{domain.auto_subcategory}</small><select className="table-link" value={domain.category && manualCategoryNames.has(domain.category) ? domain.category : domain.category ?? ""} onChange={(event) => void setCategoryFor(domain, event.target.value)} aria-label={`${domain.full_domain} 分类`}>
         <option value="">恢复自动（{domain.auto_category}）</option>
@@ -836,5 +879,5 @@ export function AdminApp() {
   if (!user) return <LoginPage onLogin={(loggedIn) => { setUser(loggedIn); setView("overview"); }} />;
   const nav: Array<[AdminView, string, LucideIcon]> = [["overview", "概览", LayoutDashboard], ["domains", "域名管理", Globe], ["categories", "分类", Tag], ["settings", "站点设置", Settings], ["notifications", "到期提醒", Bell], ["security", "账户安全", ShieldCheck], ["logs", "操作日志", History]];
   async function logout() { try { await api("/api/auth/logout", { method: "POST" }); } finally { setUser(null); } }
-  return <div className="admin-shell"><aside className="admin-sidebar"><a href="/" className="brand admin-brand">{branding?.logo_url ? <img className="brand-icon" src={branding.logo_url} alt="" decoding="async" /> : <span className="brand-mark">玩</span>}<span>{branding?.site_name ?? "玩米"}</span></a><nav>{nav.map(([key, label, Icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => setView(key)}><Icon aria-hidden="true" />{label}</button>)}</nav><details className="sidebar-user"><summary><span className="user-avatar">{user.email.slice(0, 1).toUpperCase()}</span><span><strong>{user.email}</strong><small>管理员</small></span><ChevronDown aria-hidden="true" /></summary><div className="user-menu"><button onClick={() => setView("security")}><ShieldCheck aria-hidden="true" />修改密码</button><button onClick={() => void logout()}><LogOut aria-hidden="true" />退出登录</button></div></details></aside><div className="admin-main"><header className="admin-header"><div><span>玩米管理后台</span><h1>{nav.find(([key]) => key === view)?.[1]}</h1></div><div className="admin-header-actions"><a href="/" target="_blank">查看前台 ↗</a></div></header><main>{view === "overview" && <OverviewView onTldClick={(tld) => { setDomainsPresetTld(tld); setView("domains"); }} />}{view === "domains" &&<DomainsView key={domainsPresetTld ?? "all"} notify={notify} presetTld={domainsPresetTld} />}{view === "categories" && <CategoriesView notify={notify} />}{view === "settings" && <SettingsView notify={notify} />}{view === "notifications" && <NotificationsView notify={notify} />}{view === "security" && <SecurityView user={user} notify={notify} />}{view === "logs" && <LogsView />}</main></div><Toast message={toast} onClose={() => setToast(null)} /></div>;
+  return <div className="admin-shell"><aside className="admin-sidebar"><a href="/" className="brand admin-brand">{branding?.logo_url ? <img className="brand-icon" src={branding.logo_url} alt="" decoding="async" /> : <span className="brand-mark">玩</span>}<span>{branding?.site_name ?? "玩米"}</span></a><nav>{nav.map(([key, label, Icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => setView(key)}><Icon aria-hidden="true" />{label}</button>)}</nav><details className="sidebar-user"><summary><span className="user-avatar">{user.email.slice(0, 1).toUpperCase()}</span><span><strong>{user.email}</strong><small>管理员</small></span><ChevronDown aria-hidden="true" /></summary><div className="user-menu"><button onClick={() => setView("security")}><ShieldCheck aria-hidden="true" />修改密码</button><button onClick={() => void logout()}><LogOut aria-hidden="true" />退出登录</button></div></details></aside><div className="admin-main"><header className="admin-header"><div><span>玩米管理后台</span><h1>{nav.find(([key]) => key === view)?.[1]}</h1></div><div className="admin-header-actions"><a href="/" target="_blank">查看前台 ↗</a></div></header><main>{view === "overview" && <OverviewView onTldClick={(tld) => { setDomainsPresetTld(tld); setView("domains"); }} onNavigate={setView} notify={notify} />}{view === "domains" &&<DomainsView key={domainsPresetTld ?? "all"} notify={notify} presetTld={domainsPresetTld} />}{view === "categories" && <CategoriesView notify={notify} />}{view === "settings" && <SettingsView notify={notify} />}{view === "notifications" && <NotificationsView notify={notify} />}{view === "security" && <SecurityView user={user} notify={notify} />}{view === "logs" && <LogsView />}</main></div><Toast message={toast} onClose={() => setToast(null)} /></div>;
 }

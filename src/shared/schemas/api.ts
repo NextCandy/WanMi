@@ -30,6 +30,8 @@ export const publicDomainQuerySchema = z.object({
   excludes: z.string().trim().max(20).optional(),
   category: z.string().trim().max(80).optional(),
   featured: z.enum(["true", "false"]).optional(),
+  /** 到期状态：7 天内 / 30 天内 / 已过期（按 UTC 日期比较，无到期数据的域名不命中） */
+  expiry: z.enum(["7d", "30d", "expired"]).optional(),
   kind: z.enum(["digits", "letters", "alphanumeric", "hyphen"]).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(60),

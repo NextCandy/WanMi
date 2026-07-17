@@ -426,3 +426,54 @@
 .log-table-enhanced > div > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log-result { width: fit-content; padding: 3px 7px; border-radius: 999px; font-size: 9px; font-weight: 700; }
 .log-result.success { color: var(--success); background: color-mix(in oklab, var(--success) 12%, transparent); }
+
+/* ============================================================
+   2026-07-18 · Dark Vault 后台改版 —— 深青绿玻璃拟态仪表盘
+   渐变统计卡 / 快捷操作 / 到期高亮 / 分类分布
+   ============================================================ */
+
+/* 渐变统计卡：四张卡同一青绿系、依次减淡（设计稿 Overview 顶排） */
+.stat-card { position: relative; overflow: hidden; border: 1px solid var(--teal-border); }
+.stat-card.tone-a { background: linear-gradient(135deg, #1d5b4c, #17493e 55%, var(--surface)); }
+.stat-card.tone-b { background: linear-gradient(135deg, #1a4f43, #153f37 55%, var(--surface)); }
+.stat-card.tone-c { background: linear-gradient(135deg, #174539 60%, var(--surface)); border-color: var(--gold-border); }
+.stat-card.tone-d { background: linear-gradient(135deg, #143b32 60%, var(--surface)); }
+.stat-card::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 90% at 100% 0%, rgba(74, 220, 180, 0.14), transparent 55%);
+}
+.stat-card.tone-c::after { background: radial-gradient(120% 90% at 100% 0%, rgba(212, 178, 82, 0.14), transparent 55%); }
+.stat-card span { color: rgba(242, 246, 244, 0.75); font-weight: 600; }
+.stat-card strong { color: #f4faf7; }
+.stat-card.tone-c strong { color: var(--gold-text); }
+
+/* 快捷操作行（设计稿 Add Domain / Bulk CSV Import / Export CSV / Monitoring Settings） */
+.quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.quick-actions button {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 10px;
+  padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: linear-gradient(175deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)), var(--surface);
+  color: var(--text-primary); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  box-shadow: var(--glass-highlight), 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+.quick-actions button:hover { border-color: var(--teal-border); background: linear-gradient(175deg, rgba(74, 220, 180, 0.08), rgba(74, 220, 180, 0.02)), var(--surface); }
+.quick-actions button:active { transform: scale(.98); }
+.quick-actions button svg { width: 17px; height: 17px; color: var(--teal-bright); }
+
+/* 域名表到期单元格：30 天内红、90 天内黄，已过期红并注明 */
+.expiry-cell span, .registrar-cell { font-variant-numeric: tabular-nums; font-size: 13px; }
+.expiry-cell span { display: inline-flex; flex-direction: column; gap: 1px; }
+.expiry-cell small { font-size: 11px; color: var(--text-tertiary); }
+.expiry-cell .expiry-danger { color: var(--danger); font-weight: 700; }
+.expiry-cell .expiry-danger small { color: var(--danger); font-weight: 600; }
+.expiry-cell .expiry-warning { color: var(--warning); font-weight: 600; }
+.expiry-cell .expiry-warning small { color: var(--warning); }
+.expiry-cell .expiry-none, .registrar-cell .expiry-none { color: var(--text-tertiary); font-weight: 400; }
+
+/* 分类分布静态行：结构与后缀分布一致但不可点击 */
+.distribution-static { display: grid; grid-template-columns: minmax(64px, auto) 1fr auto; gap: 10px; align-items: center; }
+.distribution-static span { font-size: 12.5px; color: var(--text-secondary); }
+.distribution-static .bar { height: 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.distribution-static .bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--teal-dim), var(--teal-bright)); }
+.distribution-static strong { font-size: 12.5px; font-variant-numeric: tabular-nums; }

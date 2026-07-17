@@ -74,8 +74,10 @@ describe.sequential("WanMi API 集成", () => {
     const productionDocumentPolicy = productionDocumentResponse.headers.get("content-security-policy") ?? "";
     const apiPolicy = apiResponse.headers.get("content-security-policy") ?? "";
 
-    expect(documentPolicy).toContain("https://fonts.googleapis.com");
-    expect(documentPolicy).toContain("https://fonts.gstatic.com");
+    // 字体全部自托管后 CSP 不再放行 Google Fonts（外链 stylesheet 在国内会阻塞渲染）
+    expect(documentPolicy).not.toContain("fonts.googleapis.com");
+    expect(documentPolicy).not.toContain("fonts.gstatic.com");
+    expect(documentPolicy).toContain("font-src 'self'");
     expect(documentPolicy).toContain("script-src 'self' 'unsafe-inline'");
     expect(productionDocumentPolicy).not.toContain("script-src 'self' 'unsafe-inline'");
     expect(apiPolicy).toContain("script-src 'self'");

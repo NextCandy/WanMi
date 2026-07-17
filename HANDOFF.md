@@ -1,6 +1,25 @@
 # WanMi HANDOFF
 
-## 最新进度（2026-07-17 · 自定义 Logo/Favicon 全链路生效）
+## 最新进度（2026-07-18 · Dark Vault 改版 + 国内访问卡顿修复）
+
+### 性能（「访问很卡」根因与修复）
+- 根因一（主因）：`index.html` 仍有 Google Fonts 的 Noto Sans SC `<link rel="stylesheet">` 外链。渲染阻塞资源在大陆不可达时要等 TCP 超时才放行渲染，国内用户白屏可达 20 秒以上。已彻底移除（含两个 preconnect），中文走系统字体栈；CSP 同步收紧不再放行 `fonts.googleapis.com`/`fonts.gstatic.com`（集成测试断言已反转）。
+- 根因二：公开 API 零边缘缓存（`max-age=0`），跨境每请求完整回源 Worker+D1（实测 TLS 后仍需 300-400ms）。新增 `src/worker/middleware/edge-cache.ts`：Cache API 边缘缓存，挂在 `/api/public/*` 与首页 `/` SSR；响应声明 `s-maxage=60` 才入缓存（random 排序 no-store 不受影响）。
+- 缓存键携带 `public_data_version`（`?__pv=版本`）：domains 触发器原有，新增 `0022_settings_public_version_trigger.sql` 让 site_settings 更新也自增同一版本。后台任何改动下一请求即换键直读新库——s-maxage 只管同版本条目存活，不构成数据陈旧上限；E2E「隐藏域名→前台立即消失」正是靠这个通过的。浏览器层保持 `max-age=0, must-revalidate`。
+- 命中实测：TLS 后处理 300-400ms → 约 40ms。前台 bundle 251KB → 238KB（gzip 77KB）。
+- tsconfig 同时服务 DOM 与 Worker，DOM 的 `CacheStorage` 没有 `default`，中间件里 `caches as unknown as { default: Cache }` 收窄，勿改回。
+
+### Dark Vault 改版（依用户 5 张设计稿，前后台全深色）
+- tokens.css 整体重写为单一深色主题（删除 prefers-color-scheme 分支与浅色值）：深墨绿黑背景 `#0a1211`、实色深墨绿 surface 三层（弹窗/下拉不透底）、新增 teal 青绿主色系（`--teal` 等 7 个令牌）与 `--glass-highlight` 玻璃高光。cream 系令牌名保留但值已深色化。
+- app.css 映射层：`--brand`/`--brand-strong`/`--brand-soft`/`--brand-ring`/侧栏 active/`--glow` 全部由金改 teal；金色仅保留精品语义（`--premium` 系）。浅色残留（白 inset 高光、精品卡混白渐变、6 处暖棕阴影）全部清理。生产与本地 `site_settings.accent_color` 已同步为 `#2fbf9a`（--brand 会被它动态覆盖，改主题色必须连 DB 一起改）。
+- DomainCard 重构（设计稿卡片形态）：顶部金色渐变 TLD 徽章 + 分类描边徽章（精品带 ⭐ 与「· 精品」）+ 右侧弱化复制/速览图标；中部衬线大域名（Cormorant Garamond，覆盖辨识度专项时期的 Manrope 声明——设计稿要求 serif）；底部精品星标 + 到期行（30 天内红色「（紧急）」、已过期红色「（已过期）」、无数据「长期持有」）。「访问域名」独立按钮删除，域名本体即外链。单测已按新结构重写（注意 `localDate` helper：组件按本地时区格式化，勿用 toISOString 断言）。
+- 前台筛选改胶囊组（设计稿筛选形态）：新增「状态」组（全部/7 天内到期/30 天内到期/已过期/精品，精品复用 group=featured 单选互斥）与「分类」组（原分类下拉改胶囊，数据同 facets）；后缀/位数/排序仍为下拉。公开 API 新增 `expiry=7d|30d|expired` 参数（schema + SQL date 比较）。选中态 teal 渐变、精品选中金渐变。
+- 后台概览重排（设计稿仪表盘）：四张青绿渐变统计卡（域名总数/即将到期/精品[金调]/已隐藏）→ 快捷操作行（添加域名/批量 CSV 导入/导出 CSV/到期提醒设置，前两个跳域名管理）→ 到期趋势（新 `expiringTrend`：未来 6 个月按月聚合）+ 分类分布（新 `categorySpread`）双栏 → 原 PV/UV（第二条线 stroke 由不可见的 --ink 改 --premium）/Top10/地区/后缀分布/日志/通知健康保留。dashboard API 新增 expiringSoonCount/expiringTrend/categorySpread 三字段。
+- 后台域名表：新增「到期日期」（默认开启，30 天内红/90 天内黄、已过期红注明，可排序 expires_at）与「注册商」两个可选列；E2E 概览断言由「前台展示」卡改为「域名总数」卡 + 快捷操作可见。
+- 本地 D1 曾无自动分类数据（前台分类胶囊为空、后台分类分布为空）：跑一次后台「重新自动分类」，或参照本轮 scratchpad 脚本直接以 `classifyDomainName` 生成 INSERT 灌入 `domain_auto_categories`。
+- 验证：`pnpm check` 全绿（103 测试）；8 个 E2E 用例单独跑全过；22 张视觉基线按新视觉重建。生产版本 `8384df00-aaa6-4f9b-b43d-b9797938bc7f`，`verify:production` 通过，部署前备份 `backups/wanmi-20260717T162537Z.sql`。远程已执行 0022 迁移。
+
+## 前序进度（2026-07-17 · 自定义 Logo/Favicon 全链路生效）
 
 - 用户反馈「后台的图标没有更新」：后台站点设置一直支持上传 Logo 与 Favicon 到 R2，`logo_url`/`favicon_url` 也会随公开设置 API 下发，但**前端与 SSR 从未消费这两个字段**——前台 header 硬编码 `/favicon.svg`，后台与 SSR 详情页 brand 硬编码「玩」字块，favicon 永远是默认菱形。上传后全站任何位置都不会变。
 - 修复（仍全部回退到默认）：前台 header 改用 `settings.logo_url || "/favicon.svg"`，且 `favicon_url` 存在时运行时替换 `link[rel=icon]`；Worker 首页与 `/d/:domain` 详情页在 HTMLRewriter 中按 `favicon_url` 注入 favicon，首页 `og:image`/`twitter:image` 改用 `logo_url`（新增 `absoluteAsset` 把 `/uploads/...` 相对路径转绝对 URL）；后台侧栏 brand 与 SSR 详情页/客户端详情页 brand 在有 `logo_url` 时显示图片，否则保留「玩」字块。

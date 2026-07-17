@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import { fail, ok } from "./http";
+import { edgeCache, PUBLIC_CACHE_CONTROL } from "./middleware/edge-cache";
 import { requireSameOrigin, securityHeaders } from "./middleware/security";
 import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
@@ -20,6 +21,7 @@ app.use("*", securityHeaders);
 app.use("/api/*", requireSameOrigin);
 
 app.get("/api/health", (c) => ok(c, { status: "ok", service: "WanMi" }));
+app.use("/api/public/*", edgeCache);
 app.route("/api/public", publicRoutes);
 app.route("/api/track", trackRoutes);
 app.route("/api/auth", authRoutes);
@@ -49,7 +51,8 @@ function absoluteAsset(value: string, origin: string): string {
 }
 
 // 首页由 Worker 注入真实设置、Canonical 与公开域名 ItemList；React 仍负责交互渲染。
-app.get("/", async (c) => {
+// 首页 SSR 每次要查 3 条 SQL，也走 60 秒边缘缓存降低跨境首字节时间。
+app.get("/", edgeCache, async (c) => {
   const url = new URL(c.req.url);
   const shell = await c.env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: c.req.raw.headers }));
   const [settings, domains, count] = await Promise.all([
@@ -82,7 +85,7 @@ app.get("/", async (c) => {
       url: `https://${domain.full_domain}`,
     })),
   };
-  return new HTMLRewriter()
+  const rewritten = new HTMLRewriter()
     .on("title", { element: (element) => { element.setInnerContent(title); } })
     .on('meta[name="description"]', { element: (element) => { element.setAttribute("content", description); } })
     .on('meta[property="og:title"]', { element: (element) => { element.setAttribute("content", title); } })
@@ -96,6 +99,9 @@ app.get("/", async (c) => {
     .on('link[rel="icon"]', { element: (element) => { if (favicon) element.setAttribute("href", favicon); } })
     .on("head", { element: (element) => { element.append(`<script type="application/ld+json">${safeJsonLd(jsonLd)}</script>`, { html: true }); } })
     .transform(shell);
+  const response = new Response(rewritten.body, rewritten);
+  response.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
+  return response;
 });
 
 app.get("/sitemap.xml", async (c) => {

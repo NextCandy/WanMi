@@ -188,8 +188,11 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(adminNavigation).not.toContainText("线索");
     await expect(adminNavigation).not.toContainText("DNS");
     await expect(adminNavigation).not.toContainText("注册商");
-    const listedCard = page.locator(".stat-card").filter({ hasText: "前台展示" });
-    await expect(listedCard.getByText("859", { exact: true })).toBeVisible();
+    // 概览统计卡按 Dark Vault 改版为：域名总数 / 即将到期 / 精品域名 / 已隐藏
+    const totalCard = page.locator(".stat-card").filter({ hasText: "域名总数" });
+    await expect(totalCard.getByText("859", { exact: true })).toBeVisible();
+    await expect(page.locator(".stat-card").filter({ hasText: "即将到期" })).toBeVisible();
+    await expect(page.locator(".quick-actions button").filter({ hasText: "导出 CSV" })).toBeVisible();
 
     await page.getByRole("button", { name: /域名管理/ }).click();
     await page.getByPlaceholder("搜索完整域名").fill("02cloud.com");
