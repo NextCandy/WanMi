@@ -152,7 +152,6 @@ export function renderFeaturedDomainSsr(detail: FeaturedDomainDetail): string {
     <main class="featured-detail-main">
       <a class="featured-detail-back" href="/domains">← 返回域名目录</a>
       <section class="featured-detail-hero">
-        <span class="featured-detail-kicker">FEATURED DOMAIN ASSET</span>
         <h1>${escapeHtml(domain.domain)}</h1>
         ${keywordMarkup}
         ${descriptionMarkup}
@@ -166,7 +165,7 @@ export function renderFeaturedDomainSsr(detail: FeaturedDomainDetail): string {
         <a class="featured-detail-visit" href="https://${encodeURI(domain.domain)}" target="_blank" rel="noopener noreferrer nofollow">访问该域名 →</a>
       </section>
       <section class="featured-related" aria-labelledby="featured-related-title">
-        <div class="featured-related-heading"><span>DISCOVER MORE</span><h2 id="featured-related-title">相似域名推荐</h2></div>
+        <div class="featured-related-heading"><h2 id="featured-related-title">相似域名推荐</h2></div>
         ${detailRecommendationMarkup(`同后缀 .${domain.tld}`, detail.same_tld)}
         ${detailRecommendationMarkup(`同为 ${domain.character_count} 字符`, detail.same_length)}
       </section>

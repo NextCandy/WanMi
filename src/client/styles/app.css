@@ -13,9 +13,9 @@
 :root {
   /* 品牌与状态 */
   --brand: var(--gold);
-  --brand-strong: var(--gold-bright);
+  --brand-strong: var(--gold-text);
   --premium: var(--gold);
-  --premium-fg: var(--gold-bright);
+  --premium-fg: var(--gold-text);
 
   /* 中性面板：三层表面 */
   --bg: var(--background);
@@ -24,6 +24,7 @@
   --surface-3: var(--surface-elevated);
   --fg: var(--text-primary);
   --fg-2: var(--text-secondary);
+  --fg-3: var(--text-tertiary);
   --muted: var(--text-secondary);
   --faint: var(--text-tertiary);
 
@@ -264,17 +265,17 @@ a { color: inherit; text-decoration: none; }
   display: inline-flex; align-items: center; gap: 3px;
   padding: 3px 8px; border-radius: 999px;
   font-size: 10px; font-weight: 700; letter-spacing: .04em;
-  color: white; background: linear-gradient(135deg, var(--gold-bright), var(--gold-soft));
+  color: var(--text-inverse); background: var(--gold-text);
   box-shadow: 0 2px 6px color-mix(in oklab, var(--premium) 30%, transparent);
 }
 .domain-featured-badge svg { width: 10px; height: 10px; fill: currentColor; }
 .domain-featured-dot { display: none; }
 .domain-name { display: flex; align-items: baseline; gap: 1px; }
 .domain-name a { display: inline-flex; align-items: baseline; transition: color var(--dur-1) var(--ease); }
-.domain-name strong { font-family: var(--font-display); font-size: clamp(22px, 2.2vw, 28px); font-weight: 600; letter-spacing: -.025em; color: var(--fg); }
-.domain-tld { font-family: var(--font-display); font-size: clamp(18px, 1.8vw, 22px); font-weight: 500; color: var(--muted); letter-spacing: -.02em; }
+.domain-name strong { font-size: clamp(22px, 2.2vw, 28px); font-weight: 600; letter-spacing: -.025em; color: var(--fg); }
+.domain-tld { font-size: clamp(18px, 1.8vw, 22px); font-weight: 500; color: var(--muted); letter-spacing: -.02em; }
 .domain-name a:hover { color: var(--brand); }
-.domain-card.featured .domain-name strong { color: color-mix(in oklab, var(--premium) 80%, var(--fg)); }
+.domain-card.featured .domain-name strong { color: var(--gold-text); }
 /* 复制/速览随访问按钮同排：footer 左访问、右图标（原为绝对定位右上角） */
 .domain-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
 .domain-card-footer .domain-visit { align-self: auto; }
@@ -1166,7 +1167,7 @@ a { color: inherit; text-decoration: none; }
 .keyword-pill {
   display: inline-flex; align-items: center; max-width: 100%; min-height: 22px; padding: 2px 8px;
   overflow: hidden; border: 1px solid color-mix(in oklab, var(--gold) 30%, transparent); border-radius: var(--radius-pill);
-  color: var(--gold-bright); background: none; font-family: var(--font-cjk); font-size: 10px; line-height: 1.35;
+  color: var(--gold-text); background: none; font-family: var(--font-cjk); font-size: 10px; line-height: 1.35;
   text-overflow: ellipsis; white-space: nowrap;
 }
 .detail-keywords { margin: 0 0 18px; }
@@ -1222,7 +1223,6 @@ a { color: inherit; text-decoration: none; }
 }
 .domain-detail-dialog::backdrop { background: rgba(9, 9, 8, .62); backdrop-filter: blur(8px); }
 .domain-detail-dialog > section { position: relative; padding: clamp(24px, 5vw, 44px); }
-.detail-kicker { display: block; margin-bottom: 10px; color: var(--brand-strong); font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em; }
 .domain-detail-dialog h2 { max-width: calc(100% - 42px); margin: 0; overflow-wrap: anywhere; font-family: var(--font-display); font-size: clamp(30px, 6vw, 54px); line-height: 1.08; letter-spacing: .01em; }
 .domain-detail-dialog h2 span { color: var(--muted); }
 .domain-detail-dialog .detail-badges { margin: 14px 0 20px; }
@@ -1430,19 +1430,10 @@ a { color: inherit; text-decoration: none; }
 .featured-detail-back { display: inline-flex; margin-bottom: 54px; color: var(--fg-3); font-size: 12px; }
 .featured-detail-back:hover { color: var(--brand-strong); }
 .featured-detail-hero { text-align: center; }
-.featured-detail-kicker {
-  display: block;
-  margin-bottom: 22px;
-  color: var(--brand-strong);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .28em;
-}
 .featured-detail-hero h1 {
   max-width: 100%;
   margin: 0;
-  color: var(--gold-bright);
+  color: var(--text-primary);
   font-family: var(--font-display);
   font-size: clamp(64px, 10vw, 138px);
   font-weight: 400;
@@ -1450,7 +1441,6 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: -.045em;
   overflow-wrap: anywhere;
   text-wrap: balance;
-  text-shadow: 0 8px 46px color-mix(in oklab, var(--brand) 17%, transparent);
 }
 .featured-detail-tags { margin: 34px auto 0; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .featured-detail-tags span {
@@ -1480,21 +1470,22 @@ a { color: inherit; text-decoration: none; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--brand);
+  border: 1px solid color-mix(in oklab, var(--gold-text) 45%, transparent);
   border-radius: 999px;
-  background: var(--brand-soft);
-  color: var(--brand-strong);
+  background: var(--gold-bg);
+  color: var(--gold-text);
   font-size: 13px;
   font-weight: 700;
   box-shadow: 0 16px 40px -28px var(--brand);
   transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
-.featured-detail-visit:hover { transform: translateY(-2px); background: color-mix(in oklab, var(--brand) 17%, var(--surface-1)); }
+@media (hover: hover) and (pointer: fine) {
+  .featured-detail-visit:hover { transform: translateY(-2px); background: var(--gold-bg-strong); }
+}
 
 .featured-related { margin-top: 104px; padding-top: 52px; border-top: 1px solid var(--border); }
 .featured-related-heading { margin-bottom: 34px; text-align: center; }
-.featured-related-heading span { color: var(--brand-strong); font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: .25em; }
-.featured-related-heading h2 { margin: 8px 0 0; font-size: 28px; letter-spacing: -.035em; }
+.featured-related-heading h2 { margin: 0; font-size: 28px; letter-spacing: -.035em; }
 .featured-related-group + .featured-related-group { margin-top: 34px; }
 .featured-related-group h3 { margin: 0 0 12px; color: var(--fg-3); font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .12em; }
 .featured-related-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -1775,10 +1766,10 @@ a { color: inherit; text-decoration: none; }
   justify-content: center;
   justify-self: end;
   gap: var(--space-2xs);
-  border: 1px solid var(--gold-border);
+  border: 1px solid color-mix(in oklab, var(--gold-text) 42%, transparent);
   border-radius: var(--radius-sm);
-  color: var(--gold-bright);
-  background: transparent;
+  color: var(--gold-text);
+  background: var(--gold-bg);
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 700;
@@ -1788,8 +1779,8 @@ a { color: inherit; text-decoration: none; }
 }
 .domain-visit:hover,
 .domain-visit:focus-visible {
-  border-color: var(--gold);
-  background: var(--gold-bg);
+  border-color: var(--gold-text);
+  background: var(--gold-bg-strong);
 }
 .domain-visit svg {
   width: 16px;
@@ -1936,7 +1927,7 @@ a { color: inherit; text-decoration: none; }
 .copy-filter-link:hover,
 .copy-filter-link:focus-visible {
   border-color: var(--gold-border);
-  color: var(--gold-bright);
+  color: var(--brand-strong);
   background: var(--surface-2);
 }
 .copy-filter-link:active { transform: scale(.96); }
@@ -1971,7 +1962,7 @@ a { color: inherit; text-decoration: none; }
 .empty-results .state-panel { min-height: 240px; border-bottom: 0; }
 .empty-recommendations { display: grid; gap: 18px; }
 .empty-recommendations > header span {
-  color: var(--gold-bright);
+  color: var(--brand-strong);
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 700;

@@ -1,6 +1,19 @@
 # WanMi HANDOFF
 
-## 最新进度（2026-07-17 · wanmi-final-prompt 方案落地）
+## 最新进度（2026-07-17 · 辨识度/清晰度专项）
+
+- 用户反馈：网页内容辨识度不高、看着不清晰。实测确认根因是浅底上大量使用亮金 `#d4b252` 作文字色（对比度仅约 1.9:1）：详情页大标题、「访问域名/访问该域名」按钮、速览价值维度卡大字、关键词 pill、精品卡域名、分页激活态等全部中招。
+- tokens.css 新增 `--gold-text`（浅色 `#7d641c`，实测约 5.3:1；暗色 `#e9cd7d`）作为浅底金色文字/文字级边框的唯一合法色；`--gold`/`--gold-bright` 仅留作渐变与装饰。design.md Theme 章节已写入该规则。
+- app.css 令牌映射 `--brand-strong`/`--premium-fg` 由 `--gold-bright` 改指 `--gold-text`，全站文字级金色一处修复；精品徽章改 `--gold-text` 实底 + `--text-inverse` 字（暗色自动变深字亮金底）；`--gold-text` 同步到关键词 pill、`domain-visit`、`featured-detail-visit`、copy-filter-link、空态推荐标题。
+- 详情页 h1 由亮金改 `--text-primary` 深色并去掉金色 text-shadow；`featured-detail-visit` 的 translateY hover 补回 `(hover:hover) and (pointer:fine)` 门控（项目 Motion 规范）。
+- 卡片域名（card-view）从 Cormorant Garamond 衬线改为 Manrope 700：`.domain-name strong`/`.domain-tld` 移除自写 `font-family` 后继承容器——`.public-shell .domain-list.card-view .domain-name` 早已声明 `font-ui` 700 却被 strong 自写字体挡住；compact 视图与 related 卡保持衬线。数字域名（00/008007 等）辨识度提升最明显。
+- 三级文字 `--text-tertiary` 浅色 `#86868b`→`#6e6e73`（3.4→4.7:1）、暗色 `#6e6e73`→`#8e8e93`；`--border` 0.08→0.10、`--border-strong` 0.14→0.18、`--border-subtle` 0.04→0.05，卡片轮廓与元数据更清晰。
+- 修复真实 bug：`--fg-3` 被 7 处引用（前台详情/后台 admin.css）但从未定义，`var(--fg-3)` 全部无效回退；已在 :root 补 `--fg-3: var(--text-tertiary)`。
+- SSR 详情页模板两处全大写英文 kicker（FEATURED DOMAIN ASSET / DISCOVER MORE）仍在产出，与上轮「三处 kicker 删除」决策不一致；已删除模板节点与 `.featured-detail-kicker`/`.detail-kicker`/`.featured-related-heading span` 死 CSS。
+- 品牌声明句修正：`862 个精选域名` 改为 `N 个域名，覆盖 M 个后缀，其中 K 个精选`（862 是全部，87 才是精选）。
+- 生产 `site_settings.accent_color` 已是 `#c4a242` 与 `--gold` 一致，无需变更；`pnpm check` 全绿；桌面/手机/暗色/速览/详情页截图人工复核通过。
+
+## 前序进度（2026-07-17 · wanmi-final-prompt 方案落地）
 
 - 依用户提供的最终优化方案执行，先逐项核实再实施；两项方案内容已过时（列表页 ItemList JSON-LD 与卡片 hover 位移均已存在），一项明确拒绝：LXGW WenKai（楷体风格与目录信息密度矛盾，3MB + font-display:optional 意味着慢网用户白下载还看不到；保持系统中文字体回退）。
 - 字体替换：display 字体 Instrument Serif → Cormorant Garamond（tokens/--font-display、fonts.css 由 fetch-fonts 重新生成、og.ts 的 TTF 与 font-family、api.test.ts 同步、旧文件删除、OFL 补齐）。fetch-fonts.ts 新增 EXTRA_TTF：用旧版 UA 请求 css2 拿 gstatic 静态 Regular TTF（290KB，google/fonts 仓库只有 1.1MB 变量字体，resvg 吃静态更稳）。

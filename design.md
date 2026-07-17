@@ -19,7 +19,8 @@ modern-minimal，结构优先，采用米白纸感底色、纯白卡片与暖金
 - Background：`#f7f7f5`（米白纸感）/ `#efefed`（次级底）
 - Surface：`#ffffff`（卡片）/ `#f3f3f1`（次级表面）
 - Brand Gold：`#c4a242`（浅色主题）/ `#d4b252`（暗色主题），唯一强调色
-- Border：`rgba(0,0,0,.08)`，强调边 `rgba(184,149,48,.28)`
+- Text Gold：`--gold-text`（浅色 `#7d641c` / 暗色 `#e9cd7d`）——浅底上一切金色**文字与文字级边框**必须用它（对比度 ≥4.5:1）；`--gold`/`--gold-bright` 仅作渐变、装饰与深色底用途，禁止直接作浅底文字色
+- Border：`rgba(0,0,0,.10)`，强调边用 `color-mix(in oklab, var(--gold-text) 42%, transparent)`
 - 禁止大面积金色渐变、重玻璃拟态、持续模糊、装饰光晕和渐变文字。
 
 ## Motion（2026-07-17 · 依 Emil Kowalski 设计工程原则）

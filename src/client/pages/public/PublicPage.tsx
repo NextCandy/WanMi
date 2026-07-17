@@ -323,7 +323,7 @@ export function PublicPage() {
       <main className="catalogue-layout">
         <section className="brand-statement">
           <h1>精选域名资产</h1>
-          <p>{facets ? `${facets.total_domains.toLocaleString("zh-CN")} 个精选域名，覆盖 ${facets.total_tlds} 个后缀。` : "精选短字符域名的展示目录。"}为你的下一个项目找到合适的域名。</p>
+          <p>{facets ? `${facets.total_domains.toLocaleString("zh-CN")} 个域名，覆盖 ${facets.total_tlds} 个后缀，其中 ${facets.total_featured} 个精选。` : "精选短字符域名的展示目录。"}为你的下一个项目找到合适的域名。</p>
         </section>
 
         <section className="domain-section" id="domains" aria-label="全部资产">
