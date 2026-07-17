@@ -1,6 +1,16 @@
 # WanMi HANDOFF
 
-## 最新进度（2026-07-17 · 首页布局与筛选修复）
+## 最新进度（2026-07-17 · 首页压缩与分类下拉）
+
+- 用户要求继续压缩首页：Hero 高度从 700px+ 压至约 366px（1440 宽实测），min-height 移除、padding/gap/字号/统计卡内边距整体收紧，1440×900 首屏可直接看到域名列表。
+- 移除 Hero 下的快捷分类链接行（全部/纯字母/纯数字/拼音/精品）与 `QUICK_LINKS` 常量。
+- 移除「全部资产」标题行与分类 pills 行（category-rail）及「更多分类」抽屉（categoryOpen 状态、ESC 处理一并清理）；`domain-section` 改用 `aria-label` 命名。
+- 新增「分类」下拉到筛选工具栏（最前）：复用既有 `categories` 数据与 `selectCategory`，选项含全部/精品/全部分类及计数（本地 21 项），精品对应 `category=精品` URL 序列化不变。
+- 「复制链接」按钮从标题行移入工具栏右侧汇总区（视图切换旁）。
+- `CATEGORY_ICONS` 与 categories 的 icon 字段成为死代码一并删除；CSS 用 postcss 移除 72 条死规则（hero-quick-links、asset-section-heading、category-rail/item/drawer 等），`copy-filter-link` 样式保留。
+- 22 张基线按新首页重建三轮稳定；三个前台 E2E 单独跑通过。
+
+## 前序进度（2026-07-17 · 首页布局与筛选修复）
 
 - 用户反馈三项问题并已全部修复上线：筛选下拉白底不可读、位数筛选只有 2/3 位、首页仍有精选资产区。
 - 下拉白底根因：Chromium 在 `select` 自身背景为透明时会把原生弹层退化为白底，而 option 文字继承暗色主题浅色，白底浅字不可读。`:root` 的 `color-scheme: dark` 无法阻止该退化（生产已验证存在仍复现）。修复是给 `select option` 显式深色背景与文字色（app.css 基础层）。

@@ -6,14 +6,6 @@ interface CatalogueHeroProps {
   totalFeatured: number;
 }
 
-const QUICK_LINKS = [
-  { label: "全部", href: "/domains" },
-  { label: "纯字母", href: "/domains?category=%E7%BA%AF%E5%AD%97%E6%AF%8D" },
-  { label: "纯数字", href: "/domains?category=%E7%BA%AF%E6%95%B0%E5%AD%97" },
-  { label: "拼音", href: "/domains?category=%E6%8B%BC%E9%9F%B3" },
-  { label: "精品", href: "/domains?category=%E7%B2%BE%E5%93%81" },
-] as const;
-
 function useAnimatedCount(value: number): number {
   const [display, setDisplay] = useState(0);
 
@@ -56,9 +48,6 @@ export function CatalogueHero({ totalDomains, totalTlds, totalFeatured }: Catalo
         <div><dd><strong>{animatedTlds.toLocaleString("zh-CN")}</strong><span>种后缀</span></dd><dt>后缀覆盖</dt></div>
         <div><dd><strong>{animatedFeatured.toLocaleString("zh-CN")}</strong><span>件精品</span></dd><dt>精选收藏</dt></div>
       </dl>
-      <nav className="hero-quick-links" aria-label="快速分类入口">
-        {QUICK_LINKS.map((item) => <a key={item.label} href={item.href}>{item.label}</a>)}
-      </nav>
     </section>
   );
 }

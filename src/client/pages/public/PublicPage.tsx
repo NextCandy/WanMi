@@ -52,12 +52,6 @@ const SORTS: Array<[SortKey, string]> = [
   ["random", "随机"],
 ];
 
-const CATEGORY_ICONS: Record<string, string> = {
-  "纯数字": "#", "三数字": "3", "四数字": "4", "五数字": "5", "六数字": "6", "七数字": "7", "八数字": "8", "九数字": "9",
-  "纯字母": "A", "三字母": "3A", "四字母": "4A", "拼音": "拼", "单拼": "单", "双拼": "双",
-  "三拼": "三", "四拼": "四", "英文词语": "En", "杂米": "◇", "二杂": "2◇", "三杂": "3◇",
-};
-
 interface Filters {
   q: string;
   tld: string;
@@ -180,7 +174,6 @@ export function PublicPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [contactOpen, setContactOpen] = useState(false);
-  const [categoryOpen, setCategoryOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [historyFocused, setHistoryFocused] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -277,23 +270,20 @@ export function PublicPage() {
   }, []);
 
   useEffect(() => {
-    if (!contactOpen && !categoryOpen) return;
+    if (!contactOpen) return;
     const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setContactOpen(false);
-        setCategoryOpen(false);
-      }
+      if (event.key === "Escape") setContactOpen(false);
     };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
-  }, [categoryOpen, contactOpen]);
+  }, [contactOpen]);
 
   const hasContact = Boolean(settings?.contact_email || settings?.contact_wechat || settings?.contact_telegram || settings?.contact_whatsapp || settings?.contact_x || settings?.contact_xiaohongshu || settings?.contact_qq);
   const hasActiveFilter = Boolean(filters.q || filters.tld || filters.category || filters.group !== "all" || filters.sort !== "default" || hasAdvancedFilters(filters.advanced));
   const categories = useMemo(() => [
-    { value: "", label: "全部", count: facets?.total_domains ?? 0, icon: "▦" },
-    { value: "__featured", label: "精品", count: facets?.total_featured ?? 0, icon: "☆" },
-    ...(facets?.categories ?? []).map((category) => ({ value: category, label: category, count: facets?.categoryCounts[category] ?? 0, icon: CATEGORY_ICONS[category] ?? category.slice(0, 1) })),
+    { value: "", label: "全部", count: facets?.total_domains ?? 0 },
+    { value: "__featured", label: "精品", count: facets?.total_featured ?? 0 },
+    ...(facets?.categories ?? []).map((category) => ({ value: category, label: category, count: facets?.categoryCounts[category] ?? 0 })),
   ], [facets]);
   const catalogueItems = pageData?.items ?? [];
   const displayedItems = favoritesOnly ? favorites.items : catalogueItems;
@@ -385,25 +375,7 @@ export function PublicPage() {
           totalFeatured={facets?.total_featured ?? 0}
         />
 
-        <section className="domain-section" id="domains" aria-labelledby="domain-section-title">
-          <header className="asset-section-heading all-assets-heading">
-            <h2 id="domain-section-title">全部资产</h2>
-            <div className="asset-heading-actions">
-              <span>{facets?.total_domains ?? 0} 个域名</span>
-              <button type="button" className="copy-filter-link" onClick={() => void copyFilterLink()}><LinkIcon />复制链接</button>
-            </div>
-          </header>
-          <aside className="category-rail" aria-label="域名分类">
-            <div className="category-list">
-              {categories.slice(0, 8).map((option) => {
-                const active = !favoritesOnly && (option.value === "__featured" ? filters.group === "featured" : filters.group !== "featured" && filters.category === option.value);
-                return <button type="button" className={active ? "category-item active" : "category-item"} aria-pressed={active} key={option.value || "all"} onClick={() => selectCategory(option.value)}>
-                  <span className="category-icon" aria-hidden="true">{option.icon}</span><span className="category-label">{option.label}</span><span className="category-count">{option.count}</span>
-                </button>;
-              })}
-              {categories.length > 8 && <button type="button" className="category-item more-categories" onClick={() => setCategoryOpen(true)}><span className="category-icon" aria-hidden="true">＋</span><span className="category-label">更多</span><span className="category-count">{categories.length - 8}</span></button>}
-            </div>
-          </aside>
+        <section className="domain-section" id="domains" aria-label="全部资产">
           <div className="catalogue-toolbar">
             <div
               className="search-area"
@@ -420,6 +392,7 @@ export function PublicPage() {
               {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" className="clear-search-history" aria-label="清除搜索历史" title="清除搜索历史" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
             </div>
             <div className="toolbar-filters">
+              <label><span>分类</span><select aria-label="分类筛选" value={filters.group === "featured" ? "__featured" : filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.map((option) => <option key={option.value || "all"} value={option.value}>{option.label}{option.count > 0 ? `（${option.count}）` : ""}</option>)}</select></label>
               <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
               <label><span>位数</span><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
                 const pick = event.target.value;
@@ -435,7 +408,7 @@ export function PublicPage() {
               <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
               <button type="button" className={`advanced-toggle${hasAdvancedFilters(filters.advanced) ? " active" : ""}`} aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((open) => !open)}>高级筛选{hasAdvancedFilters(filters.advanced) ? " · 已启用" : ""}</button>
             </div>
-            <div className="toolbar-summary"><span>{favoritesOnly ? `本地收藏 ${favorites.items.length} 个` : loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span><div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>{(hasActiveFilter || favoritesOnly) && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
+            <div className="toolbar-summary"><span>{favoritesOnly ? `本地收藏 ${favorites.items.length} 个` : loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span><div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div><button type="button" className="copy-filter-link" onClick={() => void copyFilterLink()}><LinkIcon />复制链接</button>{(hasActiveFilter || favoritesOnly) && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
             <AdvancedSearchPanel open={advancedOpen} value={filters.advanced} onClose={() => setAdvancedOpen(false)} onReset={() => setFilters((current) => ({ ...current, advanced: EMPTY_ADVANCED_FILTERS, page: 1 }))} onApply={(advanced) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, advanced, page: 1 })); setAdvancedOpen(false); }} />
           </div>
 
@@ -462,7 +435,6 @@ export function PublicPage() {
         </section>
       </main>
 
-      {categoryOpen && <div className="category-drawer-backdrop" onClick={() => setCategoryOpen(false)}><section className="category-drawer" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="更多分类"><header><h2>全部分类</h2><button type="button" onClick={() => setCategoryOpen(false)} aria-label="关闭分类">×</button></header><div>{categories.map((option) => <button type="button" key={option.value || "all"} onClick={() => { selectCategory(option.value); setCategoryOpen(false); }}><span>{option.icon}</span>{option.label}<small>{option.count}</small></button>)}</div></section></div>}
 
       <footer className="public-footer footer-grid"><div className="footer-brand"><strong>{settings?.site_name ?? "玩米"}</strong><span>{settings?.copyright_text || `© ${new Date().getFullYear()} 保留所有权利`}</span>{settings?.icp_number && <span>{settings.icp_number}</span>}</div>{settings && <ContactIcons settings={settings} notify={notify} />}<div className="footer-right">{settings?.show_admin_link_in_footer && <a className="footer-admin-link" href="/admin">管理</a>}</div></footer>
 
