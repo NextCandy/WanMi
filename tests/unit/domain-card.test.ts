@@ -39,8 +39,11 @@ describe("DomainCard", () => {
     expect(markup).toContain('class="domain-description placeholder"');
     expect(markup).toContain('class="meta-chip"');
     expect(markup).toContain(".ooo");
-    expect(markup).toContain("2 字符");
-    expect(markup).toContain("纯字母");
+    // 元数据只保留后缀与注册/到期/剩余天数；无日期数据时不渲染对应 chip
+    expect(markup).not.toContain("字符");
+    expect(markup).not.toContain("纯字母");
+    expect(markup).not.toContain("注册 ");
+    expect(markup).not.toContain("到期 ");
     expect(markup.match(/<button/g)).toHaveLength(2);
     expect(markup).toContain('aria-label="复制 mx.ooo"');
     expect(markup).toContain('aria-label="速览 mx.ooo"');
@@ -61,6 +64,16 @@ describe("DomainCard", () => {
 
     expect(markup).toContain("这是一个简短的品牌介绍");
     expect(markup).not.toContain("placeholder");
+  });
+
+  it("有生命周期数据时渲染注册/到期/剩余天数，临近到期加警示", () => {
+    const soon = new Date(Date.now() + 30 * 86_400_000).toISOString();
+    const markup = renderCard({ ...domain, registered_at: "2015-05-12T00:00:00.000Z", expires_at: soon });
+
+    expect(markup).toContain("注册 2015-05-12");
+    expect(markup).toContain(`到期 ${soon.slice(0, 10)}`);
+    expect(markup).toMatch(/剩 (29|30) 天/);
+    expect(markup).toContain("meta-chip-warning");
   });
 });
 
