@@ -20,7 +20,6 @@ interface DomainDescriptionInput {
   tld: string;
   length: number;
   type: string;
-  keywords: string[];
 }
 
 interface ChatCompletionResponse {
@@ -45,7 +44,6 @@ export function buildDomainDescriptionPrompt(template: string, input: DomainDesc
     tld: input.tld.replace(/^\./, ""),
     length: String(input.length),
     type: input.type || "未分类",
-    keywords: input.keywords.length > 0 ? input.keywords.join("、") : "暂无",
   };
   return Object.entries(values).reduce((prompt, [key, value]) => prompt.replaceAll(`{${key}}`, value), template);
 }

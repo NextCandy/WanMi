@@ -69,7 +69,7 @@
   font-family: var(--font-sans);
   color: var(--fg);
   background: var(--bg);
-  color-scheme: dark;
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

@@ -7,10 +7,8 @@ import { getDomainCharacterProfile, getPinyinMeaning, getTldHeat, getTldRegistry
 interface DomainDetailDialogProps {
   domain: PublicDomain | null;
   candidates: PublicDomain[];
-  favorite: boolean;
   onClose: () => void;
   onCopy: (domain: string) => void;
-  onFavorite: (domain: PublicDomain) => void;
   onSelect: (domain: PublicDomain) => void;
 }
 
@@ -20,7 +18,7 @@ function formatDate(value: string | null): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("zh-CN");
 }
 
-export function DomainDetailDialog({ domain, candidates, favorite, onClose, onCopy, onFavorite, onSelect }: DomainDetailDialogProps) {
+export function DomainDetailDialog({ domain, candidates, onClose, onCopy, onSelect }: DomainDetailDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [qrCode, setQrCode] = useState<{ domain: string; dataUrl: string } | null>(null);
   const similar = useMemo(() => domain ? getSimilarDomainGroups(domain, candidates) : { sameTld: [], sameLength: [] }, [candidates, domain]);
@@ -61,7 +59,6 @@ export function DomainDetailDialog({ domain, candidates, favorite, onClose, onCo
         <span className="detail-kicker">DOMAIN QUICK VIEW</span>
         <h2 id="quick-domain-title">{domain.name}<span>.{domain.tld}</span></h2>
         <div className="detail-badges">{domain.is_featured && <span className="chip chip-featured">精品域名</span>}{categories.map((category) => <span className="chip" key={category}>{category}</span>)}</div>
-        {domain.keywords.length > 0 && <div className="detail-keywords" aria-label={`${domain.domain} 关键词`}>{domain.keywords.map((keyword) => <span className="keyword-pill" key={keyword}>{keyword}</span>)}</div>}
         {domain.description && <p className="detail-description">{domain.description}</p>}
         <dl className="quick-detail-grid">
           <div><dt>完整域名</dt><dd>{domain.domain}</dd></div>
@@ -102,7 +99,6 @@ export function DomainDetailDialog({ domain, candidates, favorite, onClose, onCo
         </div>
         <div className="quick-detail-actions">
           <button type="button" className="secondary-button" onClick={() => onCopy(domain.domain)}>复制域名</button>
-          <button type="button" className="secondary-button" aria-pressed={favorite} onClick={() => onFavorite(domain)}>{favorite ? "取消收藏" : "收藏域名"}</button>
           <a className="secondary-button" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer">访问域名 ↗</a>
           {domain.is_featured && <a className="detail-page-link" href={`/d/${encodeURIComponent(domain.domain)}`}>查看详情页 →</a>}
         </div>

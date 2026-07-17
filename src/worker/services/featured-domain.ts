@@ -1,4 +1,3 @@
-import { parseKeywords } from "../../shared/keywords";
 import type {
   FeaturedDomainDetail,
   FeaturedDomainRecommendation,
@@ -11,7 +10,6 @@ interface FeaturedDomainRow {
   name: string;
   tld: string;
   description: string;
-  keywords: string;
   manual_category: string | null;
   category: string | null;
   auto_categories: string | null;
@@ -31,7 +29,7 @@ interface RecommendationRow {
 }
 
 const DETAIL_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld,
-  COALESCE(d.description, '') AS description, COALESCE(d.keywords, '') AS keywords,
+  COALESCE(d.description, '') AS description,
   NULLIF(d.category, '') AS manual_category,
   COALESCE(NULLIF(d.category, ''), NULLIF(d.auto_category, '')) AS category,
   (SELECT GROUP_CONCAT(dac.category, '|') FROM domain_auto_categories dac WHERE dac.domain_id = d.id) AS auto_categories,
@@ -91,7 +89,6 @@ export async function loadFeaturedDomainDetail(db: D1Database, normalizedDomain:
     name: row.name,
     tld: row.tld,
     description: row.description,
-    keywords: parseKeywords(row.keywords),
     category: row.category,
     categories,
     is_featured: true,
@@ -137,9 +134,9 @@ function detailRecommendationMarkup(title: string, items: FeaturedDomainRecommen
 
 export function renderFeaturedDomainSsr(detail: FeaturedDomainDetail): string {
   const domain = detail.domain;
-  const keywords = domain.keywords.length ? domain.keywords : domain.categories;
+  const keywords = domain.categories;
   const keywordMarkup = keywords.length
-    ? `<div class="featured-detail-tags" aria-label="${escapeHtml(domain.domain)} 关键词">${keywords.map((keyword) => `<span>${escapeHtml(keyword)}</span>`).join("")}</div>`
+    ? `<div class="featured-detail-tags" aria-label="${escapeHtml(domain.domain)} 分类">${keywords.map((keyword) => `<span>${escapeHtml(keyword)}</span>`).join("")}</div>`
     : "";
   const descriptionMarkup = domain.description
     ? `<p class="featured-detail-description">${escapeHtml(domain.description)}</p>`

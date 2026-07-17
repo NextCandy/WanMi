@@ -61,7 +61,7 @@ app.get("/", async (c) => {
   const title = `${site} · 精选域名展示`;
   const description = settings?.site_description || "发现值得珍藏的域名";
   const canonical = `${url.origin}/`;
-  const image = `${url.origin}/icon-512.png`;
+  const image = `${url.origin}/favicon.svg`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",

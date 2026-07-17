@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { parseDomainCsv } from "../../../shared/csv";
 import { normalizeDomain } from "../../../shared/domain";
 import { buildImportStatements, diffImportRecord, type ExistingDomainSnapshot } from "../../../shared/import-plan";
-import { parseKeywords } from "../../../shared/keywords";
 import {
   adminDomainQuerySchema,
   bulkDomainSchema,
@@ -40,7 +39,7 @@ async function existingDomainRows(db: D1Database, normalizedDomains: string[]): 
     const chunk = unique.slice(index, index + 80);
     statements.push(
       db.prepare(
-        `SELECT normalized_domain, registered_at, expires_at, registrar_name, description, keywords
+        `SELECT normalized_domain, registered_at, expires_at, registrar_name, description
          FROM domains WHERE normalized_domain IN (${chunk.map(() => "?").join(",")})`,
       ).bind(...chunk),
     );
@@ -171,8 +170,8 @@ domainAdminRoutes.post("/", async (c) => {
       `INSERT INTO domains (
         full_domain, normalized_domain, name, tld, category, is_featured, is_listed,
         public_price, public_price_currency, public_price_approved, notes, source,
-        description, keywords, registered_at, expires_at, registrar_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?, ?)`,
+        description, registered_at, expires_at, registrar_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?)`,
     )
       .bind(
         domain.fullDomain,
@@ -187,7 +186,6 @@ domainAdminRoutes.post("/", async (c) => {
         parsed.data.publicPriceApproved ? 1 : 0,
         parsed.data.notes ?? null,
         parsed.data.description ?? "",
-        parsed.data.keywords ?? "",
         dateAtUtcMidnight(parsed.data.registeredAt),
         dateAtUtcMidnight(parsed.data.expiresAt),
         parsed.data.registrarName || null,
@@ -216,12 +214,12 @@ domainAdminRoutes.get("/export", async (c) => {
   const result = await c.env.DB.prepare(
     `SELECT d.full_domain, d.tld, d.registered_at, d.expires_at,
       COALESCE(NULLIF(d.registrar_name, ''), '') AS registrar,
-      d.keywords, d.description
+      d.description
      FROM domains d
      WHERE ${where}
      ORDER BY d.normalized_domain ASC`,
   ).bind(...params).all();
-  const headers = ["域名", "后缀", "注册日期", "到期日期", "注册商", "关键词", "简介"];
+  const headers = ["域名", "后缀", "注册日期", "到期日期", "注册商", "简介"];
   const lines = [headers.map(csvCell).join(",")];
   for (const raw of result.results) {
     const row = raw;
@@ -229,7 +227,7 @@ domainAdminRoutes.get("/export", async (c) => {
       row.full_domain, typeof row.tld === "string" && row.tld ? `.${row.tld.replace(/^\./, "")}` : "",
       typeof row.registered_at === "string" ? row.registered_at.slice(0, 10) : "",
       typeof row.expires_at === "string" ? row.expires_at.slice(0, 10) : "",
-      row.registrar, row.keywords, row.description,
+      row.registrar, row.description,
     ].map(csvCell).join(","));
   }
   const user = c.get("authUser");
@@ -340,7 +338,7 @@ domainAdminRoutes.get("/import-errors/:id", async (c) => {
 domainAdminRoutes.post("/bulk", async (c) => {
   const parsed = bulkDomainSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return fail(c, 422, "INVALID_BULK_ACTION", "批量操作参数无效", parsed.error.issues);
-  const { ids, action, category, price, keywords } = parsed.data;
+  const { ids, action, category, price } = parsed.data;
   const placeholders = ids.map(() => "?").join(",");
   let sql: string;
   let params: Array<string | number | null> = ids;
@@ -353,9 +351,6 @@ domainAdminRoutes.post("/bulk", async (c) => {
     // 设置公开报价并自动过审；price 为 null 时清除报价
     sql = `UPDATE domains SET public_price = ?, public_price_approved = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
     params = [price ?? null, price ? 1 : 0, ...ids];
-  } else if (action === "keywords") {
-    sql = `UPDATE domains SET keywords = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
-    params = [keywords ?? "", ...ids];
   } else {
     sql = `UPDATE domains SET category = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
     params = [category ?? null, ...ids];
@@ -364,14 +359,12 @@ domainAdminRoutes.post("/bulk", async (c) => {
   const changed = Number(matched?.count ?? 0);
   await c.env.DB.prepare(sql).bind(...params).run();
   const user = c.get("authUser");
-  const message = action === "keywords"
-    ? `批量设置关键词，影响 ${changed} 个域名`
-    : `批量操作 ${action}，影响 ${changed} 个域名`;
+  const message = `批量操作 ${action}，影响 ${changed} 个域名`;
   await writeOperationLog(c.env.DB, {
     action: `domains.bulk.${action}`,
     resourceType: "domain",
     message,
-    details: { count: changed, ...(action === "keywords" ? { keywords: parseKeywords(keywords) } : {}) },
+    details: { count: changed },
     actorUserId: user.id,
     success: true,
   });
@@ -382,10 +375,9 @@ domainAdminRoutes.post("/:id/suggest-description", async (c) => {
   const id = Number(c.req.param("id"));
   const domain = await c.env.DB.prepare(
     `SELECT full_domain, tld, length(replace(name, '.', '')) AS name_length,
-      COALESCE(NULLIF(category, ''), NULLIF(auto_category, ''), NULLIF(auto_subcategory, ''), '未分类') AS domain_type,
-      keywords
+      COALESCE(NULLIF(category, ''), NULLIF(auto_category, ''), NULLIF(auto_subcategory, ''), '未分类') AS domain_type
      FROM domains WHERE id = ?`,
-  ).bind(id).first<{ full_domain: string; tld: string; name_length: number; domain_type: string; keywords: string }>();
+  ).bind(id).first<{ full_domain: string; tld: string; name_length: number; domain_type: string }>();
   if (!domain) return fail(c, 404, "DOMAIN_NOT_FOUND", "域名不存在");
   const config = await c.env.DB.prepare("SELECT * FROM ai_configs WHERE is_active = 1 LIMIT 1").first<AiConfigRow>();
   if (!config) return fail(c, 409, "AI_CONFIG_REQUIRED", "请先在站点设置中启用 AI 配置");
@@ -399,7 +391,6 @@ domainAdminRoutes.post("/:id/suggest-description", async (c) => {
       tld: domain.tld,
       length: Number(domain.name_length),
       type: domain.domain_type,
-      keywords: parseKeywords(domain.keywords),
     }, c.env.CREDENTIALS_ENCRYPTION_KEY);
     return ok(c, { description, config: { id: config.id, name: config.name, model: config.model } });
   } catch (error) {
@@ -431,7 +422,6 @@ domainAdminRoutes.patch("/:id", async (c) => {
     ["publicPriceApproved", "public_price_approved", (value) => (value ? 1 : 0)],
     ["notes", "notes", (value) => value as string | null],
     ["description", "description", (value) => value as string],
-    ["keywords", "keywords", (value) => value as string],
     ["registeredAt", "registered_at", (value) => dateAtUtcMidnight(value as string | null)],
     ["expiresAt", "expires_at", (value) => dateAtUtcMidnight(value as string | null)],
     ["registrarName", "registrar_name", (value) => typeof value === "string" && value ? value.trim() : null],

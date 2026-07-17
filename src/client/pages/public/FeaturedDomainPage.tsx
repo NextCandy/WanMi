@@ -43,7 +43,7 @@ export function FeaturedDomainPage() {
   }
 
   const domain = detail.domain;
-  const keywords = domain.keywords.length ? domain.keywords : domain.categories;
+  const categories = domain.categories;
   const updatedAt = domain.updated_at ? domain.updated_at.slice(0, 10) : "—";
 
   return (
@@ -58,7 +58,7 @@ export function FeaturedDomainPage() {
         <section className="featured-detail-hero">
           <span className="featured-detail-kicker">FEATURED DOMAIN ASSET</span>
           <h1>{domain.domain}</h1>
-          {keywords.length > 0 && <div className="featured-detail-tags" aria-label={`${domain.domain} 关键词`}>{keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}</div>}
+          {categories.length > 0 && <div className="featured-detail-tags" aria-label={`${domain.domain} 分类`}>{categories.map((category) => <span key={category}>{category}</span>)}</div>}
           {domain.description && <p className="featured-detail-description">{domain.description}</p>}
           <dl className="featured-detail-meta">
             <div><dt>后缀</dt><dd>.{domain.tld}</dd></div>

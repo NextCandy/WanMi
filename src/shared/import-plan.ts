@@ -15,7 +15,6 @@ export interface ExistingDomainSnapshot {
   expires_at: string | null;
   registrar_name: string | null;
   description: string | null;
-  keywords: string | null;
 }
 
 export interface ImportFieldDiff {
@@ -44,7 +43,6 @@ export function diffImportRecord(record: ParsedDomainRecord, existing: ExistingD
   if (record.initialExpiresAt !== null) push("expires_at", "到期日期", dateKey(existing.expires_at), dateKey(record.initialExpiresAt));
   if (record.initialRegistrarName !== null) push("registrar_name", "注册商", existing.registrar_name ?? "", record.initialRegistrarName);
   if (record.initialDescription !== "") push("description", "简介", existing.description ?? "", record.initialDescription);
-  if (record.initialKeywords !== "") push("keywords", "关键词", existing.keywords ?? "", record.initialKeywords);
   return diffs;
 }
 
@@ -59,7 +57,6 @@ const STAGING_COLUMNS = [
   "source_file",
   "raw_metadata_json",
   "description",
-  "keywords",
   "is_featured",
   "auto_category",
   "auto_subcategory",
@@ -85,7 +82,6 @@ function recordParams(
     "domain-list",
     "{}",
     record.initialDescription,
-    record.initialKeywords,
     record.initialFeatured ? 1 : 0,
     classification.primary,
     classification.subtype,
@@ -124,7 +120,6 @@ export function buildImportStatements(
           expires_at = COALESCE(excluded.expires_at, domains.expires_at),
           registrar_name = COALESCE(excluded.registrar_name, domains.registrar_name),
           description = CASE WHEN excluded.description != '' THEN excluded.description ELSE domains.description END,
-          keywords = CASE WHEN excluded.keywords != '' THEN excluded.keywords ELSE domains.keywords END,
           updated_at = CURRENT_TIMESTAMP`;
   const statements: SqlStatement[] = [
     {
@@ -148,10 +143,10 @@ export function buildImportStatements(
     },
     {
       sql: `INSERT INTO domains (
-          full_domain, normalized_domain, name, tld, is_listed, source, source_imported_at, description, keywords, is_featured,
+          full_domain, normalized_domain, name, tld, is_listed, source, source_imported_at, description, is_featured,
           auto_category, auto_subcategory, auto_category_confidence, registered_at, expires_at, registrar_name
         )
-        SELECT full_domain, normalized_domain, name, tld, 1, 'domain-list', NULL, description, keywords, is_featured,
+        SELECT full_domain, normalized_domain, name, tld, 1, 'domain-list', NULL, description, is_featured,
           auto_category, auto_subcategory, auto_category_confidence, registered_at, expires_at, registrar_name
         FROM domain_import_staging WHERE import_id = ?
         ${conflictClause}`,

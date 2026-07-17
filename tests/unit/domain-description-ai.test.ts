@@ -35,24 +35,22 @@ async function configuredRow(): Promise<AiConfigRow> {
 }
 
 describe("域名简介 AI 服务", () => {
-  it("使用 DeepSeek V4 Flash 默认配置并替换全部简介变量", () => {
-    expect(DEFAULT_AI_MODEL).toBe("deepseek-v4-flash");
+  it("使用 deepseek-chat 默认配置并替换全部简介变量", () => {
+    expect(DEFAULT_AI_MODEL).toBe("deepseek-chat");
     const prompt = buildDomainDescriptionPrompt(DEFAULT_DOMAIN_DESCRIPTION_PROMPT, {
       domain: "02cloud.com",
       tld: "com",
       length: 7,
       type: "杂米",
-      keywords: ["云服务", "品牌"],
     });
     expect(prompt).toContain("域名「02cloud.com」");
     expect(prompt).toContain("后缀：com");
     expect(prompt).toContain("主体长度：7");
     expect(prompt).toContain("类型：杂米");
-    expect(prompt).toContain("关键词：云服务、品牌");
   });
 
   it("清理模型包装文本并拒绝没有中文内容的响应", () => {
-    expect(extractDomainDescription("简介：\n“适合塑造云服务与数字品牌形象的简洁域名。”")).toBe("适合塑造云服务与数字品牌形象的简洁域名。");
+    expect(extractDomainDescription(`简介：\n"适合塑造云服务与数字品牌形象的简洁域名。"`)).toBe("适合塑造云服务与数字品牌形象的简洁域名。");
     expect(() => extractDomainDescription("cloud brand only")).toThrow("AI 未返回有效的中文简介");
   });
 
@@ -71,7 +69,7 @@ describe("域名简介 AI 服务", () => {
       expect(url).toBe("https://api.deepseek.com/chat/completions");
       expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer sk-unit-secret");
       const body = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { model: string; messages: Array<{ content: string }> };
-      expect(body.model).toBe("deepseek-v4-flash");
+      expect(body.model).toBe("deepseek-chat");
       expect(body.messages[0].content).toContain("02cloud.com");
       return Response.json({ choices: [{ message: { content: "面向云计算与数字服务场景，名称简洁易记，兼具科技感与品牌延展空间。" } }] });
     });
@@ -80,7 +78,6 @@ describe("域名简介 AI 服务", () => {
       tld: "com",
       length: 7,
       type: "杂米",
-      keywords: [],
     }, encryptionKey, fetcher as typeof fetch)).resolves.toContain("品牌延展空间");
     expect(fetcher).toHaveBeenCalledOnce();
   });
@@ -109,7 +106,6 @@ describe("域名简介 AI 服务", () => {
       tld: "com",
       length: 7,
       type: "杂米",
-      keywords: [],
     }, encryptionKey, fetcher as typeof fetch)).resolves.toContain("科技属性");
   });
 });

@@ -27,7 +27,7 @@ INSERT OR IGNORE INTO ai_configs (
   'DeepSeek 默认配置',
   'deepseek',
   'https://api.deepseek.com',
-  'deepseek-v4-flash',
-  '你是中文域名品牌文案编辑。请为域名「{domain}」撰写一段 40-80 字的中文简介。后缀：{tld}；主体长度：{length}；类型：{type}；关键词：{keywords}。突出可能的品牌联想与适用方向，不虚构流量、收入、交易、报价或所有权信息。只输出简介正文，不要标题、引号或解释。',
+  'deepseek-chat',
+  '你是中文域名品牌文案编辑。请为域名「{domain}」撰写一段 40-80 字的中文简介。后缀：{tld}；主体长度：{length}；类型：{type}。突出可能的品牌联想与适用方向，不虚构流量、收入、交易、报价或所有权信息。只输出简介正文，不要标题、引号或解释。',
   1
 );

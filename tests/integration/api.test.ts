@@ -159,8 +159,6 @@ describe.sequential("WanMi API 集成", () => {
     targetId = body.data.items[0].id as number;
     expect(body.data.items[0]).not.toHaveProperty("notes");
     expect(body.data.items[0]).toHaveProperty("description", "");
-    expect(body.data.items[0]).toHaveProperty("keywords");
-    expect(body.data.items[0].keywords).toEqual([]);
     expect(body.data.items[0]).not.toHaveProperty("listing_status");
     const all = await (await request("/api/public/domains?pageSize=100")).json() as { data: { total: number } };
     expect(all.data.total).toBe(859);
@@ -303,7 +301,7 @@ describe.sequential("WanMi API 集成", () => {
     const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
     const initial = await (await request("/api/admin/ai-configs", { headers })).json() as { data: { items: Array<Record<string, unknown>> } };
     expect(initial.data.items).toHaveLength(1);
-    expect(initial.data.items[0]).toMatchObject({ id: "deepseek-default", provider: "deepseek", model: "deepseek-v4-flash", isActive: true, configured: false });
+    expect(initial.data.items[0]).toMatchObject({ id: "deepseek-default", provider: "deepseek", model: "deepseek-chat", isActive: true, configured: false });
     expect(initial.data.items[0]).not.toHaveProperty("apiKey");
 
     const defaultUpdated = await request("/api/admin/ai-configs/deepseek-default", {
@@ -323,7 +321,7 @@ describe.sequential("WanMi API 集成", () => {
         baseUrl: "https://ai.example.test/v1",
         model: "example-chat",
         apiKey: "sk-integration-secondary",
-        promptTemplate: "请为 {domain} 生成中文简介，后缀 {tld}，长度 {length}，类型 {type}，关键词 {keywords}，只输出正文。",
+        promptTemplate: "请为 {domain} 生成中文简介，后缀 {tld}，长度 {length}，类型 {type}，只输出正文。",
       }),
     });
     expect(created.status).toBe(201);
@@ -370,22 +368,6 @@ describe.sequential("WanMi API 集成", () => {
     expect(Number(log?.count)).toBeGreaterThanOrEqual(5);
   });
 
-  it("批量设置关键词会规范化内容并写入操作日志", async () => {
-    const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
-    const second = await env.DB.prepare("SELECT id FROM domains WHERE id != ? ORDER BY id LIMIT 1").bind(targetId).first<{ id: number }>();
-    expect(second).toBeTruthy();
-    const ids = [targetId, second!.id];
-    const response = await request("/api/admin/domains/bulk", { method: "POST", headers, body: JSON.stringify({ ids, action: "keywords", keywords: "品牌，云服务、未来" }) });
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ data: { changed: 2 } });
-    const rows = await env.DB.prepare(`SELECT keywords FROM domains WHERE id IN (${ids.map(() => "?").join(",")}) ORDER BY id`).bind(...ids).all<{ keywords: string }>();
-    expect(rows.results.map((row) => row.keywords)).toEqual(["品牌,云服务,未来", "品牌,云服务,未来"]);
-    const log = await env.DB.prepare("SELECT action, message, details_json FROM operation_logs WHERE action = 'domains.bulk.keywords' ORDER BY id DESC LIMIT 1").first<{ action: string; message: string; details_json: string }>();
-    expect(log).toMatchObject({ action: "domains.bulk.keywords", message: "批量设置关键词，影响 2 个域名" });
-    expect(JSON.parse(log!.details_json)).toMatchObject({ count: 2, keywords: ["品牌", "云服务", "未来"] });
-    expect((await request("/api/admin/domains/bulk", { method: "POST", headers, body: JSON.stringify({ ids, action: "keywords", keywords: "" }) })).status).toBe(200);
-  });
-
   it("精品状态会立即影响公开精品筛选", async () => {
     const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
     expect((await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ isFeatured: true }) })).status).toBe(200);
@@ -399,15 +381,15 @@ describe.sequential("WanMi API 集成", () => {
 
   it("管理员生命周期资料、关键词、简介与精品修改会保存，公开字段立即映射且可恢复", async () => {
     const headers = { Origin: origin, Cookie: cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json" };
-    const changed = await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ keywords: "梦想，模型、品牌", description: "集成测试简介", isFeatured: true, registeredAt: "2025-01-07", expiresAt: "2027-01-07", registrarName: "Spaceship" }) });
+    const changed = await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ description: "集成测试简介", isFeatured: true, registeredAt: "2025-01-07", expiresAt: "2027-01-07", registrarName: "Spaceship" }) });
     expect(changed.status).toBe(200);
-    const changedBody = await changed.json() as { data: { keywords: string; description: string; is_featured: number; registered_at: string; expires_at: string; registrar_name: string } };
-    expect(changedBody.data).toMatchObject({ keywords: "梦想,模型,品牌", description: "集成测试简介", is_featured: 1, registrar_name: "Spaceship" });
+    const changedBody = await changed.json() as { data: { description: string; is_featured: number; registered_at: string; expires_at: string; registrar_name: string } };
+    expect(changedBody.data).toMatchObject({ description: "集成测试简介", is_featured: 1, registrar_name: "Spaceship" });
     expect(changedBody.data.registered_at.startsWith("2025-01-07")).toBe(true);
     expect(changedBody.data.expires_at.startsWith("2027-01-07")).toBe(true);
-    const visible = await (await request("/api/public/domains?q=02cloud.com")).json() as { data: { items: Array<{ keywords: string[]; description: string; is_featured: boolean }> } };
-    expect(visible.data.items[0]).toMatchObject({ keywords: ["梦想", "模型", "品牌"], description: "集成测试简介", is_featured: true });
-    expect((await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ keywords: [], description: "", isFeatured: false }) })).status).toBe(200);
+    const visible = await (await request("/api/public/domains?q=02cloud.com")).json() as { data: { items: Array<{ description: string; is_featured: boolean }> } };
+    expect(visible.data.items[0]).toMatchObject({ description: "集成测试简介", is_featured: true });
+    expect((await request(`/api/admin/domains/${targetId}`, { method: "PATCH", headers, body: JSON.stringify({ description: "", isFeatured: false }) })).status).toBe(200);
   });
 
   // 注册商 / DNS 解析 / 求购线索已整体移除，对应端点必须不再可达

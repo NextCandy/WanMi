@@ -1,59 +1,59 @@
 /* ============================================================
-   WanMi Design Tokens · Black Gold Domain Asset Vault
-   —— 纯黑 OLED 背景 + 暖黑表面 + 香槟金强调
+   WanMi Design Tokens · Soft Light Domain Asset Vault
+   —— 米白背景 + 柔和调淡金强调
    —— 前台 / 详情 / 后台 / 登录共用这一套令牌
    —— 组件内禁止硬编码色值，一律引用这里的变量
    ============================================================ */
 
 :root {
-  /* Background —— 纯黑 OLED */
-  --background: #000000;
-  --background-soft: #080808;
+  /* Background —— 米白柔和 */
+  --background: #f7f7f5;
+  --background-soft: #efefed;
 
-  /* Surface —— 暖黑分层 */
-  --surface: #151515;
-  --surface-secondary: #1a1a1a;
-  --surface-elevated: #1e1e1e;
-  --surface-hover: #232323;
+  /* Surface —— 白色分层 */
+  --surface: #ffffff;
+  --surface-secondary: #f3f3f1;
+  --surface-elevated: #ffffff;
+  --surface-hover: #f7f7f5;
 
   /* Border —— 细边框，靠透明度分级 */
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  --border-subtle: rgba(0, 0, 0, 0.04);
 
-  /* Brand Gold —— 唯一强调色 */
-  --gold: #d8b638;
-  --gold-bright: #e7c542;
-  --gold-soft: #c8a932;
-  --gold-muted: #88752e;
-  --gold-bg: rgba(216, 182, 56, 0.12);
-  --gold-bg-strong: rgba(216, 182, 56, 0.2);
-  --gold-border: rgba(216, 182, 56, 0.32);
-  --gold-divider: rgba(216, 182, 56, 0.3);
+  /* Brand Gold —— 调淡金强调色 */
+  --gold: #b89530;
+  --gold-bright: #c9a23a;
+  --gold-soft: #a6862b;
+  --gold-muted: #8a7a4a;
+  --gold-bg: rgba(184, 149, 48, 0.10);
+  --gold-bg-strong: rgba(184, 149, 48, 0.18);
+  --gold-border: rgba(184, 149, 48, 0.28);
+  --gold-divider: rgba(184, 149, 48, 0.24);
 
   /* Text */
-  --text-primary: #f5f5f7;
-  --text-secondary: #a1a1a6;
-  --text-tertiary: #6e6e73;
-  --text-inverse: #050505;
+  --text-primary: #1d1d1f;
+  --text-secondary: #515154;
+  --text-tertiary: #86868b;
+  --text-inverse: #f7f7f5;
 
   /* Semantic */
-  --success: #30c969;
-  --warning: #d99416;
-  --danger: #ef4444;
+  --success: #2d9a4e;
+  --warning: #c97d12;
+  --danger: #d63b3b;
   --info: #3976d8;
 
-  --success-bg: rgba(48, 201, 105, 0.12);
-  --warning-bg: rgba(217, 148, 22, 0.12);
-  --danger-bg: rgba(239, 68, 68, 0.12);
-  --info-bg: rgba(57, 118, 216, 0.12);
+  --success-bg: rgba(45, 154, 78, 0.10);
+  --warning-bg: rgba(201, 125, 18, 0.10);
+  --danger-bg: rgba(214, 59, 59, 0.10);
+  --info-bg: rgba(57, 118, 216, 0.10);
 
-  /* 反差亮卡：首页资产总览（香槟 → 奶油，极轻渐变） */
-  --cream-a: #f5efd9;
-  --cream-b: #e9d99b;
-  --cream-fg: #090909;
-  --cream-fg-soft: rgba(9, 9, 9, 0.62);
-  --cream-rule: rgba(9, 9, 9, 0.14);
+  /* 暖色高亮卡：浅色下微暖高亮 */
+  --cream-a: #fdf6e3;
+  --cream-b: #f5edd0;
+  --cream-fg: #3a3220;
+  --cream-fg-soft: rgba(58, 50, 32, 0.62);
+  --cream-rule: rgba(58, 50, 32, 0.14);
 
   /* Typography */
   --font-display: "Instrument Serif", "Songti SC", "Noto Serif SC", ui-serif, Georgia, serif;
@@ -82,12 +82,12 @@
   --space-xl: 48px;
   --space-2xl: 64px;
 
-  /* Elevation —— 弱阴影，靠内高光提层次 */
-  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 32px rgba(0, 0, 0, 0.28);
-  --shadow-card-hover: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 48px rgba(0, 0, 0, 0.38);
-  --shadow-panel: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 20px 56px rgba(0, 0, 0, 0.34);
-  --shadow-modal: 0 32px 90px rgba(0, 0, 0, 0.62);
-  --glow-gold: 0 0 24px rgba(216, 182, 56, 0.1);
+  /* Elevation —— 浅色下柔和阴影 */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --shadow-panel: 0 12px 40px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-modal: 0 24px 70px rgba(0, 0, 0, 0.16);
+  --glow-gold: 0 0 16px rgba(184, 149, 48, 0.08);
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);

@@ -117,7 +117,6 @@ aiConfigRoutes.post("/ai-configs/:id/test", async (c) => {
       tld: "org",
       length: 5,
       type: "英文",
-      keywords: ["域名", "品牌"],
     }, c.env.CREDENTIALS_ENCRYPTION_KEY);
     await writeOperationLog(c.env.DB, {
       action: "ai.config.test",

@@ -1,7 +1,6 @@
 import { parse } from "csv-parse/browser/esm/sync";
 
 import { DomainValidationError, normalizeDomain } from "./domain";
-import { serializeKeywords } from "./keywords";
 import {
   DOMAIN_CSV_HEADERS,
   type DomainCsvIssue,
@@ -112,7 +111,6 @@ function parseMinimalDomainCsv(
   const startRow = headerless ? 0 : 1;
   const column = headerless ? 0 : domainColumn;
   const descriptionColumn = headers.findIndex((header) => /^(description|简介)$/i.test(header));
-  const keywordsColumn = headers.findIndex((header) => /^(keywords?|关键词)$/i.test(header));
   const premiumColumn = headers.findIndex((header) => /^(premium|精品|是否精品)$/i.test(header));
   const registeredColumn = headers.findIndex((header) => /^(registered(_at)?|registration date|注册日期)$/i.test(header));
   const expiresColumn = headers.findIndex((header) => /^(expires(_at)?|expiry date|expiration date|到期日期)$/i.test(header));
@@ -168,7 +166,6 @@ function parseMinimalDomainCsv(
         dateAddedAt: null,
         rawMetadataJson: JSON.stringify({ Domain: rawDomain }),
         initialDescription: descriptionColumn >= 0 ? (values[descriptionColumn] ?? "").trim().slice(0, 500) : "",
-        initialKeywords: keywordsColumn >= 0 ? serializeKeywords((values[keywordsColumn] ?? "").slice(0, 500)) : "",
         initialFeatured: premiumColumn >= 0 && /^(1|y|yes|true|是|精品)$/i.test((values[premiumColumn] ?? "").trim()),
         initialRegisteredAt: registeredColumn >= 0 ? importedDate(values[registeredColumn] ?? "") : null,
         initialExpiresAt: expiresColumn >= 0 ? importedDate(values[expiresColumn] ?? "") : null,
@@ -240,7 +237,6 @@ export function parseDomainCsv(
   const tldDistribution: Record<string, number> = {};
   let emptyLineCount = 0;
   let nonEmptyDomainCount = 0;
-  const keywordsColumn = headers.findIndex((header) => /^(keywords?|关键词)$/i.test(header));
 
   for (let index = 1; index < matrix.length; index += 1) {
     const values = matrix[index];
@@ -306,7 +302,6 @@ export function parseDomainCsv(
         dateAddedAt: utcDate(raw["Date Added (UTC)"]),
         rawMetadataJson: JSON.stringify(raw),
         initialDescription: "",
-        initialKeywords: keywordsColumn >= 0 ? serializeKeywords((values[keywordsColumn] ?? "").slice(0, 500)) : "",
         initialFeatured: false,
         initialRegisteredAt: null,
         initialExpiresAt: null,

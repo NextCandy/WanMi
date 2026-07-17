@@ -12,7 +12,6 @@ import { DomainCard } from "../../components/DomainCard";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
 import { PublicBottomNav } from "../../components/PublicBottomNav";
 import { Toast, type ToastMessage } from "../../components/Toast";
-import { useDomainFavorites } from "../../hooks/useDomainFavorites";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { useTracker } from "../../hooks/useTracker";
 import { api } from "../../lib/api";
@@ -68,7 +67,6 @@ function initialFilters(): Filters {
   const group = params.get("group");
   const category = params.get("category") ?? "";
   const kind = params.get("kind") as DomainKind | null;
-  // 历史 URL 曾用 group=two/three 表示 2/3 位，现统一由 minLength/maxLength 表达；显式参数优先
   const legacyLength = group === "two" ? "2" : group === "three" ? "3" : "";
   return {
     q: params.get("q") ?? "",
@@ -91,7 +89,6 @@ function groupParams(group: GroupKey): Record<string, string> {
   return group === "featured" ? { featured: "true" } : {};
 }
 
-/** 位数下拉与高级筛选共用 minLength/maxLength：1-9 位为等值区间，10 位以上只设下限 */
 function lengthPickOf(advanced: AdvancedFilterValue): string {
   if (!advanced.minLength && !advanced.maxLength) return "all";
   if (advanced.minLength === "10" && !advanced.maxLength) return "10plus";
@@ -151,10 +148,6 @@ function TrashIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>;
 }
 
-function LinkIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/></svg>;
-}
-
 function pickRandomDomains(domains: PublicDomain[], count: number): PublicDomain[] {
   const shuffled = domains.filter((domain) => domain.is_featured).slice();
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -173,17 +166,14 @@ export function PublicPage() {
   const [draftSearch, setDraftSearch] = useState(filters.q);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [contactOpen, setContactOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [historyFocused, setHistoryFocused] = useState(false);
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"cards" | "compact">("cards");
   const [selectedDomain, setSelectedDomain] = useState<PublicDomain | null>(null);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const dataVersion = useRef("");
   const requestSequence = useRef(0);
-  const favorites = useDomainFavorites();
   const history = useSearchHistory();
 
   const notify = useCallback((text: string, tone: "success" | "error" = "success") => {
@@ -231,7 +221,6 @@ export function PublicPage() {
       .then((result) => {
         if (sequence !== requestSequence.current) return;
         setPageData(result);
-        favorites.sync(result.items);
       })
       .catch((reason: unknown) => {
         if (sequence === requestSequence.current) setError(reason instanceof Error ? reason.message : "域名加载失败");
@@ -239,7 +228,7 @@ export function PublicPage() {
       .finally(() => {
         if (sequence === requestSequence.current) setLoading(false);
       });
-  }, [filters, favorites.sync]);
+  }, [filters]);
 
   useEffect(() => {
     let active = true;
@@ -269,16 +258,6 @@ export function PublicPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!contactOpen) return;
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setContactOpen(false);
-    };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [contactOpen]);
-
-  const hasContact = Boolean(settings?.contact_email || settings?.contact_wechat || settings?.contact_telegram || settings?.contact_whatsapp || settings?.contact_x || settings?.contact_xiaohongshu || settings?.contact_qq);
   const hasActiveFilter = Boolean(filters.q || filters.tld || filters.category || filters.group !== "all" || filters.sort !== "default" || hasAdvancedFilters(filters.advanced));
   const categories = useMemo(() => [
     { value: "", label: "全部", count: facets?.total_domains ?? 0 },
@@ -286,14 +265,13 @@ export function PublicPage() {
     ...(facets?.categories ?? []).map((category) => ({ value: category, label: category, count: facets?.categoryCounts[category] ?? 0 })),
   ], [facets]);
   const catalogueItems = pageData?.items ?? [];
-  const displayedItems = favoritesOnly ? favorites.items : catalogueItems;
+  const displayedItems = catalogueItems;
   const emptyRecommendations = useMemo(() => pickRandomDomains(facets?.featured_domains ?? [], 3), [facets?.featured_domains]);
 
   function applySearch(value: string) {
     const query = value.trim();
     setDraftSearch(query);
     if (query) history.add(query);
-    setFavoritesOnly(false);
     setHistoryFocused(false);
     setFilters((current) => ({ ...current, q: query, page: 1 }));
   }
@@ -305,14 +283,12 @@ export function PublicPage() {
 
   function resetFilters() {
     setDraftSearch("");
-    setFavoritesOnly(false);
     setAdvancedOpen(false);
     setHistoryFocused(false);
     setFilters({ q: "", tld: "", category: "", group: "all", sort: "default", page: 1, advanced: EMPTY_ADVANCED_FILTERS });
   }
 
   function selectCategory(value: string) {
-    setFavoritesOnly(false);
     setFilters((current) => value === "__featured"
       ? { ...current, category: "", group: "featured", page: 1 }
       : { ...current, category: value, group: "all", page: 1 });
@@ -322,17 +298,6 @@ export function PublicPage() {
     if (await copyText(domain)) notify(`已复制 ${domain}`);
     else notify("复制失败，请手动复制", "error");
   }, [notify]);
-
-  const copyFilterLink = useCallback(async () => {
-    if (await copyText(window.location.href)) notify("链接已复制");
-    else notify("复制失败，请手动复制", "error");
-  }, [notify]);
-
-  const toggleFavorite = useCallback((domain: PublicDomain) => {
-    const willFavorite = !favorites.ids.has(domain.id);
-    favorites.toggle(domain);
-    notify(willFavorite ? `已收藏 ${domain.domain}` : `已取消收藏 ${domain.domain}`);
-  }, [favorites.ids, favorites.toggle, notify]);
 
   function discoverRandom() {
     const pool = displayedItems.length ? displayedItems : catalogueItems;
@@ -348,32 +313,17 @@ export function PublicPage() {
     window.setTimeout(() => setHighlightedId((current) => current === chosen.id ? null : current), 1800);
   }
 
-  function showFavorites() {
-    setFavoritesOnly(true);
-    setAdvancedOpen(false);
-    document.getElementById("domains")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   return (
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
       <header className="public-header">
         <a className="brand" href="/" aria-label="玩米首页">
           {settings?.logo_url ? <img src={settings.logo_url} alt="玩米 Logo" decoding="async" fetchPriority="high" /> : <span className="brand-mark">玩米</span>}
         </a>
-        <nav>
-          <a className={!favoritesOnly ? "active" : ""} href="#domains" onClick={() => setFavoritesOnly(false)}>域名</a>
-          <button type="button" className={favoritesOnly ? "active text-button" : "text-button"} onClick={showFavorites}>收藏 <small>{favorites.items.length}</small></button>
-          {hasContact && <button type="button" className="text-button" onClick={() => setContactOpen(true)}>联系</button>}
-        </nav>
         <div className="header-actions"><button type="button" className="header-discover" onClick={discoverRandom}>随机发现</button></div>
       </header>
 
       <main className="catalogue-layout">
-        <CatalogueHero
-          totalDomains={facets?.total_domains ?? 0}
-          totalTlds={facets?.total_tlds ?? 0}
-          totalFeatured={facets?.total_featured ?? 0}
-        />
+        <CatalogueHero />
 
         <section className="domain-section" id="domains" aria-label="全部资产">
           <div className="catalogue-toolbar">
@@ -393,11 +343,10 @@ export function PublicPage() {
             </div>
             <div className="toolbar-filters">
               <label><span>分类</span><select aria-label="分类筛选" value={filters.group === "featured" ? "__featured" : filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.map((option) => <option key={option.value || "all"} value={option.value}>{option.label}{option.count > 0 ? `（${option.count}）` : ""}</option>)}</select></label>
-              <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
+              <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
               <label><span>位数</span><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
                 const pick = event.target.value;
                 const range = pick === "all" ? { minLength: "", maxLength: "" } : pick === "10plus" ? { minLength: "10", maxLength: "" } : { minLength: pick, maxLength: pick };
-                setFavoritesOnly(false);
                 setFilters((current) => ({ ...current, advanced: { ...current.advanced, ...range }, page: 1 }));
               }}>
                 <option value="all">全部</option>
@@ -405,42 +354,38 @@ export function PublicPage() {
                 {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} 位</option>)}
                 <option value="10plus">10 位以上</option>
               </select></label>
-              <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
+              <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
               <button type="button" className={`advanced-toggle${hasAdvancedFilters(filters.advanced) ? " active" : ""}`} aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((open) => !open)}>高级筛选{hasAdvancedFilters(filters.advanced) ? " · 已启用" : ""}</button>
             </div>
-            <div className="toolbar-summary"><span>{favoritesOnly ? `本地收藏 ${favorites.items.length} 个` : loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span><div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div><button type="button" className="copy-filter-link" onClick={() => void copyFilterLink()}><LinkIcon />复制链接</button>{(hasActiveFilter || favoritesOnly) && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
-            <AdvancedSearchPanel open={advancedOpen} value={filters.advanced} onClose={() => setAdvancedOpen(false)} onReset={() => setFilters((current) => ({ ...current, advanced: EMPTY_ADVANCED_FILTERS, page: 1 }))} onApply={(advanced) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, advanced, page: 1 })); setAdvancedOpen(false); }} />
+            <div className="toolbar-summary"><span>{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span><div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>{hasActiveFilter && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
+            <AdvancedSearchPanel open={advancedOpen} value={filters.advanced} onClose={() => setAdvancedOpen(false)} onReset={() => setFilters((current) => ({ ...current, advanced: EMPTY_ADVANCED_FILTERS, page: 1 }))} onApply={(advanced) => { setFilters((current) => ({ ...current, advanced, page: 1 })); setAdvancedOpen(false); }} />
           </div>
 
-          {!favoritesOnly && error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}
-          {!favoritesOnly && loading && <div className="domain-list skeleton-list">{Array.from({ length: 8 }, (_, index) => <div className="domain-card skeleton" key={index} />)}</div>}
-          {!loading && !error && !favoritesOnly && pageData?.items.length === 0 && <section className="empty-results" aria-labelledby="empty-results-title">
+          {error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}
+          {loading && <div className="domain-list skeleton-list">{Array.from({ length: 8 }, (_, index) => <div className="domain-card skeleton" key={index} />)}</div>}
+          {!loading && !error && pageData?.items.length === 0 && <section className="empty-results" aria-labelledby="empty-results-title">
             <div className="state-panel"><h3 id="empty-results-title">未找到匹配的域名</h3><span>换一个关键词，或清除筛选后再试。</span><button type="button" onClick={resetFilters}>清除筛选</button></div>
-            {emptyRecommendations.length > 0 && <div className="empty-recommendations"><header><span>为你推荐</span><h3>试试这些精选域名</h3></header><div className="domain-list card-view">{emptyRecommendations.map((domain) => <DomainCard key={domain.id} domain={domain} favorite={favorites.ids.has(domain.id)} highlighted={highlightedId === domain.id} onCopy={copyDomain} onFavorite={toggleFavorite} onQuickView={setSelectedDomain} />)}</div></div>}
+            {emptyRecommendations.length > 0 && <div className="empty-recommendations"><header><span>为你推荐</span><h3>试试这些精选域名</h3></header><div className="domain-list card-view">{emptyRecommendations.map((domain) => <DomainCard key={domain.id} domain={domain} highlighted={highlightedId === domain.id} onCopy={copyDomain} onQuickView={setSelectedDomain} />)}</div></div>}
           </section>}
-          {favoritesOnly && favorites.items.length === 0 && <div className="state-panel favorites-empty"><strong>还没有收藏</strong><span>点击域名卡片上的“收藏”，它会只保存在当前浏览器。</span><button type="button" onClick={() => setFavoritesOnly(false)}>浏览全部域名</button></div>}
-          {displayedItems.length > 0 && (!loading || favoritesOnly) && <div className={`domain-list ${viewMode === "compact" ? "compact-view" : "card-view"}`}>
+          {displayedItems.length > 0 && !loading && <div className={`domain-list ${viewMode === "compact" ? "compact-view" : "card-view"}`}>
             {displayedItems.map((domain) => <DomainCard
               key={domain.id}
               domain={domain}
-              favorite={favorites.ids.has(domain.id)}
               highlighted={highlightedId === domain.id}
               onCopy={copyDomain}
-              onFavorite={toggleFavorite}
               onQuickView={setSelectedDomain}
             />)}
           </div>}
 
-          {!favoritesOnly && pageData && pageData.totalPages > 1 && <nav className="pagination" aria-label="域名分页"><button type="button" disabled={pageData.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}>上一页</button><div>{pageItems(pageData.page, pageData.totalPages).map((item) => typeof item === "number" ? <button type="button" key={item} className={pageData.page === item ? "active" : ""} aria-current={pageData.page === item ? "page" : undefined} onClick={() => setFilters((current) => ({ ...current, page: item }))}>{item}</button> : <span key={item} aria-hidden="true">…</span>)}</div><button type="button" disabled={pageData.page >= pageData.totalPages} onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}>下一页</button></nav>}
+          {pageData && pageData.totalPages > 1 && <nav className="pagination" aria-label="域名分页"><button type="button" disabled={pageData.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}>上一页</button><div>{pageItems(pageData.page, pageData.totalPages).map((item) => typeof item === "number" ? <button type="button" key={item} className={pageData.page === item ? "active" : ""} aria-current={pageData.page === item ? "page" : undefined} onClick={() => setFilters((current) => ({ ...current, page: item }))}>{item}</button> : <span key={item} aria-hidden="true">…</span>)}</div><button type="button" disabled={pageData.page >= pageData.totalPages} onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}>下一页</button></nav>}
         </section>
       </main>
 
 
       <footer className="public-footer footer-grid"><div className="footer-brand"><strong>{settings?.site_name ?? "玩米"}</strong><span>{settings?.copyright_text || `© ${new Date().getFullYear()} 保留所有权利`}</span>{settings?.icp_number && <span>{settings.icp_number}</span>}</div>{settings && <ContactIcons settings={settings} notify={notify} />}<div className="footer-right">{settings?.show_admin_link_in_footer && <a className="footer-admin-link" href="/admin">管理</a>}</div></footer>
 
-      {contactOpen && settings && <div className="modal-backdrop" onMouseDown={() => setContactOpen(false)}><div className="contact-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="contact-title"><button type="button" className="modal-close" aria-label="关闭" onClick={() => setContactOpen(false)}>×</button><h2 id="contact-title">联系玩米</h2><p>请附上你感兴趣的完整域名。</p><div className="contact-list">{settings.contact_email && <a href={`mailto:${settings.contact_email}`}>邮箱 <strong>{settings.contact_email}</strong></a>}{settings.contact_telegram && <a href={`https://t.me/${settings.contact_telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">Telegram <strong>{settings.contact_telegram}</strong></a>}{settings.contact_wechat && <button type="button" onClick={() => void copyText(settings.contact_wechat!).then((ok) => notify(ok ? "微信号已复制" : "复制失败", ok ? "success" : "error"))}>微信 <strong>{settings.contact_wechat}</strong></button>}{settings.wechat_qr_url && <img className="qr-code" src={settings.wechat_qr_url} alt="玩米微信二维码" loading="lazy" decoding="async" />}</div></div></div>}
-      <DomainDetailDialog domain={selectedDomain} candidates={catalogueItems} favorite={selectedDomain ? favorites.ids.has(selectedDomain.id) : false} onClose={() => setSelectedDomain(null)} onCopy={copyDomain} onFavorite={toggleFavorite} onSelect={setSelectedDomain} />
-      <PublicBottomNav favoritesOnly={favoritesOnly} favoriteCount={favorites.items.length} onShowAll={() => setFavoritesOnly(false)} onShowFavorites={showFavorites} onRandom={discoverRandom} onAdvanced={() => setAdvancedOpen(true)} />
+      <DomainDetailDialog domain={selectedDomain} candidates={catalogueItems} onClose={() => setSelectedDomain(null)} onCopy={copyDomain} onSelect={setSelectedDomain} />
+      <PublicBottomNav onRandom={discoverRandom} onAdvanced={() => setAdvancedOpen(true)} />
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   );

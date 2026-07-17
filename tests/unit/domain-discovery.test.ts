@@ -11,7 +11,6 @@ function domain(id: number, value: string, categories: string[] = [], featured =
     name,
     tld: tldParts.join("."),
     description: "",
-    keywords: [],
     category: categories[0] ?? null,
     categories,
     is_featured: featured,
