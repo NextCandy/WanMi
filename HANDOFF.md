@@ -1,6 +1,17 @@
 # WanMi HANDOFF
 
-## 最新进度（2026-07-17 · 按 emilkowalski/skills 打磨交互）
+## 最新进度（2026-07-17 · 精简首页与移除 AI 简介）
+
+- 页首中心的域名总数（header-stats）删除；页脚「管理」移至页首右侧并改名「后台」（复用既有 .admin-link 样式与 `show_admin_link_in_footer` 开关，字段名未改）。
+- Hero 区整体移除（CatalogueHero.tsx 删除）：页首之下直接是搜索与域名列表。
+- 高级筛选整体移除（AdvancedSearchPanel.tsx 删除）：AdvancedFilterValue/EMPTY_ADVANCED_FILTERS 内联进 PublicPage，位数下拉继续驱动 minLength/maxLength；contains/excludes/kind 无 UI 入口但保留 URL 直传兼容。移动底栏「筛选」改为滚动到工具栏。
+- 后台 AI 简介功能整体移除：AI 配置模块（AiConfigsPanel/Modal/删除弹窗）、nav 项、域名编辑的「AI 生成简介」按钮、`/api/admin/ai-configs*` 与 `/:id/suggest-description` 路由、domain-description-ai service、shared/ai-config.ts 全部删除；简介字段保留纯手动编辑。后台回到七个模块。
+- 新增 `0021_drop_ai_configs.sql`：DROP ai_configs（0018 建、0019/0020 调整过），不影响 domains.description 已有数据。远程已执行。
+- 测试同步：domain-description-ai.test.ts 删除；api.test.ts 移除 AI 集成用例（108→101）；E2E 删除「AI 配置独立导航」「批量关键词」（后者依赖远程改版已删的关键词功能，属遗留死用例）两个用例，「关键词、简介与精品状态」重写为「手动简介与精品状态」，「前台高级筛选」改为「前台位数筛选」，管理员登录用例断言 nav 不含 AI 配置。
+- CSS 清理 114 条死规则（hero/header-stats/advanced/footer-admin-link/ai-* 等）。
+- 22 张基线按新布局重建三轮稳定；5 个受影响 E2E 用例通过；`pnpm check` 全绿（15 文件 101 测试）。
+
+## 前序进度（2026-07-17 · 按 emilkowalski/skills 打磨交互）
 
 - 依 Emil Kowalski 的设计工程 skills（github.com/emilkowalski/skills）审计并修复交互层，本轮改动叠加在另一会话的浅色改版（3dfa368…5fde067，黑金 → 米白纸感 + 深金 #b89530）之上。
 - 审计结论：easing/时长令牌本已达标（强 ease-out cubic-bezier(.22,1,.36,1)、全部 ≤250ms、无 ease-in 误用），修复集中在四类：

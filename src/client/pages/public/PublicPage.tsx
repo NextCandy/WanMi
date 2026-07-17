@@ -1,12 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  AdvancedSearchPanel,
-  EMPTY_ADVANCED_FILTERS,
-  type AdvancedFilterValue,
-  type DomainKind,
-} from "../../components/AdvancedSearchPanel";
-import { CatalogueHero } from "../../components/CatalogueHero";
 import { ContactIcons } from "../../components/ContactIcons";
 import { DomainCard } from "../../components/DomainCard";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
@@ -41,6 +34,26 @@ interface SiteSettings {
 
 type SortKey = "default" | "added_desc" | "length_asc" | "length_desc" | "tld_asc" | "random";
 type GroupKey = "all" | "featured";
+
+/* 高级筛选面板已移除；minLength/maxLength 仍由位数下拉驱动，
+   contains/excludes/kind 保留 URL 直传兼容（无 UI 入口，API 仍支持）。 */
+type DomainKind = "" | "digits" | "letters" | "alphanumeric" | "hyphen";
+
+interface AdvancedFilterValue {
+  minLength: string;
+  maxLength: string;
+  contains: string;
+  excludes: string;
+  kind: DomainKind;
+}
+
+const EMPTY_ADVANCED_FILTERS: AdvancedFilterValue = {
+  minLength: "",
+  maxLength: "",
+  contains: "",
+  excludes: "",
+  kind: "",
+};
 
 const SORTS: Array<[SortKey, string]> = [
   ["default", "默认"],
@@ -166,7 +179,6 @@ export function PublicPage() {
   const [draftSearch, setDraftSearch] = useState(filters.q);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [historyFocused, setHistoryFocused] = useState(false);
   const [viewMode, setViewMode] = useState<"cards" | "compact">("cards");
   const [selectedDomain, setSelectedDomain] = useState<PublicDomain | null>(null);
@@ -282,7 +294,6 @@ export function PublicPage() {
 
   function resetFilters() {
     setDraftSearch("");
-    setAdvancedOpen(false);
     setHistoryFocused(false);
     setFilters({ q: "", tld: "", category: "", group: "all", sort: "default", page: 1, advanced: EMPTY_ADVANCED_FILTERS });
   }
@@ -304,12 +315,12 @@ export function PublicPage() {
         <a className="brand" href="/" aria-label="玩米首页">
           <img className="brand-icon" src="/favicon.svg" alt="玩米 Logo" decoding="async" fetchPriority="high" />
         </a>
-        <div className="header-stats"><span className="header-stats-label">域名资产</span><strong>{facets ? facets.total_domains.toLocaleString("zh-CN") : "—"}</strong></div>
+        <div className="header-actions">
+          {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin">后台</a>}
+        </div>
       </header>
 
       <main className="catalogue-layout">
-        <CatalogueHero />
-
         <section className="domain-section" id="domains" aria-label="全部资产">
           <div className="catalogue-toolbar">
             <div
@@ -340,10 +351,8 @@ export function PublicPage() {
                 <option value="10plus">10 位以上</option>
               </select></label>
               <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
-              <button type="button" className={`advanced-toggle${hasAdvancedFilters(filters.advanced) ? " active" : ""}`} aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((open) => !open)}>高级筛选{hasAdvancedFilters(filters.advanced) ? " · 已启用" : ""}</button>
             </div>
             <div className="toolbar-summary"><span>{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span><div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>{hasActiveFilter && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
-            <AdvancedSearchPanel open={advancedOpen} value={filters.advanced} onClose={() => setAdvancedOpen(false)} onReset={() => setFilters((current) => ({ ...current, advanced: EMPTY_ADVANCED_FILTERS, page: 1 }))} onApply={(advanced) => { setFilters((current) => ({ ...current, advanced, page: 1 })); setAdvancedOpen(false); }} />
           </div>
 
           {error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}
@@ -376,13 +385,11 @@ export function PublicPage() {
           {settings?.icp_number && <span className="footer-icp">{settings.icp_number}</span>}
         </div>
         {settings && <ContactIcons settings={settings} notify={notify} />}
-        <div className="footer-right">
-          {settings?.show_admin_link_in_footer && <a className="footer-admin-link" href="/admin">管理</a>}
-        </div>
+        <div className="footer-right" />
       </footer>
 
       <DomainDetailDialog domain={selectedDomain} candidates={catalogueItems} onClose={() => setSelectedDomain(null)} onCopy={copyDomain} onSelect={setSelectedDomain} />
-      <PublicBottomNav onAdvanced={() => setAdvancedOpen(true)} />
+      <PublicBottomNav />
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   );

@@ -142,13 +142,13 @@ test.describe.serial("WanMi 生产流程", () => {
     expect(await page.evaluate(() => window.localStorage.getItem("wanmi-search-history"))).toBe('{"version":1,"items":[]}');
   });
 
-  test("前台高级筛选、搜索历史与域名速览", async ({ page }) => {
+  test("前台位数筛选、搜索历史与域名速览", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: /高级筛选/ }).click();
-    await page.getByLabel("必须包含").fill("cloud");
-    await page.getByLabel("域名类型").selectOption("alphanumeric");
-    await page.getByRole("button", { name: "应用筛选" }).click();
+    // 高级筛选面板已移除；位数下拉驱动同一 minLength/maxLength 状态
+    await page.getByLabel("位数筛选").selectOption("7");
+    await expect(page).toHaveURL(/minLength=7/);
     await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
+    await expect(page.getByRole("button", { name: "高级筛选" })).toHaveCount(0);
 
     const search = page.getByRole("textbox", { name: "搜索域名" });
     await search.fill("02cloud.com");
@@ -182,7 +182,8 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByRole("button", { name: "登录", exact: true }).click();
     await expect(page.getByRole("heading", { name: "概览", exact: true })).toBeVisible();
     const adminNavigation = page.locator(".admin-sidebar nav");
-    expect((await adminNavigation.getByRole("button").allInnerTexts()).slice(0, 2)).toEqual(["概览", "AI 配置"]);
+    expect((await adminNavigation.getByRole("button").allInnerTexts()).slice(0, 2)).toEqual(["概览", "域名管理"]);
+    await expect(adminNavigation).not.toContainText("AI 配置");
     await expect(adminNavigation).not.toContainText("求购");
     await expect(adminNavigation).not.toContainText("线索");
     await expect(adminNavigation).not.toContainText("DNS");
@@ -286,83 +287,8 @@ test.describe.serial("WanMi 生产流程", () => {
     }
   });
 
-  test("AI 配置独立导航可保存、测试并通过应用内弹窗删除", async ({ page }) => {
+  test("手动简介与精品状态在刷新后同步并可恢复", async ({ page, context }) => {
     const credentials = localCredentials();
-    const configName = `E2E 备用配置 ${Date.now()}`;
-    await page.goto("/admin", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("管理员邮箱").fill(credentials.email);
-    await page.getByLabel("密码").fill(credentials.password);
-    await page.getByRole("button", { name: "登录", exact: true }).click();
-    await page.getByRole("button", { name: /AI 配置/ }).click();
-    await expect(page.getByRole("heading", { name: "AI 简介配置" })).toBeVisible();
-    await expect(page.getByText("DeepSeek 默认配置", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "新增配置" }).click();
-    const dialog = page.getByRole("dialog", { name: "新增 AI 配置" });
-    await dialog.getByLabel("配置名称").fill(configName);
-    await dialog.getByLabel("提供商").selectOption("openai_compatible");
-    await dialog.getByLabel("接口地址").fill("https://ai.example.test/v1");
-    await dialog.getByLabel("模型").fill("example-chat");
-    await dialog.getByLabel("API Key").fill("sk-e2e-only-secret");
-    await dialog.getByRole("button", { name: "保存配置" }).click();
-    const card = page.locator(".ai-config-card").filter({ hasText: configName });
-    await expect(card).toBeVisible();
-    await expect(card.getByText("Key 已加密")).toBeVisible();
-    await page.route("**/api/admin/ai-configs/*/test", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: { description: "测试简介已成功生成。", model: "example-chat", protocol: "chat_completions" }, error: null }) });
-    });
-    await card.getByRole("button", { name: "测试连接" }).click();
-    await expect(card.getByText("连接成功：测试简介已成功生成。")).toBeVisible();
-    await card.getByRole("button", { name: "删除" }).click();
-    const deleteDialog = page.getByRole("dialog", { name: "删除 AI 配置" });
-    await expect(deleteDialog.getByText(configName, { exact: false })).toBeVisible();
-    await deleteDialog.getByRole("button", { name: "确认删除" }).click();
-    await expect(card).toBeHidden();
-  });
-
-  test("批量关键词可应用到多个域名、清除并进入操作日志", async ({ page }) => {
-    const credentials = localCredentials();
-    await page.goto("/admin", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("管理员邮箱").fill(credentials.email);
-    await page.getByLabel("密码").fill(credentials.password);
-    await page.getByRole("button", { name: "登录", exact: true }).click();
-    await page.getByRole("button", { name: /域名管理/ }).click();
-    await page.getByPlaceholder("搜索完整域名").fill("cloud");
-    const rows = page.locator(".admin-table tbody tr");
-    // 搜索有去抖，必须等筛选真正生效后再勾选，否则选中的是筛选前的行
-    await expect(rows.nth(0)).toContainText("cloud");
-    await expect(rows.nth(1)).toContainText("cloud");
-    await rows.nth(0).getByRole("checkbox").check();
-    await rows.nth(1).getByRole("checkbox").check();
-    await page.getByRole("button", { name: "批量设置关键词" }).click();
-    const dialog = page.getByRole("dialog", { name: "批量设置关键词" });
-    await dialog.getByRole("textbox", { name: /^关键词/ }).fill("批量，品牌、测试");
-    await dialog.getByRole("button", { name: "应用到 2 个域名" }).click();
-    await expect(dialog).toBeHidden();
-    await expect(rows.nth(0).locator(".keywords-cell .keyword-pill")).toHaveText(["批量", "品牌", "测试"]);
-    await expect(rows.nth(1).locator(".keywords-cell .keyword-pill")).toHaveText(["批量", "品牌", "测试"]);
-
-    await rows.nth(0).getByRole("checkbox").check();
-    await rows.nth(1).getByRole("checkbox").check();
-    await page.getByRole("button", { name: "批量设置关键词" }).click();
-    await page.getByRole("dialog", { name: "批量设置关键词" }).getByRole("button", { name: "应用到 2 个域名" }).click();
-    await expect(rows.nth(0).locator(".keywords-cell .keyword-pill")).toHaveCount(0);
-    await expect(rows.nth(1).locator(".keywords-cell .keyword-pill")).toHaveCount(0);
-
-    await page.getByRole("button", { name: /操作日志/ }).click();
-    await page.getByLabel("操作类型筛选").selectOption("domains.bulk.keywords");
-    await expect(page.locator(".log-table").getByText("批量设置关键词", { exact: true }).first()).toBeVisible();
-  });
-
-  test("关键词、简介与精品状态在刷新后同步并可恢复", async ({ page, context }) => {
-    const credentials = localCredentials();
-    let aiShouldFail = false;
-    await page.route("**/api/admin/domains/*/suggest-description", async (route) => {
-      if (aiShouldFail) {
-        await route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ success: false, data: null, error: { code: "DESCRIPTION_SUGGESTION_FAILED", message: "简介生成失败，请手动填写" } }) });
-        return;
-      }
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: { description: "适合云服务与数字品牌场景，名称简洁易记，并具备清晰的科技属性与延展空间。", config: { id: "deepseek-default", name: "DeepSeek 默认配置", model: "deepseek-v4-flash" } }, error: null }) });
-    });
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await page.getByLabel("管理员邮箱").fill(credentials.email);
     await page.getByLabel("密码").fill(credentials.password);
@@ -373,19 +299,9 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: "编辑", exact: true }).click();
     const editDialog = page.getByRole("dialog", { name: "编辑域名信息" });
-    await editDialog.getByLabel(/^关键词/).fill("原始关键词");
-    await editDialog.getByLabel("简介（可选）").fill("AI 生成前简介");
-    await editDialog.getByRole("button", { name: "AI 生成简介" }).click();
-    await expect(editDialog.getByLabel("简介（可选）")).toHaveValue(/适合云服务与数字品牌场景/);
-    await expect(editDialog.getByLabel(/^关键词/)).toHaveValue("原始关键词");
-    await expect(editDialog.getByText("DeepSeek 默认配置 已生成，请审核后保存")).toBeVisible();
-    aiShouldFail = true;
-    await editDialog.getByLabel("简介（可选）").fill("AI 失败不应改动此字段");
-    await editDialog.getByRole("button", { name: "AI 生成简介" }).click();
-    await expect(editDialog.getByText("简介生成失败，请手动填写")).toBeVisible();
-    await expect(editDialog.getByLabel("简介（可选）")).toHaveValue("AI 失败不应改动此字段");
-    await editDialog.getByLabel(/^关键词/).fill("云服务，品牌,未来、精选,第五");
-    await editDialog.getByLabel("简介（可选）").fill("E2E 临时简介");
+    // AI 生成已移除，简介仅手动维护
+    await expect(editDialog.getByRole("button", { name: "AI 生成简介" })).toHaveCount(0);
+    await editDialog.getByLabel(/^简介/).fill("E2E 手动简介");
     await editDialog.getByRole("button", { name: "保存修改" }).click();
     await expect(page.getByText("02cloud.com 已更新")).toBeVisible();
     const featuredSwitch = row.locator("button.switch").first();
@@ -395,24 +311,17 @@ test.describe.serial("WanMi 生产流程", () => {
     const publicPage = await context.newPage();
     await publicPage.goto("/?q=02cloud.com", { waitUntil: "domcontentloaded" });
     const publicDomainCard = publicPage.locator(".domain-list .domain-card").filter({ hasText: "02cloud.com" });
-    await expect(publicDomainCard.locator(".keyword-pill")).toHaveText(["云服务", "品牌", "未来", "精选", "+1"]);
-    await expect(publicDomainCard.getByText("E2E 临时简介", { exact: true })).toHaveCount(0);
     await expect(publicDomainCard).toHaveClass(/featured/);
     await publicPage.getByRole("button", { name: "速览 02cloud.com" }).click();
     const quickView = publicPage.getByRole("dialog", { name: /02cloud\.com/ });
-    await expect(quickView.locator(".keyword-pill")).toHaveText(["云服务", "品牌", "未来", "精选", "第五"]);
-    await expect(quickView.getByText("E2E 临时简介", { exact: true })).toBeVisible();
+    await expect(quickView.getByText("E2E 手动简介", { exact: true })).toBeVisible();
     await quickView.getByRole("button", { name: "关闭域名速览" }).click();
 
     await row.getByRole("button", { name: "编辑", exact: true }).click();
-    await editDialog.getByLabel(/^关键词/).fill("");
-    await editDialog.getByLabel("简介（可选）").fill("");
+    await editDialog.getByLabel(/^简介/).fill("");
     await editDialog.getByRole("button", { name: "保存修改" }).click();
     await expect(page.getByText("02cloud.com 已更新")).toBeVisible();
     if (!wasFeatured) await row.locator("button.switch").first().click();
-    await publicPage.reload({ waitUntil: "domcontentloaded" });
-    await expect(publicDomainCard.locator(".domain-keywords")).toHaveCount(0);
-    await expect(publicDomainCard.locator(".domain-description")).toHaveCount(0);
     await publicPage.close();
   });
 

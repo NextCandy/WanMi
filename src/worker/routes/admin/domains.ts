@@ -10,7 +10,6 @@ import {
   domainPatchSchema,
 } from "../../../shared/schemas/api";
 import { fail, ok, writeOperationLog } from "../../http";
-import { generateDomainDescription, type AiConfigRow } from "../../services/domain-description-ai";
 import type { AppBindings } from "../../types";
 
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
@@ -369,35 +368,6 @@ domainAdminRoutes.post("/bulk", async (c) => {
     success: true,
   });
   return ok(c, { changed });
-});
-
-domainAdminRoutes.post("/:id/suggest-description", async (c) => {
-  const id = Number(c.req.param("id"));
-  const domain = await c.env.DB.prepare(
-    `SELECT full_domain, tld, length(replace(name, '.', '')) AS name_length,
-      COALESCE(NULLIF(category, ''), NULLIF(auto_category, ''), NULLIF(auto_subcategory, ''), '未分类') AS domain_type
-     FROM domains WHERE id = ?`,
-  ).bind(id).first<{ full_domain: string; tld: string; name_length: number; domain_type: string }>();
-  if (!domain) return fail(c, 404, "DOMAIN_NOT_FOUND", "域名不存在");
-  const config = await c.env.DB.prepare("SELECT * FROM ai_configs WHERE is_active = 1 LIMIT 1").first<AiConfigRow>();
-  if (!config) return fail(c, 409, "AI_CONFIG_REQUIRED", "请先在站点设置中启用 AI 配置");
-  if (!config.api_key_encrypted || !config.api_key_iv) {
-    return fail(c, 409, "AI_CONFIG_NOT_READY", "请先在站点设置中填写当前 AI 配置的 API Key");
-  }
-
-  try {
-    const description = await generateDomainDescription(config, {
-      domain: domain.full_domain,
-      tld: domain.tld,
-      length: Number(domain.name_length),
-      type: domain.domain_type,
-    }, c.env.CREDENTIALS_ENCRYPTION_KEY);
-    return ok(c, { description, config: { id: config.id, name: config.name, model: config.model } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "未知错误";
-    console.warn("域名简介 AI 生成失败", message);
-    return fail(c, 502, "DESCRIPTION_SUGGESTION_FAILED", `简介生成失败：${message}`);
-  }
 });
 
 domainAdminRoutes.get("/:id", async (c) => {

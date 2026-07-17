@@ -11,9 +11,8 @@ const TARGETS = [
 
 test.describe("视觉基线", () => {
   test.beforeEach(async ({ page }) => {
-    // Hero 数字用 requestAnimationFrame 计数（CatalogueHero.tsx:29），Playwright 的
-    // animations:"disabled" 只管 CSS 动画，管不了 rAF，截图会停在动画中途。
-    // 组件在 reduce 下直接跳到最终值（CatalogueHero.tsx:22），因此走产品自身的退化分支最稳。
+    // reduce 下产品自身会走无动画退化分支（Hero 与其计数动画已删，保留此设置
+    // 以稳定余下的 CSS 过渡与将来新增动画的截图）。
     await page.emulateMedia({ reducedMotion: "reduce" });
     // 与 wanmi.spec.ts 保持一致：不依赖外网字体，否则截图随网络波动
     await page.route("https://fonts.googleapis.com/**", (route) => route.abort());
