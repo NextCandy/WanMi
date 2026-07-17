@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { ArrowRight, CalendarClock, CalendarPlus, Copy, Eye, Globe, Hourglass, Star } from "lucide-react";
+import { ArrowRight, Copy, Eye, Globe, Hourglass, Star } from "lucide-react";
 
 import type { PublicDomain } from "../../shared/types/api";
 
@@ -13,7 +13,15 @@ function formatDate(value: string | null): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** 注册-到期区间文本：双端齐全为 a-b，缺注册只给到期日，缺到期以 a- 表示未知期限 */
+function lifespanOf(registered: string | null, expires: string | null): string | null {
+  if (registered && expires) return `${registered}-${expires}`;
+  if (expires) return expires;
+  if (registered) return `${registered}-`;
+  return null;
 }
 
 /** 到期剩余天数；无到期数据返回 null，已到期返回负数 */
@@ -26,8 +34,7 @@ function daysUntil(value: string | null): number | null {
 
 function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
   const tld = domain.domain.split(".").at(-1) || domain.tld;
-  const registered = formatDate(domain.registered_at);
-  const expires = formatDate(domain.expires_at);
+  const lifespan = lifespanOf(formatDate(domain.registered_at), formatDate(domain.expires_at));
   const remaining = daysUntil(domain.expires_at);
 
   return (
@@ -38,10 +45,11 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
       </div>
       {domain.description ? <p className="domain-description">{domain.description}</p> : <p className="domain-description placeholder">暂无简介</p>}
       <div className="domain-card-meta" aria-label={`${domain.domain} 元数据`}>
-        <span className="meta-chip"><Globe aria-hidden="true" />.{tld}</span>
-        {registered && <span className="meta-chip"><CalendarPlus aria-hidden="true" />注册 {registered}</span>}
-        {expires && <span className="meta-chip"><CalendarClock aria-hidden="true" />到期 {expires}</span>}
-        {remaining !== null && <span className={`meta-chip${remaining <= 90 ? " meta-chip-warning" : ""}`}><Hourglass aria-hidden="true" />{remaining >= 0 ? `剩 ${remaining} 天` : "已到期"}</span>}
+        <div className="meta-row">
+          <span className="meta-chip"><Globe aria-hidden="true" />.{tld}</span>
+          {remaining !== null && <span className={`meta-chip meta-remaining${remaining <= 90 ? " meta-chip-warning" : ""}`}><Hourglass aria-hidden="true" />{remaining >= 0 ? `剩 ${remaining} 天` : "已到期"}</span>}
+        </div>
+        {lifespan && <div className="meta-row"><span className="meta-chip meta-lifespan">{lifespan}</span></div>}
       </div>
       <div className="domain-card-footer">
         <a className="domain-visit" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow" aria-label={`访问 ${domain.domain}`} title={`访问 ${domain.domain}`}><span>访问域名</span><ArrowRight aria-hidden="true" /></a>

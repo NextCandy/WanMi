@@ -39,11 +39,11 @@ describe("DomainCard", () => {
     expect(markup).toContain('class="domain-description placeholder"');
     expect(markup).toContain('class="meta-chip"');
     expect(markup).toContain(".ooo");
-    // 元数据只保留后缀与注册/到期/剩余天数；无日期数据时不渲染对应 chip
+    // 元数据：后缀 + 剩余天数 + 日期区间小框；无日期数据时后两者不渲染
     expect(markup).not.toContain("字符");
     expect(markup).not.toContain("纯字母");
-    expect(markup).not.toContain("注册 ");
-    expect(markup).not.toContain("到期 ");
+    expect(markup).not.toContain("meta-lifespan");
+    expect(markup).not.toContain("meta-remaining");
     expect(markup.match(/<button/g)).toHaveLength(2);
     expect(markup).toContain('aria-label="复制 mx.ooo"');
     expect(markup).toContain('aria-label="速览 mx.ooo"');
@@ -66,14 +66,21 @@ describe("DomainCard", () => {
     expect(markup).not.toContain("placeholder");
   });
 
-  it("有生命周期数据时渲染注册/到期/剩余天数，临近到期加警示", () => {
+  it("有生命周期数据时渲染剩余天数与日期区间，临近到期加警示", () => {
     const soon = new Date(Date.now() + 30 * 86_400_000).toISOString();
     const markup = renderCard({ ...domain, registered_at: "2015-05-12T00:00:00.000Z", expires_at: soon });
 
-    expect(markup).toContain("注册 2015-05-12");
-    expect(markup).toContain(`到期 ${soon.slice(0, 10)}`);
+    // 区间为点分日期、无「注册/到期」标签
+    expect(markup).toContain(`>2015.05.12-${soon.slice(0, 10).replaceAll("-", ".")}<`);
+    expect(markup).not.toContain("注册 ");
+    expect(markup).not.toContain("到期 ");
     expect(markup).toMatch(/剩 (29|30) 天/);
     expect(markup).toContain("meta-chip-warning");
+  });
+
+  it("仅有到期日期时区间框只显示到期日", () => {
+    const markup = renderCard({ ...domain, expires_at: "2027-01-07T00:00:00.000Z" });
+    expect(markup).toContain(">2027.01.07<");
   });
 });
 
