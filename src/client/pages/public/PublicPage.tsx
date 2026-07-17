@@ -10,7 +10,6 @@ import { CatalogueHero } from "../../components/CatalogueHero";
 import { ContactIcons } from "../../components/ContactIcons";
 import { DomainCard } from "../../components/DomainCard";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
-import { FeaturedDomainCard } from "../../components/FeaturedDomainCard";
 import { PublicBottomNav } from "../../components/PublicBottomNav";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { useDomainFavorites } from "../../hooks/useDomainFavorites";
@@ -42,7 +41,7 @@ interface SiteSettings {
 }
 
 type SortKey = "default" | "added_desc" | "length_asc" | "length_desc" | "tld_asc" | "random";
-type GroupKey = "all" | "featured" | "two" | "three";
+type GroupKey = "all" | "featured";
 
 const SORTS: Array<[SortKey, string]> = [
   ["default", "默认"],
@@ -72,19 +71,21 @@ interface Filters {
 function initialFilters(): Filters {
   const params = new URLSearchParams(window.location.search);
   const sort = params.get("sort") as SortKey | null;
-  const group = params.get("group") as GroupKey | null;
+  const group = params.get("group");
   const category = params.get("category") ?? "";
   const kind = params.get("kind") as DomainKind | null;
+  // 历史 URL 曾用 group=two/three 表示 2/3 位，现统一由 minLength/maxLength 表达；显式参数优先
+  const legacyLength = group === "two" ? "2" : group === "three" ? "3" : "";
   return {
     q: params.get("q") ?? "",
     tld: params.get("tld") ?? "",
     category: category === "精品" ? "" : category,
-    group: category === "精品" ? "featured" : group && ["all", "featured", "two", "three"].includes(group) ? group : "all",
+    group: category === "精品" || group === "featured" ? "featured" : "all",
     sort: sort && SORTS.some(([key]) => key === sort) ? sort : "default",
     page: Math.max(1, Number(params.get("page") ?? 1) || 1),
     advanced: {
-      minLength: params.get("minLength") ?? "",
-      maxLength: params.get("maxLength") ?? "",
+      minLength: params.get("minLength") ?? legacyLength,
+      maxLength: params.get("maxLength") ?? legacyLength,
       contains: params.get("contains") ?? "",
       excludes: params.get("excludes") ?? "",
       kind: kind && ["digits", "letters", "alphanumeric", "hyphen"].includes(kind) ? kind : "",
@@ -93,10 +94,18 @@ function initialFilters(): Filters {
 }
 
 function groupParams(group: GroupKey): Record<string, string> {
-  if (group === "featured") return { featured: "true" };
-  if (group === "two") return { length: "2" };
-  if (group === "three") return { length: "3" };
-  return {};
+  return group === "featured" ? { featured: "true" } : {};
+}
+
+/** 位数下拉与高级筛选共用 minLength/maxLength：1-9 位为等值区间，10 位以上只设下限 */
+function lengthPickOf(advanced: AdvancedFilterValue): string {
+  if (!advanced.minLength && !advanced.maxLength) return "all";
+  if (advanced.minLength === "10" && !advanced.maxLength) return "10plus";
+  if (advanced.minLength && advanced.minLength === advanced.maxLength) {
+    const value = Number(advanced.minLength);
+    if (value >= 1 && value <= 9) return advanced.minLength;
+  }
+  return "custom";
 }
 
 function advancedParams(advanced: AdvancedFilterValue): Record<string, string> {
@@ -215,7 +224,6 @@ export function PublicPage() {
     if (filters.tld) params.set("tld", filters.tld);
     if (filters.category) params.set("category", filters.category);
     if (filters.group === "featured") params.set("category", "精品");
-    else if (filters.group !== "all") params.set("group", filters.group);
     params.set("sort", filters.sort);
     if (filters.page > 1) params.set("page", String(filters.page));
     Object.entries(advancedParams(filters.advanced)).forEach(([key, value]) => params.set(key, value));
@@ -377,17 +385,6 @@ export function PublicPage() {
           totalFeatured={facets?.total_featured ?? 0}
         />
 
-        {(facets?.featured_domains.length ?? 0) > 0 ? <section className="featured-assets-section" aria-labelledby="featured-assets-title">
-          <header className="asset-section-heading">
-            <h2 id="featured-assets-title">精选资产</h2>
-            <span>{facets?.total_featured ?? 0} 件精品</span>
-          </header>
-          <div className="featured-assets-grid">
-            {facets?.featured_domains.map((domain) => <FeaturedDomainCard key={domain.id} domain={domain} />)}
-          </div>
-          <a className="featured-assets-all" href="/domains?category=%E7%B2%BE%E5%93%81">查看全部精选 <span aria-hidden="true">→</span></a>
-        </section> : null}
-
         <section className="domain-section" id="domains" aria-labelledby="domain-section-title">
           <header className="asset-section-heading all-assets-heading">
             <h2 id="domain-section-title">全部资产</h2>
@@ -424,7 +421,17 @@ export function PublicPage() {
             </div>
             <div className="toolbar-filters">
               <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
-              <label><span>位数</span><select aria-label="位数筛选" value={["two", "three"].includes(filters.group) ? filters.group : "all"} onChange={(event) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, group: event.target.value as GroupKey, page: 1 })); }}><option value="all">全部</option><option value="two">2 位</option><option value="three">3 位</option></select></label>
+              <label><span>位数</span><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
+                const pick = event.target.value;
+                const range = pick === "all" ? { minLength: "", maxLength: "" } : pick === "10plus" ? { minLength: "10", maxLength: "" } : { minLength: pick, maxLength: pick };
+                setFavoritesOnly(false);
+                setFilters((current) => ({ ...current, advanced: { ...current.advanced, ...range }, page: 1 }));
+              }}>
+                <option value="all">全部</option>
+                {lengthPickOf(filters.advanced) === "custom" && <option value="custom" disabled>自定义区间</option>}
+                {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} 位</option>)}
+                <option value="10plus">10 位以上</option>
+              </select></label>
               <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFavoritesOnly(false); setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
               <button type="button" className={`advanced-toggle${hasAdvancedFilters(filters.advanced) ? " active" : ""}`} aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((open) => !open)}>高级筛选{hasAdvancedFilters(filters.advanced) ? " · 已启用" : ""}</button>
             </div>

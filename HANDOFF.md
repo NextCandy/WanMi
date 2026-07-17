@@ -1,6 +1,15 @@
 # WanMi HANDOFF
 
-## 最新进度（2026-07-17 · 英文字体自托管）
+## 最新进度（2026-07-17 · 首页布局与筛选修复）
+
+- 用户反馈三项问题并已全部修复上线：筛选下拉白底不可读、位数筛选只有 2/3 位、首页仍有精选资产区。
+- 下拉白底根因：Chromium 在 `select` 自身背景为透明时会把原生弹层退化为白底，而 option 文字继承暗色主题浅色，白底浅字不可读。`:root` 的 `color-scheme: dark` 无法阻止该退化（生产已验证存在仍复现）。修复是给 `select option` 显式深色背景与文字色（app.css 基础层）。
+- 位数筛选从 group=two/three（仅 2/3 位）改为直接驱动既有的 `minLength/maxLength` API 参数：全部、1–9 位（等值区间）、10 位以上（仅下限）。与高级筛选共用同一状态，高级面板填入自定义区间时下拉显示禁用的「自定义区间」项。旧 URL `?group=two/three` 在解析时转换为等值区间，不再写回 group；`GroupKey` 收窄为 `all | featured`。
+- 移除首页「精选资产」独立区块与 `FeaturedDomainCard.tsx`（方案文档 §1.3 B.5-6）：Hero 之后直接是全部资产列表，精品域名靠主列表卡片的精品标记区分（`.domain-card.featured` 样式保留 14 处）。CSS 用 postcss 移除 22 条整规则、6 条混合规则仅去掉精选选择器。`facets.featured_domains` 仍被空结果推荐使用，API 不动。
+- 真实浏览器验证：option 计算样式为 `#1a1a1a/#f5f5f7`；5 位/10 位以上/旧 group=two 三种过滤均返回正确长度的数据；三个前台 E2E 用例单独跑通过。
+- 22 张视觉基线按新首页重建，三轮复跑稳定。
+
+## 前序进度（2026-07-17 · 英文字体自托管）
 
 - Manrope 与 IBM Plex Mono 改为自托管 latin/latin-ext 子集（`public/fonts/*.woff2`），`index.html` 移除这两族的 Google Fonts 外链、改 `preload` Manrope，`fonts.css` 在 `app.css` 前由 `main.tsx` 引入。根因：Google Fonts 在中国大陆不可达，此前国内用户完全拿不到 Manrope（域名展示主字体），只能回退系统字体。
 - 只自托管英文子集：Manrope 变量字体单文件覆盖 400-800，中文站点实际只触发 latin（约 55KB）。中文 Noto Sans SC 体积过大仍走 Google Fonts + 系统回退，未改 design.md 字体规范。
