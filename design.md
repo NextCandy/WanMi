@@ -1,12 +1,12 @@
 # Design — WanMi / 玩米
 
-本系统为单一浅色暖金主题（2026-07-17 由黑金改版），不提供明暗切换。所有组件引用 `tokens.css` 变量，禁止硬编码色值。
+本系统为浅色暖金主题（2026-07-17 由黑金改版），暗色跟随系统 prefers-color-scheme 自动切换（无手动开关），仅颜色令牌分主题。所有组件引用 `tokens.css` 变量，禁止硬编码色值。
 
 这是 WanMi 前台、后台与移动端共享的锁定设计系统。后续页面先读取本文件，保持产品一致性。
 
 ## Genre
 
-modern-minimal，结构优先，采用米白纸感底色、纯白卡片与深金强调的克制规则。
+modern-minimal，结构优先，采用米白纸感底色、纯白卡片与暖金强调的克制规则；暗色下为近黑底与亮金。
 
 ## Macrostructure
 
@@ -18,7 +18,7 @@ modern-minimal，结构优先，采用米白纸感底色、纯白卡片与深金
 
 - Background：`#f7f7f5`（米白纸感）/ `#efefed`（次级底）
 - Surface：`#ffffff`（卡片）/ `#f3f3f1`（次级表面）
-- Brand Gold：`#b89530`（唯一强调色，深金以保证浅底对比度）
+- Brand Gold：`#c4a242`（浅色主题）/ `#d4b252`（暗色主题），唯一强调色
 - Border：`rgba(0,0,0,.08)`，强调边 `rgba(184,149,48,.28)`
 - 禁止大面积金色渐变、重玻璃拟态、持续模糊、装饰光晕和渐变文字。
 
@@ -34,7 +34,7 @@ modern-minimal，结构优先，采用米白纸感底色、纯白卡片与深金
 
 ## Typography
 
-- 英文、数字、域名：Manrope，域名权重 650–750，`line-height >= 1.18`。
+- 英文、数字、UI：Manrope；display 标题与域名大字：Cormorant Garamond（Instrument Serif 已于 2026-07-17 替换）。
 - 中文与通用 UI：Noto Sans SC，正文不小于 14px。
 - 技术数据：IBM Plex Mono，仅用于域名元数据与日志。
 - 标题使用正体，不使用斜体标题。

@@ -19,7 +19,7 @@ async function loadOgFonts(c: Context<AppBindings>): Promise<[Uint8Array, Uint8A
   if (!fontPromise) {
     const origin = new URL(c.req.url).origin;
     fontPromise = Promise.all([
-      c.env.ASSETS.fetch(new Request(`${origin}/fonts/InstrumentSerif-Regular.ttf`)).then(loadFont),
+      c.env.ASSETS.fetch(new Request(`${origin}/fonts/CormorantGaramond-Regular.ttf`)).then(loadFont),
       c.env.ASSETS.fetch(new Request(`${origin}/fonts/NotoSansSC-WanMi.ttf`)).then(loadFont),
     ]).catch((error: unknown) => {
       fontPromise = null;
@@ -63,7 +63,7 @@ export async function renderFeaturedDomainOg(c: Context<AppBindings>): Promise<R
     <rect width="1200" height="630" fill="#050505"/>
     <rect x="42" y="42" width="1116" height="546" rx="22" fill="none" stroke="#2b281f" stroke-width="2"/>
     <circle cx="82" cy="82" r="4" fill="#d8b638"/>
-    <text x="600" y="326" text-anchor="middle" dominant-baseline="middle" fill="#e5c85b" font-family="Instrument Serif" font-size="${fontSize}" font-weight="400" letter-spacing="-2">${safeDomain}</text>
+    <text x="600" y="326" text-anchor="middle" dominant-baseline="middle" fill="#e5c85b" font-family="Cormorant Garamond" font-size="${fontSize}" font-weight="400" letter-spacing="-2">${safeDomain}</text>
     <line x1="516" y1="444" x2="684" y2="444" stroke="#665727" stroke-width="2"/>
     <text x="600" y="508" text-anchor="middle" fill="#a69f8b" font-family="Noto Sans SC" font-size="24" font-weight="600" letter-spacing="4">玩米 · 精选域名资产</text>
   </svg>`;
@@ -72,7 +72,7 @@ export async function renderFeaturedDomainOg(c: Context<AppBindings>): Promise<R
     font: {
       fontBuffers: [instrumentSerif, notoSansSc],
       defaultFontFamily: "Noto Sans SC",
-      serifFamily: "Instrument Serif",
+      serifFamily: "Cormorant Garamond",
       sansSerifFamily: "Noto Sans SC",
     },
   });

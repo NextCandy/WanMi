@@ -321,6 +321,11 @@ export function PublicPage() {
       </header>
 
       <main className="catalogue-layout">
+        <section className="brand-statement">
+          <h1>精选域名资产</h1>
+          <p>{facets ? `${facets.total_domains.toLocaleString("zh-CN")} 个精选域名，覆盖 ${facets.total_tlds} 个后缀。` : "精选短字符域名的展示目录。"}为你的下一个项目找到合适的域名。</p>
+        </section>
+
         <section className="domain-section" id="domains" aria-label="全部资产">
           <div className="catalogue-toolbar">
             <div
@@ -331,7 +336,7 @@ export function PublicPage() {
               }}
             >
               <form className="filter-search" onSubmit={submitSearch}>
-                <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="搜索完整域名，例如 wanmi.org" aria-label="搜索域名" autoComplete="off" />
+                <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="输入域名或关键词，例如 wanmi" aria-label="搜索域名" autoComplete="off" />
                 {draftSearch && <button className="search-clear" type="button" aria-label="清空搜索" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
                 <button className="search-submit" type="submit">搜索</button>
               </form>

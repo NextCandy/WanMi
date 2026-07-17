@@ -56,7 +56,6 @@ export function DomainDetailDialog({ domain, candidates, onClose, onCopy, onSele
     <dialog ref={dialogRef} className="domain-detail-dialog" aria-labelledby="quick-domain-title" onClose={onClose} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section>
         <button type="button" className="modal-close" onClick={onClose} aria-label="关闭域名速览" autoFocus>×</button>
-        <span className="detail-kicker">DOMAIN QUICK VIEW</span>
         <h2 id="quick-domain-title">{domain.name}<span>.{domain.tld}</span></h2>
         <div className="detail-badges">{domain.is_featured && <span className="chip chip-featured">精品域名</span>}{categories.map((category) => <span className="chip" key={category}>{category}</span>)}</div>
         {domain.description && <p className="detail-description">{domain.description}</p>}

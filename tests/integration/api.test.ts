@@ -28,11 +28,11 @@ describe.sequential("WanMi API 集成", () => {
   beforeAll(async () => {
     directory = await fs.mkdtemp(path.join(os.tmpdir(), "wanmi-api-"));
     const databasePath = path.join(directory, "wanmi.sqlite");
-    const [migration, source, htmlShell, instrumentSerif, notoSansSc] = await Promise.all([
+    const [migration, source, htmlShell, cormorantGaramond, notoSansSc] = await Promise.all([
       readAllMigrations(),
       fs.readFile("data/source/WanMi.csv", "utf8"),
       fs.readFile("index.html", "utf8"),
-      fs.readFile("public/fonts/InstrumentSerif-Regular.ttf"),
+      fs.readFile("public/fonts/CormorantGaramond-Regular.ttf"),
       fs.readFile("public/fonts/NotoSansSC-WanMi.ttf"),
     ]);
     executeSql(databasePath, migration);
@@ -52,7 +52,7 @@ describe.sequential("WanMi API 集成", () => {
       ASSETS: {
         fetch: (input: RequestInfo | URL) => {
           const requestUrl = new URL(input instanceof Request ? input.url : String(input));
-          if (requestUrl.pathname === "/fonts/InstrumentSerif-Regular.ttf") return Promise.resolve(assetResponse(instrumentSerif, "font/ttf"));
+          if (requestUrl.pathname === "/fonts/CormorantGaramond-Regular.ttf") return Promise.resolve(assetResponse(cormorantGaramond, "font/ttf"));
           if (requestUrl.pathname === "/fonts/NotoSansSC-WanMi.ttf") return Promise.resolve(assetResponse(notoSansSc, "font/ttf"));
           return Promise.resolve(new Response(htmlShell, { headers: { "Content-Type": "text/html; charset=utf-8" } }));
         },

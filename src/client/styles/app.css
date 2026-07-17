@@ -2,13 +2,6 @@
 /* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V5 */
 @import "../../../tokens.css";
 
-@font-face {
-  font-family: "Instrument Serif";
-  src: url("/fonts/InstrumentSerif-Regular.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
 
 /* ============================================================
    WanMi Design System · 单一黑金主题
@@ -69,7 +62,7 @@
   font-family: var(--font-sans);
   color: var(--fg);
   background: var(--bg);
-  color-scheme: light;
+  /* color-scheme 由 tokens.css 声明：默认 light，prefers-color-scheme: dark 时切 dark */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -680,7 +673,7 @@ a { color: inherit; text-decoration: none; }
 .view-switch button { padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--muted); transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
 .view-switch button:active { transform: scale(.95); }
 .view-switch button:hover { color: var(--fg); }
-.view-switch button.active { color: white; background: var(--fg); box-shadow: 0 2px 6px color-mix(in oklab, var(--fg) 30%, transparent); }
+.view-switch button.active { color: var(--text-inverse); background: var(--fg); box-shadow: 0 2px 6px color-mix(in oklab, var(--fg) 30%, transparent); }
 .domain-list.card-view { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; border: 0; }
 .domain-list.card-view .domain-card { position: relative; display: flex; min-height: 190px; padding: 20px; flex-direction: column; align-items: stretch; gap: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); box-shadow: var(--shadow); }
 .domain-list.card-view .domain-tld, .domain-list.card-view .domain-length { display: none; }
@@ -706,7 +699,8 @@ a { color: inherit; text-decoration: none; }
   top: 0;
   z-index: 40;
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) auto minmax(140px, 1fr);
+  /* 原 brand/统计/操作 三列，中列统计已删，两列使操作区贴右 */
+  grid-template-columns: 1fr auto;
   height: 64px;
   padding: 0 clamp(20px, 3.2vw, 52px);
   background: color-mix(in oklab, var(--surface-2) 96%, transparent);
@@ -1394,7 +1388,8 @@ a { color: inherit; text-decoration: none; }
   min-height: 76px;
   padding: 0 42px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* 原为 brand/域名总数/操作 三列；中间统计已删，两列让「后台」回到右侧 */
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 24px;
   border-bottom: 1px solid var(--border);
@@ -2026,4 +2021,95 @@ a { color: inherit; text-decoration: none; }
   .search-area,
   .search-history { min-width: 0; max-width: 100%; }
   .copy-filter-link { font-size: 11px; }
+}
+
+/* ============================================================
+   2026-07-17 · wanmi-final-prompt 方案落地
+   品牌声明区 / 后台入口弱化 / 移动筛选 grid / 速览与详情微调
+   ============================================================ */
+.brand-statement {
+  max-width: 560px;
+  padding: 4px 0 28px;
+}
+.brand-statement h1 {
+  margin: 0 0 10px;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 400;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+}
+.brand-statement p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* 页首「后台」入口视觉弱化，hover 恢复；触控高度保持 */
+.public-header .admin-link {
+  font-size: 12px;
+  opacity: .62;
+  transition: opacity var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.public-header .admin-link:hover,
+.public-header .admin-link:focus-visible { opacity: 1; }
+
+/* 移动端筛选下拉两列排布，避免纵向一长条 */
+@media (max-width: 720px) {
+  .toolbar-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .toolbar-filters label { min-width: 0; }
+  .toolbar-filters select { width: 100%; }
+}
+
+/* 速览：QR 容器收敛为卡片；价值维度四卡以极低饱和的语义底色区分 */
+.quick-qr-section {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-secondary);
+}
+.quick-value-grid article:nth-child(1) { background: color-mix(in oklab, var(--gold) 5%, var(--surface-secondary)); }
+.quick-value-grid article:nth-child(2) { background: color-mix(in oklab, var(--info) 5%, var(--surface-secondary)); }
+.quick-value-grid article:nth-child(3) { background: color-mix(in oklab, var(--success) 5%, var(--surface-secondary)); }
+.quick-value-grid article:nth-child(4) { background: color-mix(in oklab, var(--warning) 5%, var(--surface-secondary)); }
+
+/* 精品详情：标题与元数据层级强化 */
+.featured-detail-hero h1 {
+  margin: 10px 0 16px;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 400;
+  letter-spacing: -.03em;
+  line-height: 1.05;
+}
+.featured-detail-meta {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.featured-detail-meta dt {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+.featured-detail-meta dd {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+.featured-related-card {
+  transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .featured-related-card:hover {
+    border-color: var(--gold-border);
+    box-shadow: var(--shadow-card-hover);
+  }
 }

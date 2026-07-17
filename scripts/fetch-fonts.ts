@@ -28,6 +28,17 @@ const WANTED = new Set(["latin", "latin-ext"]);
 const FAMILIES = [
   { name: "Manrope", query: "Manrope:wght@400..800", slug: "manrope" },
   { name: "IBM Plex Mono", query: "IBM+Plex+Mono:wght@400;500;600", slug: "ibm-plex-mono" },
+  // display 字体：域名大标题与统计数字；另需一份 TTF 供 og.ts 生成 OG 图（见下方 EXTRA_TTF）
+  { name: "Cormorant Garamond", query: "Cormorant+Garamond:wght@400;600", slug: "cormorant-garamond" },
+];
+
+// OG 图渲染（resvg）吃 TTF；google/fonts 仓库只有 1.1MB 变量字体，
+// 改用旧版 UA 请求 css2 拿 gstatic 的静态 Regular（约 290KB）
+const EXTRA_TTF = [
+  {
+    cssUrl: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400",
+    fileName: "CormorantGaramond-Regular.ttf",
+  },
 ];
 
 interface Face {
@@ -85,5 +96,16 @@ const css = header + faces.map((f) => `@font-face {
 }`).join("\n\n") + "\n";
 
 writeFileSync(CSS_PATH, css, "utf8");
+for (const extra of EXTRA_TTF) {
+  // 不带现代 UA 时 Google Fonts 返回 truetype 源
+  const css = execFileSync("curl", ["-sSL", "-A", "curl/7.0", extra.cssUrl], { encoding: "utf8" });
+  const ttfUrl = css.match(/url\((https:\/\/[^)]+\.ttf)\)/)?.[1];
+  if (!ttfUrl) throw new Error(`${extra.fileName} 未取到 TTF 源`);
+  const buf = curlBuffer(ttfUrl);
+  if (buf.length < 10 * 1024) throw new Error(`${extra.fileName} 下载异常，仅 ${buf.length} 字节`);
+  writeFileSync(`${OUT_DIR}/${extra.fileName}`, buf);
+  console.log(`${extra.fileName.padEnd(44)} ${(buf.length / 1024).toFixed(1)} KB [og 专用 TTF]`);
+}
+
 console.log(`\n合计 ${faces.length} 个文件、${(faces.reduce((s, f) => s + f.bytes, 0) / 1024).toFixed(1)} KB`);
 console.log(`已生成 ${CSS_PATH}`);

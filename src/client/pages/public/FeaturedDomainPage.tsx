@@ -56,7 +56,6 @@ export function FeaturedDomainPage() {
       <main className="featured-detail-main">
         <a className="featured-detail-back" href="/domains">← 返回域名目录</a>
         <section className="featured-detail-hero">
-          <span className="featured-detail-kicker">FEATURED DOMAIN ASSET</span>
           <h1>{domain.domain}</h1>
           {categories.length > 0 && <div className="featured-detail-tags" aria-label={`${domain.domain} 分类`}>{categories.map((category) => <span key={category}>{category}</span>)}</div>}
           {domain.description && <p className="featured-detail-description">{domain.description}</p>}
@@ -70,7 +69,7 @@ export function FeaturedDomainPage() {
           <a className="featured-detail-visit" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow">访问该域名 →</a>
         </section>
         <section className="featured-related" aria-labelledby="featured-related-title">
-          <div className="featured-related-heading"><span>DISCOVER MORE</span><h2 id="featured-related-title">相似域名推荐</h2></div>
+          <div className="featured-related-heading"><h2 id="featured-related-title">相似域名推荐</h2></div>
           <RecommendationGroup title={`同后缀 .${domain.tld}`} items={detail.same_tld} />
           <RecommendationGroup title={`同为 ${domain.character_count} 字符`} items={detail.same_length} />
         </section>

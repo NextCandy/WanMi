@@ -22,14 +22,14 @@
   --border-subtle: rgba(0, 0, 0, 0.04);
 
   /* Brand Gold —— 调淡金强调色 */
-  --gold: #b89530;
-  --gold-bright: #c9a23a;
-  --gold-soft: #a6862b;
+  --gold: #c4a242;
+  --gold-bright: #d4b252;
+  --gold-soft: #b89530;
   --gold-muted: #8a7a4a;
-  --gold-bg: rgba(184, 149, 48, 0.10);
-  --gold-bg-strong: rgba(184, 149, 48, 0.18);
-  --gold-border: rgba(184, 149, 48, 0.28);
-  --gold-divider: rgba(184, 149, 48, 0.24);
+  --gold-bg: rgba(196, 162, 66, 0.08);
+  --gold-bg-strong: rgba(196, 162, 66, 0.14);
+  --gold-border: rgba(196, 162, 66, 0.22);
+  --gold-divider: rgba(196, 162, 66, 0.18);
 
   /* Text */
   --text-primary: #1d1d1f;
@@ -56,7 +56,7 @@
   --cream-rule: rgba(58, 50, 32, 0.14);
 
   /* Typography */
-  --font-display: "Instrument Serif", "Songti SC", "Noto Serif SC", ui-serif, Georgia, serif;
+  --font-display: "Cormorant Garamond", "Songti SC", "Noto Serif SC", ui-serif, Georgia, serif;
   --font-ui: "Manrope", "Noto Sans SC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
@@ -98,4 +98,37 @@
 
   /* 移动端底部导航高度：正文用它预留滚动空间 */
   --bottom-nav-h: 76px;
+}
+
+/* 默认浅色；暗色跟随系统偏好自动切换（无手动开关）。
+   仅覆盖颜色类令牌，结构/间距/动效令牌两套主题共用。 */
+:root { color-scheme: light; }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: #0f0f0f;
+    --background-soft: #1a1a1a;
+    --surface: #151515;
+    --surface-secondary: #1e1e1e;
+    --surface-elevated: #222222;
+    --surface-hover: #1a1a1a;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.14);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --gold: #d4b252;
+    --gold-bright: #e4c262;
+    --gold-soft: #c4a242;
+    --gold-bg: rgba(212, 178, 82, 0.10);
+    --gold-bg-strong: rgba(212, 178, 82, 0.16);
+    --gold-border: rgba(212, 178, 82, 0.20);
+    --gold-divider: rgba(212, 178, 82, 0.16);
+    --text-primary: #f5f5f7;
+    --text-secondary: #a1a1a6;
+    --text-tertiary: #6e6e73;
+    --text-inverse: #0f0f0f;
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --glow-gold: 0 0 16px rgba(212, 178, 82, 0.06);
+  }
 }

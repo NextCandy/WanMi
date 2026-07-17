@@ -1,6 +1,20 @@
 # WanMi HANDOFF
 
-## 最新进度（2026-07-17 · 精简首页与移除 AI 简介）
+## 最新进度（2026-07-17 · wanmi-final-prompt 方案落地）
+
+- 依用户提供的最终优化方案执行，先逐项核实再实施；两项方案内容已过时（列表页 ItemList JSON-LD 与卡片 hover 位移均已存在），一项明确拒绝：LXGW WenKai（楷体风格与目录信息密度矛盾，3MB + font-display:optional 意味着慢网用户白下载还看不到；保持系统中文字体回退）。
+- 字体替换：display 字体 Instrument Serif → Cormorant Garamond（tokens/--font-display、fonts.css 由 fetch-fonts 重新生成、og.ts 的 TTF 与 font-family、api.test.ts 同步、旧文件删除、OFL 补齐）。fetch-fonts.ts 新增 EXTRA_TTF：用旧版 UA 请求 css2 拿 gstatic 静态 Regular TTF（290KB，google/fonts 仓库只有 1.1MB 变量字体，resvg 吃静态更稳）。
+- 三处全大写英文 kicker 删除（FEATURED DOMAIN ASSET / DISCOVER MORE / DOMAIN QUICK VIEW）。
+- DomainCard 7 个手写 SVG 与底栏 Unicode 字符（⌂/≡）替换为 lucide-react；组件不传尺寸 props，沿用 CSS 对各处 svg 的既有约束；顺手移除「点击速览生成」过时文案。
+- 新增品牌声明区（h1「精选域名资产」+ 动态统计句）——上轮删 Hero 后页面没有 h1，此块兼顾 SEO 与新访客认知，克制不做大区块。
+- 金色微调：#b89530 → #c4a242（bright #d4b252），生产 site_settings.accent_color 需同步（部署时更新）。
+- 暗色模式：tokens.css 末尾按系统 prefers-color-scheme 自动切换（无手动开关），仅颜色令牌分主题；app.css 原 `color-scheme: light` 会盖掉媒体查询，已移到 tokens 分主题声明；view-switch 激活态 white → var(--text-inverse)（暗色下浅底白字不可读）。
+- 页首布局修复：header 原为 brand/统计/操作三列 grid，统计删除后「后台」掉进中列，两处 grid-template-columns 收敛为 `1fr auto`。
+- 其余：搜索 placeholder 更新、移动端筛选下拉两列 grid、页首「后台」视觉弱化（opacity .62 hover 恢复）、速览 QR 卡片化与价值维度四卡低饱和语义底色、精品详情标题/元数据层级 CSS。
+- 方案中跳过项及理由：CSS 拆 6 文件（层叠风险大于收益，admin.css 拆分已用 DOM 探测法完成）、wouter 路由（3 条路由不需要）、类型集中与 testing-library 单测（边际收益低）、公开 API 限流（60/min 会误伤 NAT 出口与正常翻页用户，Workers 无状态内存限流多实例下无效）。SSR JSON 注入与 SPA fallback 经检查本就安全（safeJsonLd 转义 `<`；not_found_handling: single-page-application）。
+- 22 张基线按新视觉重建三轮稳定；5 个关键 E2E 通过；`pnpm check` 全绿。
+
+## 前序进度（2026-07-17 · 精简首页与移除 AI 简介）
 
 - 页首中心的域名总数（header-stats）删除；页脚「管理」移至页首右侧并改名「后台」（复用既有 .admin-link 样式与 `show_admin_link_in_footer` 开关，字段名未改）。
 - Hero 区整体移除（CatalogueHero.tsx 删除）：页首之下直接是搜索与域名列表。
