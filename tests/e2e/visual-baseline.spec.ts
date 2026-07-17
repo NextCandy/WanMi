@@ -9,6 +9,10 @@ const TARGETS = [
   { name: "featured-detail", path: "/d/mx.ooo", ready: "h1" },
 ] as const;
 
+// 截图基线按 平台+浏览器 绑定（*-chromium-win32.png），Linux CI 的字体渲染逐像素不同，
+// 永远无法与 Windows 基线比对。基线定位为本地 CSS 改动的回归网；CI 由功能性 E2E 覆盖。
+test.skip(!!process.env.CI, "视觉基线仅在本地（win32）运行");
+
 test.describe("视觉基线", () => {
   test.beforeEach(async ({ page }) => {
     // reduce 下产品自身会走无动画退化分支（Hero 与其计数动画已删，保留此设置

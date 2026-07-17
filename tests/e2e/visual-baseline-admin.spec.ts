@@ -31,6 +31,9 @@ async function login(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: "概览", exact: true })).toBeVisible();
 }
 
+// 同 visual-baseline.spec.ts：截图基线平台绑定，仅本地运行，CI 跳过
+test.skip(!!process.env.CI, "视觉基线仅在本地（win32）运行");
+
 test.describe("后台视觉基线", () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
