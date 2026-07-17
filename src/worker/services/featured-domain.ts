@@ -79,7 +79,7 @@ export async function loadFeaturedDomainDetail(db: D1Database, normalizedDomain:
        ORDER BY d.is_featured DESC, d.normalized_domain ASC
        LIMIT 3`,
     ).bind(row.id, row.tld, characterCount),
-    db.prepare("SELECT site_name, site_description FROM site_settings WHERE id = 1"),
+    db.prepare("SELECT site_name, site_description, logo_url, favicon_url FROM site_settings WHERE id = 1"),
   ]);
 
   const categories = categoriesFor(row);
@@ -99,7 +99,7 @@ export async function loadFeaturedDomainDetail(db: D1Database, normalizedDomain:
     character_count: characterCount,
     type: categories[0] ?? row.category ?? "精品域名",
   };
-  const settings = settingsResult.results[0] as { site_name?: string; site_description?: string } | undefined;
+  const settings = settingsResult.results[0] as { site_name?: string; site_description?: string; logo_url?: string | null; favicon_url?: string | null } | undefined;
 
   return {
     domain,
@@ -108,6 +108,8 @@ export async function loadFeaturedDomainDetail(db: D1Database, normalizedDomain:
     site: {
       name: settings?.site_name || "玩米",
       description: settings?.site_description || "发现值得珍藏的域名",
+      logo_url: settings?.logo_url ?? null,
+      favicon_url: settings?.favicon_url ?? null,
     },
   };
 }
@@ -145,7 +147,7 @@ export function renderFeaturedDomainSsr(detail: FeaturedDomainDetail): string {
 
   return `<div class="featured-detail-shell" data-featured-detail-ssr>
     <header class="featured-detail-header">
-      <a class="brand" href="/" aria-label="${escapeHtml(detail.site.name)}首页"><span class="brand-mark">玩</span><span>${escapeHtml(detail.site.name)}</span></a>
+      <a class="brand" href="/" aria-label="${escapeHtml(detail.site.name)}首页">${detail.site.logo_url ? `<img src="${escapeHtml(detail.site.logo_url)}" alt="" decoding="async" />` : `<span class="brand-mark">玩</span>`}<span>${escapeHtml(detail.site.name)}</span></a>
       <nav aria-label="详情页导航"><a href="/">首页</a><a href="/domains">域名目录</a></nav>
       <a class="featured-detail-browse" href="/domains">浏览全部域名</a>
     </header>

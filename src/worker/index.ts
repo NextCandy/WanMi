@@ -42,13 +42,19 @@ function safeJsonLd(value: unknown): string {
   return JSON.stringify(value).replaceAll("<", "\\u003c");
 }
 
+// R2 上传路径多为 /uploads/... 相对路径；og:image 等外链场景必须是绝对 URL。
+function absoluteAsset(value: string, origin: string): string {
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  return `${origin}${value.startsWith("/") ? value : `/${value}`}`;
+}
+
 // 首页由 Worker 注入真实设置、Canonical 与公开域名 ItemList；React 仍负责交互渲染。
 app.get("/", async (c) => {
   const url = new URL(c.req.url);
   const shell = await c.env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: c.req.raw.headers }));
   const [settings, domains, count] = await Promise.all([
-    c.env.DB.prepare("SELECT site_name, site_description FROM site_settings WHERE id = 1")
-      .first<{ site_name: string; site_description: string }>(),
+    c.env.DB.prepare("SELECT site_name, site_description, logo_url, favicon_url FROM site_settings WHERE id = 1")
+      .first<{ site_name: string; site_description: string; logo_url: string | null; favicon_url: string | null }>(),
     c.env.DB.prepare(
       `SELECT full_domain, description FROM domains
        WHERE is_listed = 1
@@ -61,7 +67,8 @@ app.get("/", async (c) => {
   const title = `${site} · 精选域名展示`;
   const description = settings?.site_description || "发现值得珍藏的域名";
   const canonical = `${url.origin}/`;
-  const image = `${url.origin}/favicon.svg`;
+  const image = settings?.logo_url ? absoluteAsset(settings.logo_url, url.origin) : `${url.origin}/favicon.svg`;
+  const favicon = settings?.favicon_url || null;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -86,6 +93,7 @@ app.get("/", async (c) => {
     .on('meta[name="twitter:description"]', { element: (element) => { element.setAttribute("content", description); } })
     .on('meta[name="twitter:image"]', { element: (element) => { element.setAttribute("content", image); } })
     .on('link[rel="canonical"]', { element: (element) => { element.setAttribute("href", canonical); } })
+    .on('link[rel="icon"]', { element: (element) => { if (favicon) element.setAttribute("href", favicon); } })
     .on("head", { element: (element) => { element.append(`<script type="application/ld+json">${safeJsonLd(jsonLd)}</script>`, { html: true }); } })
     .transform(shell);
 });
@@ -160,6 +168,7 @@ app.get("/d/:name", async (c) => {
     .on('meta[name="twitter:description"]', { element: (element) => { element.setAttribute("content", description); } })
     .on('meta[name="twitter:image"]', { element: (element) => { element.setAttribute("content", image); } })
     .on('link[rel="canonical"]', { element: (element) => { element.setAttribute("href", canonical); } })
+    .on('link[rel="icon"]', { element: (element) => { if (detail.site.favicon_url) element.setAttribute("href", detail.site.favicon_url); } })
     .on("head", { element: (element) => { element.append(headMarkup, { html: true }); } })
     .on("#root", { element: (element) => { element.setInnerContent(renderFeaturedDomainSsr(detail), { html: true }); } })
     .transform(shell);

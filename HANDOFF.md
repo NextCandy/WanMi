@@ -1,6 +1,13 @@
 # WanMi HANDOFF
 
-## 最新进度（2026-07-17 · 辨识度专项后续：E2E 与基线）
+## 最新进度（2026-07-17 · 自定义 Logo/Favicon 全链路生效）
+
+- 用户反馈「后台的图标没有更新」：后台站点设置一直支持上传 Logo 与 Favicon 到 R2，`logo_url`/`favicon_url` 也会随公开设置 API 下发，但**前端与 SSR 从未消费这两个字段**——前台 header 硬编码 `/favicon.svg`，后台与 SSR 详情页 brand 硬编码「玩」字块，favicon 永远是默认菱形。上传后全站任何位置都不会变。
+- 修复（仍全部回退到默认）：前台 header 改用 `settings.logo_url || "/favicon.svg"`，且 `favicon_url` 存在时运行时替换 `link[rel=icon]`；Worker 首页与 `/d/:domain` 详情页在 HTMLRewriter 中按 `favicon_url` 注入 favicon，首页 `og:image`/`twitter:image` 改用 `logo_url`（新增 `absoluteAsset` 把 `/uploads/...` 相对路径转绝对 URL）；后台侧栏 brand 与 SSR 详情页/客户端详情页 brand 在有 `logo_url` 时显示图片，否则保留「玩」字块。
+- `FeaturedDomainDetail.site` 类型同步增加 `logo_url`/`favicon_url`；详情页查询同时取两列。
+- 本地用 `/favicon.svg` 作测试值验证了 SSR brand img、favicon 注入与 og:image 绝对化，测试值已还原；生产 `logo_url`/`favicon_url` 仍为 NULL，行为与之前完全一致，用户在后台上传后立即生效。
+
+## 前序进度（2026-07-17 · 辨识度专项后续：E2E 与基线）
 
 - 功能 E2E：登录链路、后台七模块、公开链路全部正常；`管理员真实登录` 用例在本地仍命中 HANDOFF 已记载的 admin→公开页 goto 卡死（`main` 基线一致，CI 上通过），与本轮改动无关。
 - 新坑已踩并记录：本机另一目录（`~/Documents/kimi/workspace/wanmi`）残留的 dev server 占着 5173，`playwright.config.ts` 的 `reuseExistingServer: true` 会把整套 E2E 静默打到**旧目录的代码与本地 D1** 上（表现为登录 401/429 与基线全挂）。跑 E2E 前先 `lsof -nP -iTCP:5173` 确认进程工作目录是本仓库。

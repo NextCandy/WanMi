@@ -58,6 +58,8 @@ export interface FeaturedDomainDetail {
   site: {
     name: string;
     description: string;
+    logo_url: string | null;
+    favicon_url: string | null;
   };
 }
 

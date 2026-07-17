@@ -17,6 +17,7 @@ interface SiteSettings {
   site_description: string;
   site_bio: string | null;
   logo_url: string | null;
+  favicon_url: string | null;
   accent_color: string;
   display_density: string;
   copyright_text: string | null;
@@ -204,6 +205,9 @@ export function PublicPage() {
         document.title = `${settingsResult.value.site_name} · 域名展示`;
         const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
         description?.setAttribute("content", settingsResult.value.site_description);
+        if (settingsResult.value.favicon_url) {
+          document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.setAttribute("href", settingsResult.value.favicon_url);
+        }
       } else {
         setError(settingsResult.reason instanceof Error ? settingsResult.reason.message : "站点设置加载失败");
       }
@@ -313,7 +317,7 @@ export function PublicPage() {
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
       <header className="public-header">
         <a className="brand" href="/" aria-label="玩米首页">
-          <img className="brand-icon" src="/favicon.svg" alt="玩米 Logo" decoding="async" fetchPriority="high" />
+          <img className="brand-icon" src={settings?.logo_url || "/favicon.svg"} alt="玩米 Logo" decoding="async" fetchPriority="high" />
         </a>
         <div className="header-actions">
           {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin">后台</a>}

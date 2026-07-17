@@ -49,7 +49,7 @@ export function FeaturedDomainPage() {
   return (
     <div className="featured-detail-shell">
       <header className="featured-detail-header">
-        <a className="brand" href="/" aria-label={`${detail.site.name}首页`}><span className="brand-mark">玩</span><span>{detail.site.name}</span></a>
+        <a className="brand" href="/" aria-label={`${detail.site.name}首页`}>{detail.site.logo_url ? <img src={detail.site.logo_url} alt="" decoding="async" /> : <span className="brand-mark">玩</span>}<span>{detail.site.name}</span></a>
         <nav aria-label="详情页导航"><a href="/">首页</a><a href="/domains">域名目录</a></nav>
         <a className="featured-detail-browse" href="/domains">浏览全部域名</a>
       </header>
