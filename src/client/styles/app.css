@@ -2346,6 +2346,48 @@ svg.lucide {
   .hero-stats > div:nth-child(3) { flex-basis: 100%; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); border-left: 0; }
 }
 
+/* 手机目录首屏：跳过展示型内容，直接进入搜索、筛选与紧凑列表。 */
+@media (max-width: 720px) {
+  .public-shell .public-header { height: 54px; padding-inline: 12px; }
+  .public-shell .brand-icon { width: 28px; height: 28px; }
+  .public-shell .catalogue-layout { padding: 6px 8px 40px; }
+  .public-shell .domain-section { padding-top: 0; }
+  .public-shell .domain-section .catalogue-toolbar { margin-bottom: 8px; }
+  .public-shell .catalogue-toolbar { gap: 6px; padding: 8px; border-radius: 14px; }
+  .public-shell .filter-search { min-height: 44px; padding-left: 10px; border-radius: 11px; }
+  .public-shell .filter-search input { min-height: 42px; padding-inline: 8px; font-size: 14px; }
+  .public-shell .filter-search .search-submit {
+    width: 58px; min-width: 58px; max-width: 58px; min-height: 44px; padding-inline: 8px; border-radius: 0 10px 10px 0;
+  }
+  .public-shell .toolbar-filters { gap: 6px; }
+  .public-shell .toolbar-filters label { min-height: 40px; border-radius: 10px; }
+  .public-shell .toolbar-filters label > span { padding-left: 9px; font-size: 11px; }
+  .public-shell .toolbar-filters select { height: 40px; min-height: 40px; padding: 0 24px 0 6px; font-size: 11px; }
+  .public-shell .toolbar-summary { min-height: 28px; gap: 8px; font-size: 11px; }
+  .public-shell .clear-filter { min-height: 28px; padding-inline: 4px; }
+  .public-shell .domain-list.compact-view { gap: 6px; }
+  .public-shell .domain-list.compact-view .domain-card,
+  .public-shell .domain-list.compact-view .domain-card:not(:has(.domain-keywords)) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "badges badges" "name expiry";
+    min-height: 98px;
+    padding: 10px 12px;
+    gap: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--surface);
+    contain-intrinsic-size: 0 98px;
+  }
+  .public-shell .domain-list.compact-view .card-badge-row { grid-area: badges; }
+  .public-shell .domain-list.compact-view .domain-name { grid-area: name; align-self: center; }
+  .public-shell .domain-list.compact-view .domain-name strong { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+  .public-shell .domain-list.compact-view .domain-name .domain-tld { font-family: var(--font-display); font-size: 17px; }
+  .public-shell .domain-list.compact-view .card-expiry-row { grid-area: expiry; align-self: center; min-height: 0; margin: 0; padding: 0; }
+  .public-shell .domain-list.compact-view .expiry-text { font-size: 11px; }
+  .public-shell .domain-list.compact-view .tld-badge { padding: 4px 10px; font-size: 11px; }
+  .public-shell .domain-list.compact-view .domain-actions button { width: 34px; min-width: 34px; height: 34px; min-height: 34px; }
+}
+
 .public-shell .pagination button.active {
   border-color: var(--brand-primary);
   background: var(--brand-primary);

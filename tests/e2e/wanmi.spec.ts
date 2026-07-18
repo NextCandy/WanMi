@@ -108,6 +108,25 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page).toHaveURL(/sort=length_desc/);
   });
 
+  test("手机端首屏直接显示筛选和紧凑域名列表", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.locator(".brand-statement")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "精选域名资产", level: 1 })).toHaveCount(1);
+    await expect(page.getByRole("group", { name: "状态筛选" })).toHaveCount(0);
+    await expect(page.locator(".view-switch")).toHaveCount(0);
+    await expect(page.locator(".domain-list.compact-view")).toBeVisible();
+    await expect(page.locator(".domain-list.card-view")).toHaveCount(0);
+    expect(await page.locator(".toolbar-filters label > span").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
+    const metrics = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      firstDomainTop: Math.round(document.querySelector(".domain-card:not(.skeleton)")!.getBoundingClientRect().top),
+    }));
+    expect(metrics.documentWidth).toBeLessThanOrEqual(metrics.viewportWidth);
+    expect(metrics.firstDomainTop).toBeLessThan(330);
+  });
+
   test("前台搜索历史、空结果推荐与筛选链接可以完整复用", async ({ page, context }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("wanmi-search-history", JSON.stringify({

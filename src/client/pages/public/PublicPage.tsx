@@ -168,6 +168,7 @@ function pageItems(current: number, total: number): Array<number | string> {
 
 // 旧版默认品牌色：库里存这些值说明管理员从未自定义过，跳过注入、回退 CSS 新品牌色（皮革棕）
 const LEGACY_ACCENT_DEFAULTS = new Set(["#2fbf9a", "#c4a242", "#b89530", "#d4b252"]);
+const MOBILE_CATALOGUE_QUERY = "(max-width: 720px)";
 
 function SearchIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m16.2 16.2 4.1 4.1"/></svg>;
@@ -197,11 +198,20 @@ export function PublicPage() {
   const [error, setError] = useState("");
   const [historyFocused, setHistoryFocused] = useState(false);
   const [viewMode, setViewMode] = useState<"cards" | "compact">("cards");
+  const [isMobileCatalogue, setIsMobileCatalogue] = useState(() => window.matchMedia(MOBILE_CATALOGUE_QUERY).matches);
   const [selectedDomain, setSelectedDomain] = useState<PublicDomain | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const dataVersion = useRef("");
   const requestSequence = useRef(0);
   const history = useSearchHistory();
+
+  useEffect(() => {
+    const media = window.matchMedia(MOBILE_CATALOGUE_QUERY);
+    const syncLayout = () => setIsMobileCatalogue(media.matches);
+    syncLayout();
+    media.addEventListener("change", syncLayout);
+    return () => media.removeEventListener("change", syncLayout);
+  }, []);
 
   const notify = useCallback((text: string, tone: "success" | "error" = "success") => {
     setToast({ id: Date.now(), text, tone });
@@ -338,6 +348,7 @@ export function PublicPage() {
       : { ...current, group: "all", expiry: value, page: 1 });
   }
   const statusPick = filters.group === "featured" ? "featured" : filters.expiry;
+  const effectiveViewMode = isMobileCatalogue ? "compact" : viewMode;
 
   const copyDomain = useCallback(async (domain: string) => {
     if (await copyText(domain)) notify(`已复制 ${domain}`);
@@ -356,7 +367,7 @@ export function PublicPage() {
       </header>
 
       <main className="catalogue-layout">
-        <section className="brand-statement">
+        {!isMobileCatalogue && <section className="brand-statement">
           <span className="brand-statement-kicker">DOMAIN ASSET GALLERY</span>
           <h1>精选域名资产</h1>
           <p>{facets ? <><strong>{facets.total_domains.toLocaleString("zh-CN")}</strong> 个域名，覆盖 <strong>{facets.total_tlds.toLocaleString("zh-CN")}</strong> 个后缀，其中 <strong className="featured-count">{facets.total_featured.toLocaleString("zh-CN")}</strong> 个精选。</> : "精选短字符域名的展示目录。"}为你的下一个项目找到合适的域名。</p>
@@ -365,9 +376,10 @@ export function PublicPage() {
             <div><strong>{facets ? facets.total_tlds.toLocaleString("zh-CN") : "—"}</strong><span>域名后缀</span></div>
             <div className="featured"><strong>{facets ? facets.total_featured.toLocaleString("zh-CN") : "—"}</strong><span>精选域名</span></div>
           </div>
-        </section>
+        </section>}
 
         <section className="domain-section" id="domains" aria-label="全部资产">
+          {isMobileCatalogue && <h1 className="visually-hidden">精选域名资产</h1>}
           <div className="catalogue-toolbar">
             <div
               className="search-area"
@@ -383,7 +395,7 @@ export function PublicPage() {
               </form>
               {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" className="clear-search-history" aria-label="清除搜索历史" title="清除搜索历史" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
             </div>
-            <div className="filter-pill-groups">
+            {!isMobileCatalogue && <div className="filter-pill-groups">
               <div className="filter-pill-group" role="group" aria-label="状态筛选">
                 <span className="pill-group-label">状态</span>
                 <div className="pill-row">
@@ -392,7 +404,7 @@ export function PublicPage() {
                   <button type="button" className={`filter-pill pill-premium${statusPick === "featured" ? " active" : ""}`} onClick={() => selectStatus("featured")}>精品</button>
                 </div>
               </div>
-            </div>
+            </div>}
             <div className="toolbar-filters">
               <label className="category-control"><span>分类</span><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.label}{option.count > 0 ? ` (${option.count.toLocaleString("zh-CN")})` : ""}</option>)}</select></label>
               <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
@@ -408,7 +420,7 @@ export function PublicPage() {
               </select></label>
               <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
             </div>
-            <div className="toolbar-summary"><span>{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span><div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>{hasActiveFilter && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
+            <div className="toolbar-summary"><span>{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span>{!isMobileCatalogue && <div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>}{hasActiveFilter && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
           </div>
 
           {error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}
@@ -418,7 +430,7 @@ export function PublicPage() {
             {emptyBrowseCategories.length > 0 && <div className="empty-category-browse" aria-labelledby="empty-category-title"><h3 id="empty-category-title">按分类浏览</h3><div>{emptyBrowseCategories.map((item) => <button type="button" key={item.category} onClick={() => selectCategory(item.category)}><span>{item.category}</span><em>{item.count.toLocaleString("zh-CN")}</em></button>)}</div></div>}
             {emptyRecommendations.length > 0 && <div className="empty-recommendations"><header><span>为你推荐</span><h3>试试这些精选域名</h3></header><div className="domain-list card-view">{emptyRecommendations.map((domain) => <DomainCard key={domain.id} domain={domain} onCopy={copyDomain} onQuickView={setSelectedDomain} />)}</div></div>}
           </section>}
-          {displayedItems.length > 0 && !loading && <div className={`domain-list ${viewMode === "compact" ? "compact-view" : "card-view"}`}>
+          {displayedItems.length > 0 && !loading && <div className={`domain-list ${effectiveViewMode === "compact" ? "compact-view" : "card-view"}`}>
             {displayedItems.map((domain) => <DomainCard
               key={domain.id}
               domain={domain}
