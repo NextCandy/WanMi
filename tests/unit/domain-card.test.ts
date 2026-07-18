@@ -39,7 +39,7 @@ describe("DomainCard", () => {
 
     expect(markup).toContain('class="domain-card featured"');
     // 徽章行：金色 TLD 徽章 + 分类徽章（精品带星与「· 精品」后缀）
-    expect(markup).toContain('class="tld-badge">.ooo</span>');
+    expect(markup).toContain('class="tld-badge" data-type="letter">.ooo</span>');
     expect(markup).toContain('class="category-badge"');
     expect(markup).toContain("纯字母 · 精品");
     expect(markup).toContain('<strong>mx</strong>');
@@ -72,17 +72,27 @@ describe("DomainCard", () => {
     expect(markup).not.toContain("placeholder");
   });
 
-  it("临近到期渲染紧急标记，已过期渲染过期标记", () => {
-    const soon = new Date(Date.now() + 20 * 86_400_000).toISOString();
+  it("7 天内渲染紧急角标，30 天内渲染警告，已过期渲染过期标记", () => {
+    const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();
     const markup = renderCard({ ...domain, registered_at: "2015-05-12T00:00:00.000Z", expires_at: soon });
 
     expect(markup).toContain(`${localDate(soon)} 到期`);
     expect(markup).toContain("is-urgent");
-    expect(markup).toContain("（紧急）");
+    expect(markup).toContain("⚠ 紧急");
+
+    const warningDate = new Date(Date.now() + 20 * 86_400_000).toISOString();
+    const warning = renderCard({ ...domain, expires_at: warningDate });
+    expect(warning).toContain("is-warning");
+    expect(warning).not.toContain("⚠ 紧急");
 
     const past = renderCard({ ...domain, expires_at: "2020-01-07T00:00:00.000Z" });
     expect(past).toContain("is-expired");
-    expect(past).toContain("（已过期）");
+  });
+
+  it("按域名主体的字母、数字与混合构成设置徽章类型", () => {
+    expect(renderCard()).toContain('data-type="letter"');
+    expect(renderCard({ ...domain, domain: "094.org", name: "094", tld: "org" })).toContain('data-type="digit"');
+    expect(renderCard({ ...domain, domain: "a-1.com", name: "a-1", tld: "com" })).toContain('data-type="mixed"');
   });
 
   it("充裕到期日期正常显示且无紧急标记", () => {

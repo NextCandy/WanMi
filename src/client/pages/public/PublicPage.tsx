@@ -166,12 +166,15 @@ function pageItems(current: number, total: number): Array<number | string> {
   return result;
 }
 
+// 旧版默认品牌色：库里存这些值说明管理员从未自定义过，跳过注入、回退 CSS 新品牌色（皮革棕）
+const LEGACY_ACCENT_DEFAULTS = new Set(["#2fbf9a", "#c4a242", "#b89530", "#d4b252"]);
+
 function SearchIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.2 16.2 4.1 4.1"/></svg>;
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m16.2 16.2 4.1 4.1"/></svg>;
 }
 
 function TrashIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>;
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>;
 }
 
 function pickRandomDomains(domains: PublicDomain[], count: number): PublicDomain[] {
@@ -213,7 +216,10 @@ export function PublicPage() {
       if (!active) return;
       if (settingsResult.status === "fulfilled") {
         setSettings(settingsResult.value);
-        document.documentElement.style.setProperty("--brand", settingsResult.value.accent_color);
+        const accent = settingsResult.value.accent_color?.trim();
+        if (accent && /^#[0-9a-f]{6}$/i.test(accent) && !LEGACY_ACCENT_DEFAULTS.has(accent.toLowerCase())) {
+          document.documentElement.style.setProperty("--brand", accent);
+        }
         document.title = `${settingsResult.value.site_name} · 域名展示`;
         const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
         description?.setAttribute("content", settingsResult.value.site_description);
@@ -295,6 +301,10 @@ export function PublicPage() {
   const catalogueItems = pageData?.items ?? [];
   const displayedItems = catalogueItems;
   const emptyRecommendations = useMemo(() => pickRandomDomains(facets?.featured_domains ?? [], 3), [facets?.featured_domains]);
+  const emptyBrowseCategories = useMemo(() => (facets?.categories ?? []).slice(0, 5).map((category) => ({
+    category,
+    count: facets?.categoryCounts[category] ?? 0,
+  })), [facets]);
 
   function applySearch(value: string) {
     const query = value.trim();
@@ -338,7 +348,7 @@ export function PublicPage() {
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
       <header className="public-header">
         <a className="brand" href="/" aria-label="玩米首页">
-          <img className="brand-icon" src={settings?.logo_url || "/favicon.svg"} alt="玩米 Logo" decoding="async" fetchPriority="high" />
+          <img className="brand-icon" src={settings?.logo_url || "/logo.svg"} alt="玩米 Logo" decoding="async" fetchPriority="high" />
         </a>
         <div className="header-actions">
           {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin">后台</a>}
@@ -347,8 +357,14 @@ export function PublicPage() {
 
       <main className="catalogue-layout">
         <section className="brand-statement">
+          <span className="brand-statement-kicker">DOMAIN ASSET GALLERY</span>
           <h1>精选域名资产</h1>
-          <p>{facets ? `${facets.total_domains.toLocaleString("zh-CN")} 个域名，覆盖 ${facets.total_tlds} 个后缀，其中 ${facets.total_featured} 个精选。` : "精选短字符域名的展示目录。"}为你的下一个项目找到合适的域名。</p>
+          <p>{facets ? <><strong>{facets.total_domains.toLocaleString("zh-CN")}</strong> 个域名，覆盖 <strong>{facets.total_tlds.toLocaleString("zh-CN")}</strong> 个后缀，其中 <strong className="featured-count">{facets.total_featured.toLocaleString("zh-CN")}</strong> 个精选。</> : "精选短字符域名的展示目录。"}为你的下一个项目找到合适的域名。</p>
+          <div className="hero-stats" aria-label="域名目录统计">
+            <div><strong>{facets ? facets.total_domains.toLocaleString("zh-CN") : "—"}</strong><span>全部域名</span></div>
+            <div><strong>{facets ? facets.total_tlds.toLocaleString("zh-CN") : "—"}</strong><span>域名后缀</span></div>
+            <div className="featured"><strong>{facets ? facets.total_featured.toLocaleString("zh-CN") : "—"}</strong><span>精选域名</span></div>
+          </div>
         </section>
 
         <section className="domain-section" id="domains" aria-label="全部资产">
@@ -408,6 +424,7 @@ export function PublicPage() {
           {loading && <div className="domain-list skeleton-list">{Array.from({ length: 8 }, (_, index) => <div className="domain-card skeleton" key={index} />)}</div>}
           {!loading && !error && pageData?.items.length === 0 && <section className="empty-results" aria-labelledby="empty-results-title">
             <div className="state-panel"><h3 id="empty-results-title">未找到匹配的域名</h3><span>换一个关键词，或清除筛选后再试。</span><button type="button" onClick={resetFilters}>清除筛选</button></div>
+            {emptyBrowseCategories.length > 0 && <div className="empty-category-browse" aria-labelledby="empty-category-title"><h3 id="empty-category-title">按分类浏览</h3><div>{emptyBrowseCategories.map((item) => <button type="button" key={item.category} onClick={() => selectCategory(item.category)}><span>{item.category}</span><em>{item.count.toLocaleString("zh-CN")}</em></button>)}</div></div>}
             {emptyRecommendations.length > 0 && <div className="empty-recommendations"><header><span>为你推荐</span><h3>试试这些精选域名</h3></header><div className="domain-list card-view">{emptyRecommendations.map((domain) => <DomainCard key={domain.id} domain={domain} onCopy={copyDomain} onQuickView={setSelectedDomain} />)}</div></div>}
           </section>}
           {displayedItems.length > 0 && !loading && <div className={`domain-list ${viewMode === "compact" ? "compact-view" : "card-view"}`}>

@@ -1,30 +1,31 @@
 /* ============================================================
-   WanMi Design Tokens · Dark Vault —— 深墨绿玻璃 + 青绿主色 + 金色精品
-   —— 依据 2026-07 设计稿：前台黑金玻璃卡片，后台深青绿玻璃拟态仪表盘
+   WanMi Design Tokens · Warm Craft —— 拟物化暖色:米白纸感 + 皮革棕 + 金
+   —— v3.0(2026-07-18):配色对齐拟物化风格指南(参考图 IMG_3490):
+      米白纸感底、奶油白卡片、皮革深棕主操作、金色精品强调
    —— 前台 / 详情 / 后台 / 登录共用这一套令牌
-   —— 组件内禁止硬编码色值，一律引用这里的变量
-   —— 单一深色主题（设计稿只有深色形态，不提供明暗切换）
+   —— 组件内禁止硬编码色值,一律引用这里的变量
+   —— 单一浅色暖调主题(不提供明暗切换);后台侧栏为深棕皮革例外区
    ============================================================ */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Background —— 深墨绿黑，带极轻的青绿冷调 */
-  --background: #0a1211;
-  --background-soft: #0e1816;
+  /* Background —— 米白纸感,暖调 */
+  --background: #f5e9d6;
+  --background-soft: #efe1c8;
 
-  /* Surface —— 实色深墨绿分层（弹窗/下拉必须不透底），玻璃感靠边框高光与渐变叠加 */
-  --surface: #121c19;
-  --surface-secondary: #16221e;
-  --surface-elevated: #1b2823;
-  --surface-hover: #182420;
+  /* Surface —— 奶油白卡片分层(弹窗/下拉必须不透底),材质感靠内高光与暖棕投影 */
+  --surface: #fbf5ea;
+  --surface-secondary: #f3ead8;
+  --surface-elevated: #fdf9f0;
+  --surface-hover: #f1e5cf;
 
-  /* Border —— 白色透明度分级，玻璃卡轮廓 */
-  --border: rgba(255, 255, 255, 0.10);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  /* Border —— 深棕透明度分级,拟物描边 */
+  --border: rgba(46, 30, 19, 0.14);
+  --border-strong: rgba(46, 30, 19, 0.24);
+  --border-subtle: rgba(46, 30, 19, 0.08);
 
-  /* Teal —— 青绿主色：按钮、选中态、图表、后台渐变卡 */
+  /* Teal —— v1 深色遗留,仅兼容保留,禁止新用 */
   --teal: #2fbf9a;
   --teal-bright: #4adcb4;
   --teal-deep: #17564a;
@@ -33,41 +34,58 @@
   --teal-bg-strong: rgba(47, 191, 154, 0.16);
   --teal-border: rgba(47, 191, 154, 0.28);
 
-  /* Brand Gold —— 精品/资产专用点缀（徽章、星标、精品卡） */
-  --gold: #d4b252;
-  --gold-bright: #ecd07d;
+  /* Brand Primary —— v3.0 皮革深棕主色(拟物参考图 Primary 按钮色)
+     浅底上前景/背景双达标:作前景 8.1:1,作实底配白字 9.7:1 */
+  --brand-primary: #5a3e2b;
+  --brand-primary-light: #6f4e36;  /* 渐变亮端 / hover(白字 7.5:1) */
+  --brand-primary-deep: #3e2a1c;   /* 按压态 / 渐变暗端 */
+  --brand-primary-ink: #2e1e13;    /* 近黑棕:正文级最强 */
+  --brand-bg: rgba(90, 62, 43, 0.10);
+  --brand-bg-strong: rgba(90, 62, 43, 0.16);
+  --brand-border: rgba(90, 62, 43, 0.32);
+
+  /* Accent —— 品牌 logo「一线成域」珊瑚红节点色:
+     仅限 logo 与极小品牌点缀;UI 强调一律用金色/语义色,不得大面积使用 */
+  --accent: #ff5c38;
+  --accent-light: #ff7a5c;
+  --accent-bg: rgba(255, 92, 56, 0.12);
+
+  /* Brand Gold —— 精品/资产强调(拟物参考图金色 #D4AF37) */
+  --gold: #d4af37;
+  --gold-bright: #e5c55c;
   --gold-soft: #c4a242;
   --gold-muted: #9a8850;
-  /* 暗底金色文字（≥4.5:1）；gold/gold-bright 作渐变与装饰 */
-  --gold-text: #e9cd7d;
-  --gold-bg: rgba(212, 178, 82, 0.10);
-  --gold-bg-strong: rgba(212, 178, 82, 0.16);
-  --gold-border: rgba(212, 178, 82, 0.24);
-  --gold-divider: rgba(212, 178, 82, 0.16);
+  /* 浅底金色文字(≥4.5:1);gold/gold-bright 仅作渐变与装饰,禁止直接作浅底文字色 */
+  --gold-text: #7d641c;
+  --gold-bg: rgba(212, 175, 55, 0.14);
+  --gold-bg-strong: rgba(212, 175, 55, 0.22);
+  --gold-border: rgba(212, 175, 55, 0.45);
+  --gold-divider: rgba(212, 175, 55, 0.35);
 
-  /* Text */
-  --text-primary: #f2f6f4;
-  --text-secondary: #a9b6b0;
-  --text-tertiary: #7f8d87;
-  --text-inverse: #0a1211;
+  /* Text —— 深棕墨色系(纸上的墨) */
+  --text-primary: #2e1e13;
+  --text-secondary: #5c4a3a;
+  --text-tertiary: #75644f;
+  --text-inverse: #fbf5ea;
+  --text-on-brand: #ffffff;
 
-  /* Semantic —— 暗底调亮 */
-  --success: #3ecf74;
-  --warning: #e0a83c;
-  --danger: #ff6b5e;
-  --info: #58a6ff;
+  /* Semantic —— 浅底加深(全部 ≥4.5:1) */
+  --success: #297040;
+  --warning: #8a5b10;
+  --danger: #b23327;
+  --info: #38648f;
 
-  --success-bg: rgba(62, 207, 116, 0.12);
-  --warning-bg: rgba(224, 168, 60, 0.12);
-  --danger-bg: rgba(255, 107, 94, 0.12);
-  --info-bg: rgba(88, 166, 255, 0.12);
+  --success-bg: rgba(41, 112, 64, 0.12);
+  --warning-bg: rgba(138, 91, 16, 0.12);
+  --danger-bg: rgba(178, 51, 39, 0.12);
+  --info-bg: rgba(56, 100, 143, 0.12);
 
-  /* 高亮卡：暗底玻璃高光层（沿用 cream 令牌名，避免全量替换引用） */
-  --cream-a: #1c2a24;
-  --cream-b: #15201c;
-  --cream-fg: #e8efeb;
-  --cream-fg-soft: rgba(232, 239, 235, 0.62);
-  --cream-rule: rgba(232, 239, 235, 0.14);
+  /* 高亮卡:暖调浅高光层(沿用 cream 令牌名,避免全量替换引用) */
+  --cream-a: #fdf8ee;
+  --cream-b: #f6ecd9;
+  --cream-fg: #2e1e13;
+  --cream-fg-soft: rgba(46, 30, 19, 0.62);
+  --cream-rule: rgba(46, 30, 19, 0.14);
 
   /* Typography */
   --font-display: "Cormorant Garamond", "Songti SC", "Noto Serif SC", ui-serif, Georgia, serif;
@@ -96,15 +114,16 @@
   --space-xl: 48px;
   --space-2xl: 64px;
 
-  /* Elevation —— 深色下压暗阴影 + 玻璃内高光 */
-  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-card-hover: 0 10px 28px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35);
-  --shadow-panel: 0 14px 44px rgba(0, 0, 0, 0.40), 0 2px 8px rgba(0, 0, 0, 0.30);
-  --shadow-modal: 0 28px 80px rgba(0, 0, 0, 0.55);
-  --glow-gold: 0 0 18px rgba(212, 178, 82, 0.10);
-  --glow-teal: 0 0 18px rgba(47, 191, 154, 0.12);
-  /* 玻璃卡顶部内高光：叠加在 box-shadow 首位使用 */
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  /* Elevation —— 浅色拟物:暖棕投影 + 强白内高光(材质表面感) */
+  --shadow-card: 0 1px 2px rgba(90, 62, 43, 0.10), 0 2px 8px rgba(90, 62, 43, 0.10);
+  --shadow-card-hover: 0 10px 24px rgba(90, 62, 43, 0.18), 0 2px 6px rgba(90, 62, 43, 0.12);
+  --shadow-panel: 0 12px 36px rgba(90, 62, 43, 0.16), 0 2px 8px rgba(90, 62, 43, 0.10);
+  --shadow-modal: 0 24px 64px rgba(46, 30, 19, 0.28);
+  --glow-gold: 0 0 18px rgba(212, 175, 55, 0.20);
+  --glow-teal: 0 0 18px rgba(47, 191, 154, 0.12); /* 兼容保留 */
+  --glow-brand: 0 0 18px rgba(90, 62, 43, 0.16); /* v3.0 品牌光晕(暖棕) */
+  /* 拟物卡顶部内高光:叠加在 box-shadow 首位使用 */
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -113,6 +132,6 @@
   --dur-2: 200ms;
   --dur-3: 250ms;
 
-  /* 移动端底部导航高度：正文用它预留滚动空间 */
+  /* 移动端底部导航高度:正文用它预留滚动空间 */
   --bottom-nav-h: 76px;
 }

@@ -24,8 +24,14 @@ function daysUntil(value: string | null): number | null {
   return Math.ceil((expires - Date.now()) / 86_400_000);
 }
 
-/** 紧急阈值：30 天内到期即标红提示，与前台「状态 · 30 天」筛选口径一致 */
-const URGENT_DAYS = 30;
+const WARNING_DAYS = 30;
+const URGENT_DAYS = 7;
+
+function domainType(name: string): "letter" | "digit" | "mixed" {
+  if (/^[a-z]+$/i.test(name)) return "letter";
+  if (/^\d+$/.test(name)) return "digit";
+  return "mixed";
+}
 
 function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
   const tld = domain.domain.split(".").at(-1) || domain.tld;
@@ -33,12 +39,13 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
   const remaining = daysUntil(domain.expires_at);
   const expired = remaining !== null && remaining < 0;
   const urgent = remaining !== null && remaining >= 0 && remaining <= URGENT_DAYS;
+  const warning = remaining !== null && remaining > URGENT_DAYS && remaining <= WARNING_DAYS;
   const category = domain.categories[0] ?? domain.category;
 
   return (
     <article id={`domain-card-${domain.id}`} className={`domain-card${domain.is_featured ? " featured" : ""}`} aria-labelledby={`domain-${domain.id}`}>
       <div className="card-badge-row">
-        <span className="tld-badge">.{tld}</span>
+        <span className="tld-badge" data-type={domainType(domain.name)}>.{tld}</span>
         {category ? <span className="category-badge">{domain.is_featured ? <Star aria-hidden="true" /> : null}{category}{domain.is_featured ? " · 精品" : ""}</span> : null}
         <div className="domain-actions">
           <button type="button" aria-label={`复制 ${domain.domain}`} title={`复制 ${domain.domain}`} onClick={() => onCopy(domain.domain)}><Copy aria-hidden="true" /></button>
@@ -52,8 +59,9 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
           ? <span className="domain-featured-badge" aria-label="精品域名"><Star aria-hidden="true" /></span>
           : <span className="expiry-spacer" aria-hidden="true" />}
         {expiresOn
-          ? <span className={`expiry-text${expired ? " is-expired" : urgent ? " is-urgent" : ""}`}>
-              {expiresOn} 到期{expired ? <em>（已过期）</em> : urgent ? <em>（紧急）</em> : null}
+          ? <span className={`expiry-text${expired ? " is-expired" : urgent ? " is-urgent" : warning ? " is-warning" : ""}`}>
+              {urgent ? <em className="expiry-urgent-badge">⚠ 紧急</em> : null}
+              <span className="expiry-date">{expiresOn} 到期</span>
             </span>
           : <span className="expiry-text expiry-unknown">长期持有</span>}
       </div>
