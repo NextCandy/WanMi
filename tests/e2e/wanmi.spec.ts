@@ -350,6 +350,8 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".upload-card").nth(0).locator("img")).toHaveAttribute("src", "/logo.svg");
     await expect(page.locator(".upload-card").nth(1).locator("img")).toHaveAttribute("src", "/favicon.svg");
     await expect(page.getByLabel("版权文字")).toHaveValue("@ DOMAIN HUNTER");
+    await expect(page.getByText("页首显示管理入口", { exact: true })).toBeVisible();
+    await expect(page.getByText("页脚显示管理入口", { exact: true })).toHaveCount(0);
 
     await adminNavigation.getByRole("button", { name: "账户安全", exact: true }).click();
     await expect(page.getByLabel("当前密码")).toBeVisible();
