@@ -65,7 +65,7 @@ const EMPTY_ADVANCED_FILTERS: AdvancedFilterValue = {
 };
 
 const SORTS: Array<[SortKey, string]> = [
-  ["default", "默认"],
+  ["default", "排序"],
   ["added_desc", "最新加入"],
   ["length_asc", "字符数升序"],
   ["length_desc", "字符数降序"],
@@ -383,19 +383,19 @@ export function PublicPage() {
                 {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" className="clear-search-history" aria-label="清除搜索历史" title="清除搜索历史" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
               </div>
               <div className="toolbar-filters">
-                <label className="category-control"><span>分类</span><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.value ? option.label : "筛选"}</option>)}</select></label>
-                <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">筛选</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
-                <label><span>位数</span><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
+                <label className="category-control"><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.value ? option.label : "分类"}</option>)}</select></label>
+                <label><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">后缀</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
+                <label><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
                   const pick = event.target.value;
                   const range = pick === "all" ? { minLength: "", maxLength: "" } : pick === "10plus" ? { minLength: "10", maxLength: "" } : { minLength: pick, maxLength: pick };
                   setFilters((current) => ({ ...current, advanced: { ...current.advanced, ...range }, page: 1 }));
                 }}>
-                  <option value="all">筛选</option>
+                  <option value="all">位数</option>
                   {lengthPickOf(filters.advanced) === "custom" && <option value="custom" disabled>自定义区间</option>}
                   {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} 位</option>)}
                   <option value="10plus">10 位以上</option>
                 </select></label>
-                <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
+                <label className="sort-control"><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
               </div>
             </div>
             {hasActiveFilter && <div className="toolbar-summary"><button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button></div>}

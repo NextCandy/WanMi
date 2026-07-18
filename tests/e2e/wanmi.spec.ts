@@ -87,7 +87,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByText(/为你的下一个项目找到合适的域名/)).toHaveCount(0);
     await expect(page.getByRole("link", { name: "后台" })).toHaveText("");
     await expect(page.getByRole("link", { name: "后台" }).locator("svg")).toHaveCount(1);
-    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["筛选", "筛选", "筛选", "默认"]);
+    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
     await expect(page.locator(".domain-card:not(.skeleton)")).toHaveCount(36);
     await expect(page.locator(".view-switch")).toHaveCount(0);
     await expect(page.locator(".domain-list.card-view")).toBeVisible();
@@ -213,7 +213,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByRole("button", { name: "搜索", exact: true }).click();
     await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
     await page.getByRole("button", { name: "清除筛选" }).click();
-    expect(await page.locator(".toolbar-filters label > span").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
+    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
     await expect(page.getByLabel("分类筛选")).toBeVisible();
     const orgOption = page.getByRole("option", { name: ".org", exact: true });
     await expect(orgOption).toBeAttached();
@@ -222,7 +222,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".domain-total-pill")).toHaveText("859 个域名");
     await expect(page.getByLabel("排序方式").locator("option")).toHaveCount(6);
     expect(await page.getByLabel("排序方式").locator("option").allInnerTexts()).toEqual([
-      "默认", "最新加入", "字符数升序", "字符数降序", "后缀字母序", "随机",
+      "排序", "最新加入", "字符数升序", "字符数降序", "后缀字母序", "随机",
     ]);
     await page.getByLabel("排序方式").selectOption("length_desc");
     await expect(page).toHaveURL(/sort=length_desc/);
@@ -242,7 +242,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".domain-list.card-view")).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "移动端快捷导航" })).toHaveCount(0);
     await expect(page.locator(".footer-copyright")).toHaveText("@ DOMAIN HUNTER");
-    expect(await page.locator(".toolbar-filters label > span").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
+    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
     const metrics = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
