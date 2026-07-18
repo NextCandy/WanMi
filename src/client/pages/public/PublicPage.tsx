@@ -197,7 +197,6 @@ export function PublicPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [historyFocused, setHistoryFocused] = useState(false);
-  const [viewMode, setViewMode] = useState<"cards" | "compact">("cards");
   const [isMobileCatalogue, setIsMobileCatalogue] = useState(() => window.matchMedia(MOBILE_CATALOGUE_QUERY).matches);
   const [selectedDomain, setSelectedDomain] = useState<PublicDomain | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -341,7 +340,7 @@ export function PublicPage() {
       : { ...current, category: value, group: "all", page: 1 });
   }
 
-  const effectiveViewMode = isMobileCatalogue ? "compact" : viewMode;
+  const effectiveViewMode = isMobileCatalogue ? "compact" : "cards";
 
   const copyDomain = useCallback(async (domain: string) => {
     if (await copyText(domain)) notify(`已复制 ${domain}`);
@@ -399,7 +398,7 @@ export function PublicPage() {
                 <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
               </div>
             </div>
-            {(!isMobileCatalogue || hasActiveFilter) && <div className="toolbar-summary">{!isMobileCatalogue && <div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>}{hasActiveFilter && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>}
+            {hasActiveFilter && <div className="toolbar-summary"><button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button></div>}
           </div>
 
           {error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}
@@ -426,7 +425,7 @@ export function PublicPage() {
       <footer className="public-footer">
         <div className="footer-copyright">
           <img className="footer-logo" src={settings?.logo_url || "/logo.svg"} alt="DOMAIN HUNTER Logo" decoding="async" />
-          <span>@{new Date().getFullYear()}</span>
+          <span>@ DOMAIN HUNTER</span>
         </div>
       </footer>
 

@@ -76,6 +76,7 @@ test.describe.serial("WanMi 生产流程", () => {
     });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveTitle("DOMAIN HUNTER");
+    await expect(page.locator('meta[name="wanmi-build"]')).toHaveAttribute("content", "domain-hunter-2026-07-19-v2");
     await expect(page.locator(".domain-total-pill")).toHaveText("859 个域名");
     await expect(page.locator(".public-header .brand-title")).toHaveText("DOMAIN HUNTER");
     await expect(page.locator(".public-header .brand-title")).toBeVisible();
@@ -88,7 +89,9 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("link", { name: "后台" }).locator("svg")).toHaveCount(1);
     expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["筛选", "筛选", "筛选", "默认"]);
     await expect(page.locator(".domain-card:not(.skeleton)")).toHaveCount(36);
-    await page.getByRole("button", { name: "卡片", exact: true }).click();
+    await expect(page.locator(".view-switch")).toHaveCount(0);
+    await expect(page.locator(".domain-list.card-view")).toBeVisible();
+    await expect(page.locator(".domain-list.compact-view")).toHaveCount(0);
     const firstCatalogueCard = page.locator(".domain-card:not(.skeleton)").first();
     await expect(firstCatalogueCard.locator(".registration-range")).toHaveText(/^\d{4}\.\d{2}\.\d{2}-\d{4}\.\d{2}\.\d{2}$/);
     await expect(firstCatalogueCard.locator(".remaining-days")).toHaveText(/^(余\d+天|已过期\d+天)$/);
@@ -187,12 +190,14 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("link", { name: "通过 QQ 联系 307203" })).toHaveAttribute("href", "https://wpa.qq.com/msgrd?v=3&uin=307203&site=qq&menu=yes");
     await expect(page.locator(".public-footer .contact-icons-wrap")).toHaveCount(0);
     await expect(page.locator(".footer-logo")).toHaveAttribute("src", "/logo.svg");
-    await expect(page.locator(".footer-copyright")).toHaveText(`@${new Date().getFullYear()}`);
+    await expect(page.locator(".footer-copyright")).toHaveText("@ DOMAIN HUNTER");
     const footerGeometry = await page.locator(".public-footer").evaluate((footer) => {
       const logo = footer.querySelector(".footer-logo")!.getBoundingClientRect();
-      return { footerHeight: footer.getBoundingClientRect().height, logoHeight: logo.height };
+      const content = footer.querySelector(".footer-copyright")!.getBoundingClientRect();
+      return { footerHeight: footer.getBoundingClientRect().height, footerWidth: footer.getBoundingClientRect().width, logoHeight: logo.height, contentWidth: content.width };
     });
     expect(footerGeometry.footerHeight - footerGeometry.logoHeight).toBeLessThanOrEqual(12);
+    expect(footerGeometry.footerWidth - footerGeometry.contentWidth).toBeLessThanOrEqual(20);
     const search = page.getByRole("textbox", { name: "搜索域名" });
     await search.fill("wanmi.org");
     await page.getByRole("button", { name: "搜索", exact: true }).click();
@@ -236,7 +241,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".domain-list.compact-view")).toBeVisible();
     await expect(page.locator(".domain-list.card-view")).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "移动端快捷导航" })).toHaveCount(0);
-    await expect(page.locator(".footer-copyright")).toHaveText(`@${new Date().getFullYear()}`);
+    await expect(page.locator(".footer-copyright")).toHaveText("@ DOMAIN HUNTER");
     expect(await page.locator(".toolbar-filters label > span").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
     const metrics = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
@@ -344,6 +349,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByLabel("站点 Slogan")).toHaveValue("精选域名资产展示");
     await expect(page.locator(".upload-card").nth(0).locator("img")).toHaveAttribute("src", "/logo.svg");
     await expect(page.locator(".upload-card").nth(1).locator("img")).toHaveAttribute("src", "/favicon.svg");
+    await expect(page.getByLabel("版权文字")).toHaveValue("@ DOMAIN HUNTER");
 
     await adminNavigation.getByRole("button", { name: "账户安全", exact: true }).click();
     await expect(page.getByLabel("当前密码")).toBeVisible();

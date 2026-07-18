@@ -84,6 +84,24 @@ describe.sequential("WanMi API 集成", () => {
     expect(apiPolicy).not.toContain("fonts.googleapis.com");
   });
 
+  it("所有 SPA HTML 入口禁用旧缓存并只清理一次浏览器缓存", async () => {
+    const first = await request("/domains");
+    expect(first.status).toBe(200);
+    expect(first.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
+    expect(first.headers.get("cdn-cache-control")).toBe("no-store");
+    expect(first.headers.get("cloudflare-cdn-cache-control")).toBe("no-store");
+    expect(first.headers.get("clear-site-data")).toBe('"cache"');
+    expect(first.headers.get("x-wanmi-build")).toBe("domain-hunter-2026-07-19-v2");
+    expect(first.headers.get("etag")).toBeNull();
+
+    const cacheCookie = first.headers.get("set-cookie")?.split(";", 1)[0];
+    expect(cacheCookie).toBe("wanmi_html_cache=domain-hunter-2026-07-19-v2");
+    const subsequent = await request("/admin", { headers: { Cookie: cacheCookie! } });
+    expect(subsequent.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
+    expect(subsequent.headers.get("clear-site-data")).toBeNull();
+    expect(subsequent.headers.get("x-wanmi-build")).toBe("domain-hunter-2026-07-19-v2");
+  });
+
   it("精品域名详情查询与 SSR 标记包含完整内容和两组推荐", async () => {
     const detail = await loadFeaturedDomainDetail(env.DB, "mx.ooo");
     expect(detail).not.toBeNull();

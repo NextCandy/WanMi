@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 
 import { fail, ok } from "./http";
 import { edgeCache } from "./middleware/edge-cache";
@@ -49,6 +49,37 @@ function safeJsonLd(value: unknown): string {
 function absoluteAsset(value: string, origin: string): string {
   if (value.startsWith("http://") || value.startsWith("https://")) return value;
   return `${origin}${value.startsWith("/") ? value : `/${value}`}`;
+}
+
+const HTML_CACHE_VERSION = "domain-hunter-2026-07-19-v2";
+const HTML_CACHE_COOKIE = "wanmi_html_cache";
+
+/**
+ * 所有 SPA/SSR HTML 都必须绕过浏览器与 CDN 缓存。旧版只覆盖了首页，
+ * /domains、/admin 与详情页仍可能通过旧 HTML 继续引用上一版脚本。
+ * 版本 Cookie 只用于让已有浏览器清理一次 HTTP 缓存，不清登录 Cookie 或本地数据。
+ */
+function currentHtml(c: Context<AppBindings>, source: Response): Response {
+  const headers = new Headers(source.headers);
+  headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  headers.set("CDN-Cache-Control", "no-store");
+  headers.set("Cloudflare-CDN-Cache-Control", "no-store");
+  headers.set("Pragma", "no-cache");
+  headers.set("Expires", "0");
+  headers.set("X-Wanmi-Build", HTML_CACHE_VERSION);
+  headers.delete("ETag");
+  headers.delete("Last-Modified");
+  headers.delete("CF-Cache-Status");
+
+  const cookies = c.req.header("Cookie") ?? "";
+  const hasCurrentCache = cookies.split(";").some((part) => part.trim() === `${HTML_CACHE_COOKIE}=${HTML_CACHE_VERSION}`);
+  if (!hasCurrentCache) {
+    headers.set("Clear-Site-Data", '"cache"');
+    const secure = new URL(c.req.url).protocol === "https:" ? "; Secure" : "";
+    headers.append("Set-Cookie", `${HTML_CACHE_COOKIE}=${HTML_CACHE_VERSION}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`);
+  }
+
+  return new Response(source.body, { status: source.status, statusText: source.statusText, headers });
 }
 
 // 首页由 Worker 注入真实设置、Canonical 与公开域名 ItemList；React 仍负责交互渲染。
@@ -102,7 +133,7 @@ app.get("/", async (c) => {
     .transform(shell);
   const response = new Response(rewritten.body, rewritten);
   response.headers.set("Cache-Control", "no-store");
-  return response;
+  return currentHtml(c, response);
 });
 
 app.get("/sitemap.xml", async (c) => {
@@ -163,7 +194,7 @@ app.get("/d/:name", async (c) => {
     `<script id="featured-domain-data" type="application/json">${bootstrapData}</script>`,
   ].join("");
 
-  return new HTMLRewriter()
+  const rewritten = new HTMLRewriter()
     .on("title", { element: (element) => { element.setInnerContent(title); } })
     .on('meta[name="description"]', { element: (element) => { element.setAttribute("content", description); } })
     .on('meta[property="og:type"]', { element: (element) => { element.setAttribute("content", "product"); } })
@@ -179,13 +210,16 @@ app.get("/d/:name", async (c) => {
     .on("head", { element: (element) => { element.append(headMarkup, { html: true }); } })
     .on("#root", { element: (element) => { element.setInnerContent(renderFeaturedDomainSsr(detail), { html: true }); } })
     .transform(shell);
+  return currentHtml(c, rewritten);
 });
 
 app.all("/cdn-cgi/handler/scheduled", (c) => fail(c, 404, "NOT_FOUND", "未找到资源"));
 
 app.notFound((c) => {
   if (c.req.path.startsWith("/api/")) return fail(c, 404, "NOT_FOUND", "未找到 API");
-  return c.env.ASSETS.fetch(c.req.raw);
+  return c.env.ASSETS.fetch(c.req.raw).then((response) => (
+    response.headers.get("Content-Type")?.includes("text/html") ? currentHtml(c, response) : response
+  ));
 });
 
 app.onError((error, c) => {

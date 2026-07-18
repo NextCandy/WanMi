@@ -694,11 +694,6 @@ svg.lucide {
 
 /* 2026 public bento catalogue */
 .catalogue-layout { display: block; max-width: 1320px; padding-top: 26px; }
-.view-switch { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: color-mix(in oklab, var(--surface-1) 50%, transparent); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04); }
-.view-switch button { padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--muted); transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
-.view-switch button:active { transform: scale(.95); }
-.view-switch button:hover { color: var(--fg); }
-.view-switch button.active { color: #ffffff; background: linear-gradient(180deg, var(--brand-primary-light), var(--brand-primary)); box-shadow: 0 2px 6px rgba(90, 62, 43, 0.35); }
 .domain-list.card-view { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; border: 0; }
 .domain-list.card-view .domain-card { position: relative; display: flex; min-height: 190px; padding: 20px; flex-direction: column; align-items: stretch; gap: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); box-shadow: var(--shadow); }
 .domain-list.card-view .domain-tld, .domain-list.card-view .domain-length { display: none; }
@@ -2440,11 +2435,11 @@ svg.lucide {
 .hero-contact-link:focus-visible { color: var(--brand); border-color: var(--brand-border); background: var(--brand-bg); }
 
 .public-shell .public-footer {
-  width: calc(min(100%, 1440px) - 2 * clamp(16px, 3.2vw, 56px));
-  max-width: none;
+  width: fit-content;
+  max-width: calc(100% - 32px);
   margin: 24px auto 22px;
   min-height: 42px;
-  padding: 5px 0;
+  padding: 5px 10px;
   display: grid;
   place-items: center;
   justify-content: center;
@@ -2468,10 +2463,11 @@ svg.lucide {
 @media (max-width: 720px) {
   .public-shell .public-header-inner { padding-inline: 12px; }
   .public-shell .public-footer {
-    width: calc(100% - 16px);
+    width: fit-content;
+    max-width: calc(100% - 16px);
     margin: 14px auto 8px;
     min-height: 40px;
-    padding: 4px 8px;
+    padding: 4px 9px;
   }
   .public-shell .footer-logo { width: 28px; height: 28px; }
 }
