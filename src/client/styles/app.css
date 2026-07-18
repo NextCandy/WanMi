@@ -1955,6 +1955,7 @@ svg.lucide {
 .public-shell .catalogue-toolbar { grid-template-columns: minmax(0, 1fr) auto; }
 .public-shell .catalogue-toolbar .toolbar-filters { grid-column: 1; min-width: 0; }
 .public-shell .catalogue-toolbar .toolbar-summary { grid-column: 2; }
+.toolbar-filters .category-control select,
 .toolbar-filters .sort-control select { min-width: 148px; }
 .search-history { width: 100%; max-width: 100%; }
 .search-history header .clear-search-history {
@@ -2029,7 +2030,8 @@ svg.lucide {
 
 @media (max-width: 780px) {
   .copy-filter-link { min-height: 40px; padding-inline: 11px; }
-  .toolbar-filters .sort-control { grid-column: 1 / -1; }
+  .toolbar-filters .sort-control { grid-column: auto; }
+  .toolbar-filters .category-control select,
   .toolbar-filters .sort-control select { min-width: 0; }
   .public-shell .catalogue-toolbar .toolbar-summary { justify-content: space-between; }
   .public-shell .empty-recommendations .domain-list.card-view { grid-template-columns: 1fr; }
@@ -2303,7 +2305,7 @@ svg.lucide {
 .public-shell .domain-list.compact-view .domain-description { display: none; }
 .public-shell .domain-list.compact-view .card-expiry-row { padding-top: 0; }
 
-/* —— 状态 / 分类胶囊筛选组 —— */
+/* —— 状态胶囊筛选组 —— */
 .public-shell .filter-pill-groups { display: grid; gap: 14px; }
 .public-shell .filter-pill-group { display: grid; gap: 8px; }
 .public-shell .pill-group-label { font-size: 13px; font-weight: 700; color: var(--text-secondary); letter-spacing: .02em; }

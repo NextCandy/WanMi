@@ -68,7 +68,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("dialog").getByRole("link", { name: "查看详情页 →" })).toHaveAttribute("href", "/d/mx.ooo");
   });
 
-  test("前台读取 D1、搜索和后缀筛选", async ({ page }) => {
+  test("前台读取 D1、搜索和分类、后缀筛选", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByText("共 859 个域名")).toBeVisible();
     await expect(page.locator(".domain-card:not(.skeleton)")).toHaveCount(36);
@@ -94,6 +94,8 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByRole("button", { name: "搜索", exact: true }).click();
     await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
     await page.getByRole("button", { name: "清除筛选" }).click();
+    expect(await page.locator(".toolbar-filters label > span").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
+    await expect(page.getByLabel("分类筛选")).toBeVisible();
     const orgOption = page.getByRole("option", { name: ".org", exact: true });
     await expect(orgOption).toBeAttached();
     await page.getByLabel("后缀筛选").selectOption("org");

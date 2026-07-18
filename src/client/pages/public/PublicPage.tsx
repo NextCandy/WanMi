@@ -392,18 +392,9 @@ export function PublicPage() {
                   <button type="button" className={`filter-pill pill-premium${statusPick === "featured" ? " active" : ""}`} onClick={() => selectStatus("featured")}>精品</button>
                 </div>
               </div>
-              <div className="filter-pill-group" role="group" aria-label="分类筛选">
-                <span className="pill-group-label">分类</span>
-                <div className="pill-row">
-                  {categories.filter((option) => option.value !== "__featured").map((option) => (
-                    <button type="button" key={option.value || "all"} className={`filter-pill${(filters.group !== "featured" && filters.category === option.value) ? " active" : ""}`} onClick={() => selectCategory(option.value)}>
-                      {option.label}{option.count > 0 ? <em>{option.count}</em> : null}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
             <div className="toolbar-filters">
+              <label className="category-control"><span>分类</span><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.label}{option.count > 0 ? ` (${option.count.toLocaleString("zh-CN")})` : ""}</option>)}</select></label>
               <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
               <label><span>位数</span><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
                 const pick = event.target.value;
