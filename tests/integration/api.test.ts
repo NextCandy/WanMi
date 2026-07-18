@@ -216,12 +216,15 @@ describe.sequential("WanMi API 集成", () => {
     const fetchItems = async (sort: string) => {
       const response = await request(`/api/public/domains?pageSize=100&sort=${sort}`);
       expect(response.status).toBe(200);
-      const body = await response.json() as { data: { items: Array<{ id: number; name: string; tld: string }> } };
+      const body = await response.json() as { data: { items: Array<{ id: number; name: string; tld: string; is_featured: boolean }> } };
       return { response, items: body.data.items };
     };
 
     const expectedDefault = await env.DB.prepare(
-      "SELECT id FROM domains WHERE is_listed = 1 ORDER BY updated_at DESC, normalized_domain ASC LIMIT 100",
+      `SELECT id FROM domains WHERE is_listed = 1
+       ORDER BY is_featured DESC,
+         CASE lower(tld) WHEN 'com' THEN 0 WHEN 'cn' THEN 1 WHEN 'net' THEN 2 WHEN 'org' THEN 3 WHEN 'io' THEN 4 WHEN 'is' THEN 5 WHEN 'do' THEN 6 ELSE 7 END ASC,
+         length(name) ASC, normalized_domain ASC LIMIT 100`,
     ).all<{ id: number }>();
     const expectedAdded = await env.DB.prepare(
       "SELECT id FROM domains WHERE is_listed = 1 ORDER BY created_at DESC, normalized_domain ASC LIMIT 100",
@@ -235,6 +238,13 @@ describe.sequential("WanMi API 集成", () => {
     const randomSecond = await fetchItems("random");
 
     expect(defaults.items.map((item) => item.id)).toEqual(expectedDefault.results.map((item) => item.id));
+    const tldPriority = (tld: string) => ["com", "cn", "net", "org", "io", "is", "do"].indexOf(tld) + 1 || 8;
+    const expectedDefaultOrder = [...defaults.items].sort((left, right) =>
+      Number(right.is_featured) - Number(left.is_featured)
+      || tldPriority(left.tld) - tldPriority(right.tld)
+      || left.name.length - right.name.length,
+    );
+    expect(defaults.items.map((item) => item.id)).toEqual(expectedDefaultOrder.map((item) => item.id));
     expect(added.items.map((item) => item.id)).toEqual(expectedAdded.results.map((item) => item.id));
     expect(lengthAscending.items.map((item) => item.name.replaceAll(".", "").length)).toEqual(
       [...lengthAscending.items].map((item) => item.name.replaceAll(".", "").length).sort((left, right) => left - right),

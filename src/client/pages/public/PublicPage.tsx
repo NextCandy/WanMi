@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Settings } from "lucide-react";
 
 import { ContactLinks } from "../../components/ContactIcons";
 import { DomainCard } from "../../components/DomainCard";
@@ -363,16 +364,14 @@ export function PublicPage() {
             <img className="brand-icon" src={settings?.logo_url || "/logo.svg"} alt="玩米 Logo" decoding="async" fetchPriority="high" />
           </a>
           <div className="header-actions">
-            {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin">后台</a>}
+            {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin" aria-label="后台"><Settings aria-hidden="true" /></a>}
           </div>
         </div>
       </header>
 
       <main className="catalogue-layout">
         {!isMobileCatalogue && <section className="brand-statement">
-          <span className="brand-statement-kicker">DOMAIN ASSET GALLERY</span>
-          <h1>精选域名资产</h1>
-          <p>{facets ? <><strong>{facets.total_domains.toLocaleString("zh-CN")}</strong> 个域名，覆盖 <strong>{facets.total_tlds.toLocaleString("zh-CN")}</strong> 个后缀，其中 <strong className="featured-count">{facets.total_featured.toLocaleString("zh-CN")}</strong> 个精选。</> : "精选短字符域名的展示目录。"}为你的下一个项目找到合适的域名。</p>
+          <h1>DOMAIN HUNTER</h1>
           <div className="hero-stats" aria-label="域名目录统计">
             <div><strong>{facets ? facets.total_domains.toLocaleString("zh-CN") : "—"}</strong><span>全部域名</span></div>
             <div><strong>{facets ? facets.total_tlds.toLocaleString("zh-CN") : "—"}</strong><span>域名后缀</span></div>
@@ -382,7 +381,7 @@ export function PublicPage() {
         </section>}
 
         <section className="domain-section" id="domains" aria-label="全部资产">
-          {isMobileCatalogue && <h1 className="visually-hidden">精选域名资产</h1>}
+          {isMobileCatalogue && <h1 className="visually-hidden">DOMAIN HUNTER</h1>}
           <div className="catalogue-toolbar">
             <div
               className="search-area"

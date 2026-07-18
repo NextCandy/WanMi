@@ -14,6 +14,7 @@ import {
   loadFeaturedDomainDetail,
   renderFeaturedDomainSsr,
 } from "./services/featured-domain";
+import { publicDefaultOrderSql } from "./services/public-domain-order";
 import type { AppBindings, Env } from "./types";
 
 export const app = new Hono<AppBindings>();
@@ -61,7 +62,7 @@ app.get("/", edgeCache, async (c) => {
     c.env.DB.prepare(
       `SELECT full_domain, description FROM domains
        WHERE is_listed = 1
-       ORDER BY is_featured DESC, length(replace(name, '.', '')) ASC, normalized_domain ASC
+       ORDER BY ${publicDefaultOrderSql()}
        LIMIT 60`,
     ).all<{ full_domain: string; description: string }>(),
     c.env.DB.prepare("SELECT COUNT(*) AS total FROM domains WHERE is_listed = 1").first<{ total: number }>(),

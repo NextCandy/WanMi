@@ -5,6 +5,7 @@ import { publicDomainQuerySchema } from "../../../shared/schemas/api";
 import type { PublicDomain } from "../../../shared/types/api";
 import { fail, ok } from "../../http";
 import { PUBLIC_CACHE_CONTROL } from "../../middleware/edge-cache";
+import { publicDefaultOrderSql } from "../../services/public-domain-order";
 import type { AppBindings } from "../../types";
 import { renderFeaturedDomainOg } from "./og";
 
@@ -226,7 +227,7 @@ publicRoutes.get("/domains", async (c) => {
     : query.sort === "random" ? "RANDOM()"
     : query.sort === "domain_asc" ? "d.normalized_domain ASC"
     : query.sort === "domain_desc" ? "d.normalized_domain DESC"
-    : "d.updated_at DESC, d.normalized_domain ASC";
+    : publicDefaultOrderSql("d");
   const [countResult, dataResult] = await c.env.DB.batch([
     c.env.DB.prepare(`SELECT COUNT(*) AS total FROM domains d WHERE ${where}`).bind(...params),
     c.env.DB.prepare(`${PUBLIC_SELECT} WHERE ${where} ORDER BY ${sortSql} LIMIT ? OFFSET ?`).bind(...params, query.pageSize, offset),

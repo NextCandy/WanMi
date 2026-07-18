@@ -30,12 +30,6 @@ function daysUntil(value: string | null): number | null {
 const WARNING_DAYS = 30;
 const URGENT_DAYS = 7;
 
-function domainType(name: string): "letter" | "digit" | "mixed" {
-  if (/^[a-z]+$/i.test(name)) return "letter";
-  if (/^\d+$/.test(name)) return "digit";
-  return "mixed";
-}
-
 function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
   const tld = domain.domain.split(".").at(-1) || domain.tld;
   const registeredOn = formatDate(domain.registered_at);
@@ -49,7 +43,7 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
   return (
     <article id={`domain-card-${domain.id}`} className={`domain-card${domain.is_featured ? " featured" : ""}`} aria-labelledby={`domain-${domain.id}`}>
       <div className="card-badge-row">
-        <span className="tld-badge" data-type={domainType(domain.name)}>.{tld}</span>
+        <span className="tld-badge">.{tld}</span>
         {category ? <span className="category-badge">{domain.is_featured ? <Star aria-hidden="true" /> : null}{category}</span> : null}
         <div className="domain-actions">
           <button type="button" aria-label={`复制 ${domain.domain}`} title={`复制 ${domain.domain}`} onClick={() => onCopy(domain.domain)}><Copy aria-hidden="true" /></button>

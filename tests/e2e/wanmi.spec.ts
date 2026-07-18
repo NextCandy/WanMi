@@ -76,6 +76,11 @@ test.describe.serial("WanMi 生产流程", () => {
     });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByText("共 859 个域名")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "DOMAIN HUNTER", exact: true })).toBeVisible();
+    await expect(page.getByText("DOMAIN ASSET GALLERY", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/为你的下一个项目找到合适的域名/)).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "后台" })).toHaveText("");
+    await expect(page.getByRole("link", { name: "后台" }).locator("svg")).toHaveCount(1);
     await expect(page.locator(".domain-card:not(.skeleton)")).toHaveCount(36);
     await page.getByRole("button", { name: "卡片", exact: true }).click();
     const firstCatalogueCard = page.locator(".domain-card:not(.skeleton)").first();
@@ -98,6 +103,36 @@ test.describe.serial("WanMi 生产流程", () => {
       };
     });
     expect(cardGeometry).toEqual({ actionsAtTopRight: true, contentOrder: true, remainingAtBottomRight: true });
+    const badgeGeometry = await page.evaluate(() => {
+      const badge = (text: string) => [...document.querySelectorAll<HTMLElement>(".category-badge")].find((element) => element.textContent?.trim() === text)!;
+      const shortCategory = badge("二杂").getBoundingClientRect();
+      const longCategory = badge("纯字母").getBoundingClientRect();
+      const firstCard = document.querySelector(".domain-card:not(.skeleton)")!;
+      const tld = firstCard.querySelector(".tld-badge")!.getBoundingClientRect();
+      const category = firstCard.querySelector(".category-badge")!.getBoundingClientRect();
+      const actions = firstCard.querySelector(".domain-actions")!.getBoundingClientRect();
+      return {
+        shortCategoryWidth: shortCategory.width,
+        longCategoryWidth: longCategory.width,
+        tldWidth: tld.width,
+        categoryLeavesFlexibleSpace: actions.left - category.right,
+      };
+    });
+    expect(badgeGeometry.longCategoryWidth).toBeGreaterThan(badgeGeometry.shortCategoryWidth);
+    expect(badgeGeometry.tldWidth).toBeLessThan(90);
+    expect(badgeGeometry.categoryLeavesFlexibleSpace).toBeGreaterThan(12);
+    const badgeStyle = async () => page.locator(".tld-badge").first().evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { color: style.color, background: style.backgroundColor, border: style.borderColor };
+    });
+    const comBadgeStyle = await badgeStyle();
+    await page.getByLabel("后缀筛选").selectOption("cn");
+    await expect(page.locator(".tld-badge").first()).toHaveText(".cn");
+    expect(await badgeStyle()).toEqual(comBadgeStyle);
+    await page.getByLabel("后缀筛选").selectOption("ooo");
+    await expect(page.locator(".tld-badge").first()).toHaveText(".ooo");
+    expect(await badgeStyle()).toEqual(comBadgeStyle);
+    await page.getByLabel("后缀筛选").selectOption("");
     const searchGeometry = await page.evaluate(() => {
       const form = document.querySelector(".filter-search")!.getBoundingClientRect();
       const button = document.querySelector(".search-submit")!.getBoundingClientRect();
@@ -175,7 +210,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".brand-statement")).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "精选域名资产", level: 1 })).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: "DOMAIN HUNTER", level: 1 })).toHaveCount(1);
     await expect(page.getByRole("group", { name: "状态筛选" })).toHaveCount(0);
     await expect(page.locator(".view-switch")).toHaveCount(0);
     await expect(page.locator(".domain-list.compact-view")).toBeVisible();

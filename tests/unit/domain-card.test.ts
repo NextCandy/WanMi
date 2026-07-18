@@ -36,8 +36,8 @@ describe("DomainCard", () => {
     const markup = renderCard();
 
     expect(markup).toContain('class="domain-card featured"');
-    // 徽章行：金色 TLD 徽章 + 分类徽章，精品只用星标表达。
-    expect(markup).toContain('class="tld-badge" data-type="letter">.ooo</span>');
+    // 徽章行：统一样式的 TLD 徽章 + 分类徽章，精品只用星标表达。
+    expect(markup).toContain('class="tld-badge">.ooo</span>');
     expect(markup).toContain('class="category-badge"');
     expect(markup).toContain("纯字母");
     expect(markup).not.toContain("· 精品");
@@ -89,10 +89,10 @@ describe("DomainCard", () => {
     expect(past).toContain("is-expired");
   });
 
-  it("按域名主体的字母、数字与混合构成设置徽章类型", () => {
-    expect(renderCard()).toContain('data-type="letter"');
-    expect(renderCard({ ...domain, domain: "094.org", name: "094", tld: "org" })).toContain('data-type="digit"');
-    expect(renderCard({ ...domain, domain: "a-1.com", name: "a-1", tld: "com" })).toContain('data-type="mixed"');
+  it("不同域名主体共用同一种后缀徽章", () => {
+    expect(renderCard()).not.toContain("data-type=");
+    expect(renderCard({ ...domain, domain: "094.org", name: "094", tld: "org" })).toContain('class="tld-badge">.org</span>');
+    expect(renderCard({ ...domain, domain: "a-1.com", name: "a-1", tld: "com" })).toContain('class="tld-badge">.com</span>');
   });
 
   it("充裕到期日期正常显示且无紧急标记", () => {
