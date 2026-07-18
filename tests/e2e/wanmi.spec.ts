@@ -64,7 +64,7 @@ test.describe.serial("WanMi 生产流程", () => {
     expect(xml).toContain("/d/mx.ooo</loc>");
 
     await page.goto("/?q=mx.ooo", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "速览 mx.ooo" }).click();
+    await page.getByRole("button", { name: "查看 mx.ooo" }).click();
     await expect(page.getByRole("dialog").getByRole("link", { name: "查看详情页 →" })).toHaveAttribute("href", "/d/mx.ooo");
   });
 
@@ -77,6 +77,27 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByText("共 859 个域名")).toBeVisible();
     await expect(page.locator(".domain-card:not(.skeleton)")).toHaveCount(36);
+    await page.getByRole("button", { name: "卡片", exact: true }).click();
+    const firstCatalogueCard = page.locator(".domain-card:not(.skeleton)").first();
+    await expect(firstCatalogueCard.locator(".registration-range")).toHaveText(/^\d{4}\.\d{2}\.\d{2}-\d{4}\.\d{2}\.\d{2}$/);
+    await expect(firstCatalogueCard.locator(".remaining-days")).toHaveText(/^(余\d+天|已过期\d+天)$/);
+    const cardGeometry = await firstCatalogueCard.evaluate((card) => {
+      const rect = (selector: string) => card.querySelector(selector)!.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const badges = rect(".card-badge-row");
+      const actions = rect(".domain-actions");
+      const name = rect(".domain-name");
+      const description = rect(".domain-description");
+      const dates = rect(".card-expiry-row");
+      const range = rect(".registration-range");
+      const remaining = rect(".remaining-days");
+      return {
+        actionsAtTopRight: actions.top >= badges.top - 1 && actions.right > cardRect.left + cardRect.width / 2 && cardRect.right - actions.right <= 20,
+        contentOrder: badges.top < name.top && name.top < description.top && description.top < dates.top,
+        remainingAtBottomRight: remaining.right > range.right && cardRect.right - remaining.right <= 20,
+      };
+    });
+    expect(cardGeometry).toEqual({ actionsAtTopRight: true, contentOrder: true, remainingAtBottomRight: true });
     const searchGeometry = await page.evaluate(() => {
       const form = document.querySelector(".filter-search")!.getBoundingClientRect();
       const button = document.querySelector(".search-submit")!.getBoundingClientRect();
@@ -125,7 +146,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByTitle("复制 wanmi.org")).toBeVisible();
     const resultCard = page.locator(".domain-card:not(.skeleton)");
     await expect(resultCard).toHaveCount(1);
-    // 收藏功能已在 3dfa368 移除，卡片只剩复制与速览两枚图标
+    // 卡片右上角只保留复制与查看两枚图标。
     const actionButtons = resultCard.locator(".domain-actions button");
     await expect(actionButtons).toHaveCount(2);
     expect(await actionButtons.allInnerTexts()).toEqual(["", ""]);
@@ -190,8 +211,8 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("heading", { name: "未找到匹配的域名" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "试试这些精选域名" })).toBeVisible();
     await expect(page.locator(".empty-recommendations .domain-card")).toHaveCount(3);
-    // 精品标记在 5fde067 从 domain-featured-dot 圆点改为 domain-featured-badge 星形徽标
-    await expect(page.locator(".empty-recommendations .domain-featured-badge")).toHaveCount(3);
+    // 精品星标随分类保留在卡片左上，日期行只负责日期范围和剩余有效期。
+    await expect(page.locator(".empty-recommendations .category-badge svg")).toHaveCount(3);
 
     await page.locator(".empty-results").getByRole("button", { name: "清除筛选" }).click();
     await expect(page).toHaveURL(/sort=default/);
@@ -214,7 +235,7 @@ test.describe.serial("WanMi 生产流程", () => {
     const search = page.getByRole("textbox", { name: "搜索域名" });
     await search.fill("02cloud.com");
     await page.getByRole("button", { name: "搜索", exact: true }).click();
-    await page.getByRole("button", { name: "速览 02cloud.com" }).click();
+    await page.getByRole("button", { name: "查看 02cloud.com" }).click();
     const dialog = page.getByRole("dialog", { name: /02cloud\.com/ });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText("完整域名")).toBeVisible();
@@ -376,7 +397,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await publicPage.goto("/?q=02cloud.com", { waitUntil: "domcontentloaded" });
     const publicDomainCard = publicPage.locator(".domain-list .domain-card").filter({ hasText: "02cloud.com" });
     await expect(publicDomainCard).toHaveClass(/featured/);
-    await publicPage.getByRole("button", { name: "速览 02cloud.com" }).click();
+    await publicPage.getByRole("button", { name: "查看 02cloud.com" }).click();
     const quickView = publicPage.getByRole("dialog", { name: /02cloud\.com/ });
     await expect(quickView.getByText("E2E 手动简介", { exact: true })).toBeVisible();
     await quickView.getByRole("button", { name: "关闭域名速览" }).click();
@@ -416,7 +437,7 @@ test.describe.serial("WanMi 生产流程", () => {
     // 「随机发现」已在 cc742dd 移除；改用首张卡片的速览验证手机端对话框可用
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.locator(".domain-actions button[aria-label^='速览']").first().click();
+    await page.locator(".domain-actions button[aria-label^='查看']").first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByRole("button", { name: "关闭域名速览" }).click();
   });

@@ -2514,3 +2514,61 @@ svg.lucide {
     padding: 20px 12px;
   }
 }
+
+/* 2026-07-19 · 卡片信息顺序：徽章/操作 → 域名 → 简介 → 注册-到期/余期。 */
+.public-shell .domain-list.card-view .domain-card {
+  grid-template-areas:
+    "badges"
+    "name"
+    "description"
+    "expiry";
+  grid-template-rows: auto auto minmax(20px, 1fr) auto;
+  align-items: start;
+}
+.public-shell .domain-list.card-view .card-badge-row {
+  grid-area: badges;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.public-shell .domain-list.card-view .card-badge-row .domain-actions {
+  grid-column: 3;
+  align-self: start;
+  justify-self: end;
+  margin-left: 0;
+}
+.public-shell .domain-list.card-view .domain-name { grid-area: name; }
+.public-shell .domain-list.card-view .domain-description { grid-area: description; }
+.public-shell .domain-list.card-view .card-expiry-row {
+  grid-area: expiry;
+  align-self: end;
+  width: 100%;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.public-shell .registration-range {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.public-shell .remaining-days {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.public-shell .remaining-days.is-warning { color: var(--warning); }
+.public-shell .remaining-days.is-urgent,
+.public-shell .remaining-days.is-expired { color: var(--danger); }
+.public-shell .registration-range.date-unknown,
+.public-shell .remaining-days.expiry-unknown { color: var(--text-tertiary); }
+.public-shell .domain-list.compact-view .registration-range { display: none; }
+.public-shell .domain-list.compact-view .card-expiry-row {
+  justify-content: flex-end;
+  border-top: 0;
+}
