@@ -36,7 +36,7 @@ interface SiteSettings {
 
 type SortKey = "default" | "added_desc" | "length_asc" | "length_desc" | "tld_asc" | "random";
 type GroupKey = "all" | "featured";
-/** 到期状态筛选：与状态胶囊组一一对应，precious（精品）复用 group=featured */
+/** 到期状态仅保留 URL/API 兼容，不再在前台提供状态胶囊。 */
 type ExpiryKey = "" | "7d" | "30d" | "expired";
 
 const EXPIRY_OPTIONS: Array<[ExpiryKey, string]> = [
@@ -231,7 +231,7 @@ export function PublicPage() {
         if (accent && /^#[0-9a-f]{6}$/i.test(accent) && !LEGACY_ACCENT_DEFAULTS.has(accent.toLowerCase())) {
           document.documentElement.style.setProperty("--brand", accent);
         }
-        document.title = `${settingsResult.value.site_name} · 域名展示`;
+        document.title = "DOMAIN HUNTER";
         const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
         description?.setAttribute("content", settingsResult.value.site_description);
         if (settingsResult.value.favicon_url) {
@@ -342,13 +342,6 @@ export function PublicPage() {
       : { ...current, category: value, group: "all", page: 1 });
   }
 
-  /** 状态胶囊组单选：全部 / 7 天 / 30 天 / 已过期 / 精品互斥，精品复用 group=featured */
-  function selectStatus(value: ExpiryKey | "featured" | "") {
-    setFilters((current) => value === "featured"
-      ? { ...current, group: "featured", expiry: "", page: 1 }
-      : { ...current, group: "all", expiry: value, page: 1 });
-  }
-  const statusPick = filters.group === "featured" ? "featured" : filters.expiry;
   const effectiveViewMode = isMobileCatalogue ? "compact" : viewMode;
 
   const copyDomain = useCallback(async (domain: string) => {
@@ -360,69 +353,54 @@ export function PublicPage() {
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
       <header className="public-header">
         <div className="public-header-inner">
-          <a className="brand" href="/" aria-label="玩米首页">
-            <img className="brand-icon" src={settings?.logo_url || "/logo.svg"} alt="玩米 Logo" decoding="async" fetchPriority="high" />
+          <a className="brand" href="/" aria-label="DOMAIN HUNTER 首页">
+            <img className="brand-icon" src={settings?.logo_url || "/logo.svg"} alt="" decoding="async" fetchPriority="high" />
+            <span className="brand-title">DOMAIN HUNTER</span>
           </a>
           <div className="header-actions">
+            <span className="domain-total-pill" aria-label="域名总数">{facets ? facets.total_domains.toLocaleString("zh-CN") : "—"} 个域名</span>
+            <ContactLinks settings={settings} />
             {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin" aria-label="后台"><Settings aria-hidden="true" /></a>}
           </div>
         </div>
       </header>
 
       <main className="catalogue-layout">
-        {!isMobileCatalogue && <section className="brand-statement">
-          <h1>DOMAIN HUNTER</h1>
-          <div className="hero-stats" aria-label="域名目录统计">
-            <div><strong>{facets ? facets.total_domains.toLocaleString("zh-CN") : "—"}</strong><span>全部域名</span></div>
-            <div><strong>{facets ? facets.total_tlds.toLocaleString("zh-CN") : "—"}</strong><span>域名后缀</span></div>
-            <div className="featured"><strong>{facets ? facets.total_featured.toLocaleString("zh-CN") : "—"}</strong><span>精选域名</span></div>
-            <ContactLinks settings={settings} />
-          </div>
-        </section>}
-
         <section className="domain-section" id="domains" aria-label="全部资产">
-          {isMobileCatalogue && <h1 className="visually-hidden">DOMAIN HUNTER</h1>}
+          <h1 className="visually-hidden">DOMAIN HUNTER</h1>
           <div className="catalogue-toolbar">
-            <div
-              className="search-area"
-              onFocus={() => setHistoryFocused(true)}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) setHistoryFocused(false);
-              }}
-            >
-              <form className="filter-search" onSubmit={submitSearch}>
-                <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="输入域名或关键词，例如 wanmi" aria-label="搜索域名" autoComplete="off" />
-                {draftSearch && <button className="search-clear" type="button" aria-label="清空搜索" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
-                <button className="search-submit" type="submit">搜索</button>
-              </form>
-              {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" className="clear-search-history" aria-label="清除搜索历史" title="清除搜索历史" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
-            </div>
-            {!isMobileCatalogue && <div className="filter-pill-groups">
-              <div className="filter-pill-group" role="group" aria-label="状态筛选">
-                <span className="pill-group-label">状态</span>
-                <div className="pill-row">
-                  <button type="button" className={`filter-pill${statusPick === "" ? " active" : ""}`} onClick={() => selectStatus("")}>全部</button>
-                  {EXPIRY_OPTIONS.map(([key, label]) => <button type="button" key={key} className={`filter-pill${statusPick === key ? " active" : ""}`} onClick={() => selectStatus(key)}>{label}</button>)}
-                  <button type="button" className={`filter-pill pill-premium${statusPick === "featured" ? " active" : ""}`} onClick={() => selectStatus("featured")}>精品</button>
-                </div>
+            <div className="toolbar-controls">
+              <div
+                className="search-area"
+                onFocus={() => setHistoryFocused(true)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setHistoryFocused(false);
+                }}
+              >
+                <form className="filter-search" onSubmit={submitSearch}>
+                  <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="输入域名或关键词，例如 wanmi" aria-label="搜索域名" autoComplete="off" />
+                  {draftSearch && <button className="search-clear" type="button" aria-label="清空搜索" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
+                  <button className="search-submit" type="submit">搜索</button>
+                </form>
+                {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" className="clear-search-history" aria-label="清除搜索历史" title="清除搜索历史" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
               </div>
-            </div>}
-            <div className="toolbar-filters">
-              <label className="category-control"><span>分类</span><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.label}{option.count > 0 ? ` (${option.count.toLocaleString("zh-CN")})` : ""}</option>)}</select></label>
-              <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
-              <label><span>位数</span><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
-                const pick = event.target.value;
-                const range = pick === "all" ? { minLength: "", maxLength: "" } : pick === "10plus" ? { minLength: "10", maxLength: "" } : { minLength: pick, maxLength: pick };
-                setFilters((current) => ({ ...current, advanced: { ...current.advanced, ...range }, page: 1 }));
-              }}>
-                <option value="all">全部</option>
-                {lengthPickOf(filters.advanced) === "custom" && <option value="custom" disabled>自定义区间</option>}
-                {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} 位</option>)}
-                <option value="10plus">10 位以上</option>
-              </select></label>
-              <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
+              <div className="toolbar-filters">
+                <label className="category-control"><span>分类</span><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.label}</option>)}</select></label>
+                <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
+                <label><span>位数</span><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
+                  const pick = event.target.value;
+                  const range = pick === "all" ? { minLength: "", maxLength: "" } : pick === "10plus" ? { minLength: "10", maxLength: "" } : { minLength: pick, maxLength: pick };
+                  setFilters((current) => ({ ...current, advanced: { ...current.advanced, ...range }, page: 1 }));
+                }}>
+                  <option value="all">全部</option>
+                  {lengthPickOf(filters.advanced) === "custom" && <option value="custom" disabled>自定义区间</option>}
+                  {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} 位</option>)}
+                  <option value="10plus">10 位以上</option>
+                </select></label>
+                <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
+              </div>
             </div>
-            <div className="toolbar-summary"><span>{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span>{!isMobileCatalogue && <div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>}{hasActiveFilter && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
+            {(!isMobileCatalogue || hasActiveFilter) && <div className="toolbar-summary">{!isMobileCatalogue && <div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>}{hasActiveFilter && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>}
           </div>
 
           {error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}

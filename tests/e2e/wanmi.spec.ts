@@ -75,8 +75,13 @@ test.describe.serial("WanMi 生产流程", () => {
       await route.fulfill({ response, json: { ...body, data: { ...body.data, contact_email: "955555@gmail.com", contact_x: "iWangGang", contact_qq: "307203" } } });
     });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page.getByText("共 859 个域名")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "DOMAIN HUNTER", exact: true })).toBeVisible();
+    await expect(page).toHaveTitle("DOMAIN HUNTER");
+    await expect(page.locator(".domain-total-pill")).toHaveText("859 个域名");
+    await expect(page.locator(".public-header .brand-title")).toHaveText("DOMAIN HUNTER");
+    await expect(page.locator(".public-header .brand-title")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "DOMAIN HUNTER", exact: true })).toHaveCount(1);
+    await expect(page.locator(".brand-statement, .hero-stats")).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "状态筛选" })).toHaveCount(0);
     await expect(page.getByText("DOMAIN ASSET GALLERY", { exact: true })).toHaveCount(0);
     await expect(page.getByText(/为你的下一个项目找到合适的域名/)).toHaveCount(0);
     await expect(page.getByRole("link", { name: "后台" })).toHaveText("");
@@ -143,30 +148,36 @@ test.describe.serial("WanMi 生产流程", () => {
     const frameGeometry = await page.evaluate(() => {
       const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
       const logo = rect(".public-header .brand-icon");
-      const title = rect(".brand-statement h1");
+      const title = rect(".public-header .brand-title");
+      const total = rect(".domain-total-pill");
       const admin = rect(".public-header .admin-link");
-      const searchButton = rect(".search-submit");
+      const search = rect(".filter-search");
+      const category = rect(".toolbar-filters .category-control");
       const footer = rect(".public-footer");
-      const contact = rect(".hero-contact-links");
-      const firstStat = rect(".hero-stats > div:first-child");
+      const contact = rect(".header-actions > .hero-contact-links");
       const contactLinks = [...document.querySelectorAll(".hero-contact-link")].map((element) => element.getBoundingClientRect());
       return {
-        logoTitleGap: Math.abs(logo.left - title.left),
-        adminSearchGap: Math.abs(admin.right - searchButton.right),
-        footerTitleGap: Math.abs(footer.left - title.left),
+        brandItemsCentered: Math.abs((logo.top + logo.bottom) / 2 - (title.top + title.bottom) / 2),
+        headerOrder: total.left > title.right && contact.left > total.right && admin.left > contact.right,
+        headerItemsCentered: [total, contact, admin].every((item) => Math.abs((item.top + item.bottom) / 2 - (logo.top + logo.bottom) / 2) <= 1),
+        controlsShareTopEdge: Math.abs(search.top - category.top),
+        controlsShareHeight: Math.abs(search.height - category.height),
         footerCenterGap: Math.abs((footer.left + footer.right) / 2 - document.documentElement.clientWidth / 2),
         contactHeight: contact.height,
-        firstStatHeight: firstStat.height,
+        totalHeight: total.height,
         contactsAreHorizontal: contactLinks.every((link, index) => index === 0 || link.left > contactLinks[index - 1].left),
         contactsShareTopEdge: contactLinks.every((link) => Math.abs(link.top - contactLinks[0].top) <= 1),
         contactsHaveNoVisibleText: [...document.querySelectorAll(".hero-contact-link")].every((link) => !link.textContent?.trim()),
       };
     });
-    expect(frameGeometry.logoTitleGap).toBeLessThanOrEqual(1);
-    expect(frameGeometry.adminSearchGap).toBeLessThanOrEqual(1);
-    expect(frameGeometry.footerTitleGap).toBeLessThanOrEqual(1);
+    expect(frameGeometry.brandItemsCentered).toBeLessThanOrEqual(1);
+    expect(frameGeometry.headerOrder).toBe(true);
+    expect(frameGeometry.headerItemsCentered).toBe(true);
+    expect(frameGeometry.controlsShareTopEdge).toBeLessThanOrEqual(1);
+    expect(frameGeometry.controlsShareHeight).toBeLessThanOrEqual(1);
     expect(frameGeometry.footerCenterGap).toBeLessThanOrEqual(1);
-    expect(frameGeometry.contactHeight).toBeLessThanOrEqual(frameGeometry.firstStatHeight);
+    expect(frameGeometry.contactHeight).toBeLessThanOrEqual(30);
+    expect(frameGeometry.totalHeight).toBeLessThanOrEqual(32);
     expect(frameGeometry.contactsAreHorizontal).toBe(true);
     expect(frameGeometry.contactsShareTopEdge).toBe(true);
     expect(frameGeometry.contactsHaveNoVisibleText).toBe(true);
@@ -197,7 +208,8 @@ test.describe.serial("WanMi 生产流程", () => {
     const orgOption = page.getByRole("option", { name: ".org", exact: true });
     await expect(orgOption).toBeAttached();
     await page.getByLabel("后缀筛选").selectOption("org");
-    await expect(page.getByText(/共 154 个域名/)).toBeVisible();
+    await expect(page.locator(".tld-badge").first()).toHaveText(".org");
+    await expect(page.locator(".domain-total-pill")).toHaveText("859 个域名");
     await expect(page.getByLabel("排序方式").locator("option")).toHaveCount(6);
     expect(await page.getByLabel("排序方式").locator("option").allInnerTexts()).toEqual([
       "默认", "最新加入", "字符数升序", "字符数降序", "后缀字母序", "随机",
@@ -211,6 +223,9 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".brand-statement")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "DOMAIN HUNTER", level: 1 })).toHaveCount(1);
+    await expect(page.locator(".public-header .brand-title")).toBeVisible();
+    await expect(page.locator(".public-header .brand-icon")).toBeVisible();
+    await expect(page.locator(".public-header .header-actions")).toBeHidden();
     await expect(page.getByRole("group", { name: "状态筛选" })).toHaveCount(0);
     await expect(page.locator(".view-switch")).toHaveCount(0);
     await expect(page.locator(".domain-list.compact-view")).toBeVisible();

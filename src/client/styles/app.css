@@ -2565,3 +2565,145 @@ svg.lucide {
 .public-shell .public-header .admin-link svg { width: 14px; height: 14px; }
 .public-shell .brand-statement h1 { margin-bottom: 0; }
 .public-shell .brand-statement h1 + .hero-stats { margin-top: 18px; }
+
+/* 2026-07-19 · 单行品牌页首与响应式搜索筛选栏。 */
+.public-shell .public-header-inner {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.public-shell .public-header .brand {
+  min-width: 0;
+  gap: 10px;
+}
+.public-shell .public-header .brand-title {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: clamp(15px, 1.45vw, 19px);
+  font-weight: 800;
+  letter-spacing: .045em;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.public-shell .public-header-inner .header-actions {
+  margin-right: 0;
+  gap: 5px;
+}
+.public-shell .domain-total-pill {
+  min-height: 30px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  background: var(--surface);
+  box-shadow: var(--glass-highlight);
+  font-size: 12px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.public-shell .header-actions > .hero-contact-links {
+  min-width: 0;
+  max-width: min(240px, 24vw);
+  height: 30px;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.public-shell .header-actions > .hero-contact-links::-webkit-scrollbar { display: none; }
+.public-shell .header-actions .hero-contact-link {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 6px;
+}
+.public-shell .catalogue-layout { padding-top: 16px; }
+.public-shell .domain-section { padding-top: 0; }
+.public-shell .catalogue-toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+}
+.public-shell .catalogue-toolbar .toolbar-controls {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 1.45fr) minmax(500px, 2.55fr);
+  align-items: stretch;
+  gap: 8px;
+}
+.public-shell .catalogue-toolbar .toolbar-controls > .search-area,
+.public-shell .catalogue-toolbar .toolbar-controls > .toolbar-filters,
+.public-shell .catalogue-toolbar .toolbar-summary {
+  grid-column: auto;
+}
+.public-shell .catalogue-toolbar .toolbar-filters {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(100px, 1fr));
+  align-items: stretch;
+  gap: 8px;
+}
+.public-shell .catalogue-toolbar .toolbar-filters label {
+  min-width: 0;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+  border-radius: 11px;
+}
+.public-shell .catalogue-toolbar .toolbar-filters select,
+.public-shell .catalogue-toolbar .toolbar-filters .category-control select,
+.public-shell .catalogue-toolbar .toolbar-filters .sort-control select {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  min-height: 42px;
+}
+.public-shell .catalogue-toolbar .filter-search {
+  min-height: 44px;
+  height: 44px;
+  border-radius: 11px;
+}
+.public-shell .catalogue-toolbar .filter-search input { min-height: 42px; font-size: 14px; }
+.public-shell .catalogue-toolbar .filter-search .search-submit {
+  width: clamp(58px, 5.2vw, 68px);
+  min-width: clamp(58px, 5.2vw, 68px);
+  max-width: 68px;
+  min-height: 44px;
+  border-radius: 0 10px 10px 0;
+}
+.public-shell .catalogue-toolbar .toolbar-summary {
+  min-height: 44px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 1040px) {
+  .public-shell .catalogue-toolbar { grid-template-columns: minmax(0, 1fr); }
+  .public-shell .catalogue-toolbar .toolbar-summary { justify-content: flex-end; }
+}
+
+@media (max-width: 900px) {
+  .public-shell .catalogue-toolbar .toolbar-controls { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 720px) {
+  .public-shell .public-header-inner { grid-template-columns: minmax(0, 1fr); }
+  .public-shell .public-header .brand { max-width: 100%; }
+  .public-shell .public-header .brand-title { font-size: 15px; font-weight: 800; letter-spacing: .035em; }
+  .public-shell .public-header .header-actions { display: none; }
+  .public-shell .catalogue-layout { padding-top: 6px; }
+  .public-shell .catalogue-toolbar { gap: 6px; padding: 8px; }
+  .public-shell .catalogue-toolbar .toolbar-controls { gap: 6px; }
+  .public-shell .catalogue-toolbar .toolbar-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .public-shell .catalogue-toolbar .toolbar-summary { min-height: 28px; justify-content: flex-end; }
+}
