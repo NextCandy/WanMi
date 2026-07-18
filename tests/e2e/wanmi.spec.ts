@@ -86,6 +86,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByText(/为你的下一个项目找到合适的域名/)).toHaveCount(0);
     await expect(page.getByRole("link", { name: "后台" })).toHaveText("");
     await expect(page.getByRole("link", { name: "后台" }).locator("svg")).toHaveCount(1);
+    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["筛选", "筛选", "筛选", "默认"]);
     await expect(page.locator(".domain-card:not(.skeleton)")).toHaveCount(36);
     await page.getByRole("button", { name: "卡片", exact: true }).click();
     const firstCatalogueCard = page.locator(".domain-card:not(.skeleton)").first();
@@ -109,21 +110,20 @@ test.describe.serial("WanMi 生产流程", () => {
     });
     expect(cardGeometry).toEqual({ actionsAtTopRight: true, contentOrder: true, remainingAtBottomRight: true });
     const badgeGeometry = await page.evaluate(() => {
-      const badge = (text: string) => [...document.querySelectorAll<HTMLElement>(".category-badge")].find((element) => element.textContent?.trim() === text)!;
-      const shortCategory = badge("二杂").getBoundingClientRect();
-      const longCategory = badge("纯字母").getBoundingClientRect();
       const firstCard = document.querySelector(".domain-card:not(.skeleton)")!;
       const tld = firstCard.querySelector(".tld-badge")!.getBoundingClientRect();
-      const category = firstCard.querySelector(".category-badge")!.getBoundingClientRect();
+      const categoryElement = firstCard.querySelector<HTMLElement>(".category-badge")!;
+      const category = categoryElement.getBoundingClientRect();
       const actions = firstCard.querySelector(".domain-actions")!.getBoundingClientRect();
       return {
-        shortCategoryWidth: shortCategory.width,
-        longCategoryWidth: longCategory.width,
+        categoryWidth: category.width,
+        categoryContentWidth: categoryElement.scrollWidth,
         tldWidth: tld.width,
         categoryLeavesFlexibleSpace: actions.left - category.right,
       };
     });
-    expect(badgeGeometry.longCategoryWidth).toBeGreaterThan(badgeGeometry.shortCategoryWidth);
+    expect(badgeGeometry.categoryWidth).toBeLessThan(120);
+    expect(Math.abs(badgeGeometry.categoryWidth - badgeGeometry.categoryContentWidth)).toBeLessThanOrEqual(2);
     expect(badgeGeometry.tldWidth).toBeLessThan(90);
     expect(badgeGeometry.categoryLeavesFlexibleSpace).toBeGreaterThan(12);
     const badgeStyle = async () => page.locator(".tld-badge").first().evaluate((element) => {
@@ -187,7 +187,12 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("link", { name: "通过 QQ 联系 307203" })).toHaveAttribute("href", "https://wpa.qq.com/msgrd?v=3&uin=307203&site=qq&menu=yes");
     await expect(page.locator(".public-footer .contact-icons-wrap")).toHaveCount(0);
     await expect(page.locator(".footer-logo")).toHaveAttribute("src", "/logo.svg");
-    await expect(page.locator(".footer-copyright")).toHaveText(`© ${new Date().getFullYear()}`);
+    await expect(page.locator(".footer-copyright")).toHaveText(`@${new Date().getFullYear()}`);
+    const footerGeometry = await page.locator(".public-footer").evaluate((footer) => {
+      const logo = footer.querySelector(".footer-logo")!.getBoundingClientRect();
+      return { footerHeight: footer.getBoundingClientRect().height, logoHeight: logo.height };
+    });
+    expect(footerGeometry.footerHeight - footerGeometry.logoHeight).toBeLessThanOrEqual(12);
     const search = page.getByRole("textbox", { name: "搜索域名" });
     await search.fill("wanmi.org");
     await page.getByRole("button", { name: "搜索", exact: true }).click();
@@ -230,6 +235,8 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".view-switch")).toHaveCount(0);
     await expect(page.locator(".domain-list.compact-view")).toBeVisible();
     await expect(page.locator(".domain-list.card-view")).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "移动端快捷导航" })).toHaveCount(0);
+    await expect(page.locator(".footer-copyright")).toHaveText(`@${new Date().getFullYear()}`);
     expect(await page.locator(".toolbar-filters label > span").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
     const metrics = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
@@ -315,6 +322,10 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByLabel("密码").fill(credentials.password);
     await page.getByRole("button", { name: "登录", exact: true }).click();
     await expect(page.getByRole("heading", { name: "概览", exact: true })).toBeVisible();
+    await expect(page.locator(".admin-brand")).toContainText("DOMAIN HUNTER");
+    await expect(page.locator(".admin-header")).toContainText("DOMAIN HUNTER 管理后台");
+    await expect(page.getByRole("link", { name: "查看前台" })).toHaveText("");
+    await expect(page.getByRole("link", { name: "查看前台" }).locator("svg")).toHaveCount(1);
     const adminNavigation = page.locator(".admin-sidebar nav");
     expect((await adminNavigation.getByRole("button").allInnerTexts()).slice(0, 2)).toEqual(["概览", "域名管理"]);
     await expect(adminNavigation).not.toContainText("AI 配置");
@@ -328,7 +339,19 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".stat-card").filter({ hasText: "即将到期" })).toBeVisible();
     await expect(page.locator(".quick-actions button").filter({ hasText: "导出 CSV" })).toBeVisible();
 
-    await page.getByRole("button", { name: /域名管理/ }).click();
+    await adminNavigation.getByRole("button", { name: "站点设置", exact: true }).click();
+    await expect(page.getByLabel("站点名称")).toHaveValue("DOMAIN HUNTER");
+    await expect(page.getByLabel("站点 Slogan")).toHaveValue("精选域名资产展示");
+    await expect(page.locator(".upload-card").nth(0).locator("img")).toHaveAttribute("src", "/logo.svg");
+    await expect(page.locator(".upload-card").nth(1).locator("img")).toHaveAttribute("src", "/favicon.svg");
+
+    await adminNavigation.getByRole("button", { name: "账户安全", exact: true }).click();
+    await expect(page.getByLabel("当前密码")).toBeVisible();
+    await expect(page.getByLabel("新密码")).toBeVisible();
+    await expect(page.getByText("双重验证（TOTP）", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("当前会话", { exact: true })).toHaveCount(0);
+
+    await adminNavigation.getByRole("button", { name: /域名管理/ }).click();
     await page.getByPlaceholder("搜索完整域名").fill("02cloud.com");
     const row = page.getByRole("row").filter({ hasText: "02cloud.com" });
     await expect(row).toBeVisible();
@@ -478,10 +501,8 @@ test.describe.serial("WanMi 生产流程", () => {
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
       await page.goto("/", { waitUntil: "domcontentloaded" });
-      await expect(page.getByText("共 859 个域名")).toBeVisible();
-      const mobileNav = page.getByRole("navigation", { name: "移动端快捷导航" });
-      if (viewport.width <= 780) await expect(mobileNav).toBeVisible();
-      else await expect(mobileNav).toBeHidden();
+      await expect(page.locator(".domain-card:not(.skeleton)").first()).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "移动端快捷导航" })).toHaveCount(0);
       const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
       expect(widths.scroll, `${viewport.width}x${viewport.height} 不应横向溢出`).toBeLessThanOrEqual(widths.client);
     }

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 
 import { fail, ok } from "./http";
-import { edgeCache, PUBLIC_CACHE_CONTROL } from "./middleware/edge-cache";
+import { edgeCache } from "./middleware/edge-cache";
 import { requireSameOrigin, securityHeaders } from "./middleware/security";
 import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
@@ -52,8 +52,8 @@ function absoluteAsset(value: string, origin: string): string {
 }
 
 // 首页由 Worker 注入真实设置、Canonical 与公开域名 ItemList；React 仍负责交互渲染。
-// 首页 SSR 每次要查 3 条 SQL，也走 60 秒边缘缓存降低跨境首字节时间。
-app.get("/", edgeCache, async (c) => {
+// HTML 不进入边缘缓存：部署后刷新必须立即取得当前构建的哈希资源，不能短暂回退旧界面。
+app.get("/", async (c) => {
   const url = new URL(c.req.url);
   const shell = await c.env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: c.req.raw.headers }));
   const [settings, domains, count] = await Promise.all([
@@ -67,9 +67,9 @@ app.get("/", edgeCache, async (c) => {
     ).all<{ full_domain: string; description: string }>(),
     c.env.DB.prepare("SELECT COUNT(*) AS total FROM domains WHERE is_listed = 1").first<{ total: number }>(),
   ]);
-  const site = settings?.site_name ?? "玩米";
+  const site = settings?.site_name ?? "DOMAIN HUNTER";
   const title = "DOMAIN HUNTER";
-  const description = settings?.site_description || "发现值得珍藏的域名";
+  const description = settings?.site_description || "精选域名资产展示";
   const canonical = `${url.origin}/`;
   const image = settings?.logo_url ? absoluteAsset(settings.logo_url, url.origin) : `${url.origin}/favicon.svg`;
   const favicon = settings?.favicon_url || null;
@@ -101,7 +101,7 @@ app.get("/", edgeCache, async (c) => {
     .on("head", { element: (element) => { element.append(`<script type="application/ld+json">${safeJsonLd(jsonLd)}</script>`, { html: true }); } })
     .transform(shell);
   const response = new Response(rewritten.body, rewritten);
-  response.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
+  response.headers.set("Cache-Control", "no-store");
   return response;
 });
 

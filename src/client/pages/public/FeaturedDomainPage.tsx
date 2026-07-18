@@ -39,7 +39,7 @@ export function FeaturedDomainPage() {
   useTracker(window.location.pathname);
 
   if (!detail) {
-    return <div className="app-loading"><img className="brand-mark-img" src="/logo.svg" alt="玩米" /><p>正在打开精选域名…</p></div>;
+    return <div className="app-loading"><img className="brand-mark-img" src="/logo.svg" alt="DOMAIN HUNTER" /><p>正在打开精选域名…</p></div>;
   }
 
   const domain = detail.domain;

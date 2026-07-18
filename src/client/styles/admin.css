@@ -121,6 +121,11 @@ svg.lucide {
 .admin-header a { color: var(--muted); font-size: 11px; transition: color var(--dur-1) var(--ease); }
 .admin-header a:hover { color: var(--brand); }
 .admin-header-actions { display: flex; align-items: center; gap: 12px; }
+.admin-header .admin-frontend-link {
+  width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); box-shadow: var(--shadow-s);
+}
+.admin-header .admin-frontend-link svg { width: 15px; height: 15px; }
 .admin-main > main { padding: 24px 30px 60px; }
 .admin-main input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]),
 .admin-main select { font-size: 11.5px; }
@@ -449,7 +454,6 @@ svg.lucide {
 }
 
 @media (max-width: 390px) {
-  .admin-header-actions > a { display: none; }
   .domains-table tr { grid-template-columns: 1fr; }
   .domains-table td, .domains-table td:first-child, .domains-table td:nth-child(2), .domains-table td:last-child { grid-column: 1; }
 }

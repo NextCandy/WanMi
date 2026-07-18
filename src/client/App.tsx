@@ -6,7 +6,7 @@ import { FeaturedDomainPage } from "./pages/public/FeaturedDomainPage";
 const AdminApp = lazy(() => import("./pages/admin/AdminApp").then((module) => ({ default: module.AdminApp })));
 
 function RouteLoading() {
-  return <div className="app-loading"><span className="brand-mark">玩</span><p>正在打开玩米…</p></div>;
+  return <div className="app-loading"><img className="brand-mark-img" src="/logo.svg" alt="" /><p>正在打开 DOMAIN HUNTER…</p></div>;
 }
 
 export function App() {

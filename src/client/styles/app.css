@@ -1276,8 +1276,6 @@ svg.lucide {
 .quick-similar button small { color: var(--muted); font-size: 8px; }
 .quick-similar button:hover { border-color: var(--brand); color: var(--brand-strong); }
 
-.public-bottom-nav { display: none; }
-
 @media (hover: hover) and (pointer: fine) {
   .header-discover:hover { transform: translateY(-1px); border-color: var(--brand); }
 }
@@ -1289,7 +1287,6 @@ svg.lucide {
 }
 
 @media (max-width: 780px) {
-  .public-shell { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .public-shell .public-header { padding-inline: 14px; }
   .header-discover { display: none; }
   .public-shell .catalogue-layout { padding: 14px 12px 42px; }
@@ -1337,22 +1334,7 @@ svg.lucide {
   .quick-qr-frame { margin: 0; }
   .quick-detail-actions > * { flex: 1 1 calc(50% - 4px); }
   .quick-detail-actions .detail-page-link { flex-basis: 100%; margin: 6px 0 0; text-align: center; }
-  .public-bottom-nav {
-    position: fixed; z-index: 55; inset: auto 0 0; display: grid; grid-template-columns: repeat(2, 1fr);
-    min-height: calc(64px + env(safe-area-inset-bottom)); padding: 4px 8px env(safe-area-inset-bottom);
-    border-top: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
-    background: var(--background);
-    backdrop-filter: none; -webkit-backdrop-filter: none;
-    box-shadow: 0 -18px 45px -34px rgba(0, 0, 0, .5);
-  }
-  .public-bottom-nav button {
-    min-width: 0; min-height: 56px; border: 0; border-radius: 12px; display: grid; place-items: center; align-content: center; gap: 1px;
-    background: transparent; color: var(--muted); cursor: pointer;
-  }
-  .public-bottom-nav button span { font-size: 20px; line-height: 1; }
-  .public-bottom-nav button b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 600; }
-  .public-bottom-nav button.active { color: var(--brand-strong); background: var(--brand-soft); }
-  .public-shell .toast { bottom: calc(78px + env(safe-area-inset-bottom)); }
+  .public-shell .toast { bottom: calc(18px + env(safe-area-inset-bottom)); }
   .public-shell .public-footer { margin-bottom: 8px; }
 }
 
@@ -1373,8 +1355,7 @@ svg.lucide {
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .public-bottom-nav, .domain-detail-dialog::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; }
-  .public-bottom-nav { background: var(--background); }
+  .domain-detail-dialog::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; }
   .keyword-pill { border-color: var(--gold-muted); }
 }
 
@@ -2462,7 +2443,8 @@ svg.lucide {
   width: calc(min(100%, 1440px) - 2 * clamp(16px, 3.2vw, 56px));
   max-width: none;
   margin: 24px auto 22px;
-  padding: 26px 0;
+  min-height: 42px;
+  padding: 5px 0;
   display: grid;
   place-items: center;
   justify-content: center;
@@ -2488,8 +2470,10 @@ svg.lucide {
   .public-shell .public-footer {
     width: calc(100% - 16px);
     margin: 14px auto 8px;
-    padding: 20px 12px;
+    min-height: 40px;
+    padding: 4px 8px;
   }
+  .public-shell .footer-logo { width: 28px; height: 28px; }
 }
 
 /* 2026-07-19 · 卡片信息顺序：徽章/操作 → 域名 → 简介 → 注册-到期/余期。 */

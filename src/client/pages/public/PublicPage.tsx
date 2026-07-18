@@ -4,7 +4,6 @@ import { Settings } from "lucide-react";
 import { ContactLinks } from "../../components/ContactIcons";
 import { DomainCard } from "../../components/DomainCard";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
-import { PublicBottomNav } from "../../components/PublicBottomNav";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { useTracker } from "../../hooks/useTracker";
@@ -385,14 +384,14 @@ export function PublicPage() {
                 {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" className="clear-search-history" aria-label="清除搜索历史" title="清除搜索历史" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
               </div>
               <div className="toolbar-filters">
-                <label className="category-control"><span>分类</span><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.label}</option>)}</select></label>
-                <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
+                <label className="category-control"><span>分类</span><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.value ? option.label : "筛选"}</option>)}</select></label>
+                <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">筛选</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
                 <label><span>位数</span><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
                   const pick = event.target.value;
                   const range = pick === "all" ? { minLength: "", maxLength: "" } : pick === "10plus" ? { minLength: "10", maxLength: "" } : { minLength: pick, maxLength: pick };
                   setFilters((current) => ({ ...current, advanced: { ...current.advanced, ...range }, page: 1 }));
                 }}>
-                  <option value="all">全部</option>
+                  <option value="all">筛选</option>
                   {lengthPickOf(filters.advanced) === "custom" && <option value="custom" disabled>自定义区间</option>}
                   {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} 位</option>)}
                   <option value="10plus">10 位以上</option>
@@ -426,13 +425,12 @@ export function PublicPage() {
 
       <footer className="public-footer">
         <div className="footer-copyright">
-          <img className="footer-logo" src={settings?.logo_url || "/logo.svg"} alt="玩米 Logo" decoding="async" />
-          <span>© {new Date().getFullYear()}</span>
+          <img className="footer-logo" src={settings?.logo_url || "/logo.svg"} alt="DOMAIN HUNTER Logo" decoding="async" />
+          <span>@{new Date().getFullYear()}</span>
         </div>
       </footer>
 
       <DomainDetailDialog domain={selectedDomain} candidates={catalogueItems} onClose={() => setSelectedDomain(null)} onCopy={copyDomain} onSelect={setSelectedDomain} />
-      <PublicBottomNav />
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   );
