@@ -58,6 +58,8 @@ test.describe("后台视觉基线", () => {
           page.locator(".stats-overview"),
           page.locator(".admin-two-columns"),
           page.locator(".activity-list"),
+          // recharts Tooltip 会因指针残留在截图瞬间偶发渲染，遮盖避免抖动
+          page.locator(".recharts-tooltip-wrapper"),
         ],
       });
     });

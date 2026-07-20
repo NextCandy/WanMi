@@ -37,23 +37,37 @@ svg.lucide {
 .keywords-cell { min-width: 220px; max-width: 320px; }
 .keywords-cell > div { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
 
+/* 登录：深墨绿场景 + 左右分栏白卡（手机单栏，品牌介绍压缩置顶） */
 .login-shell {
   min-height: 100vh; display: grid; place-items: center; padding: 24px;
   background:
-    radial-gradient(circle at 50% 8%, color-mix(in oklab, var(--brand) 12%, transparent), transparent 42%),
-    radial-gradient(circle at 12% 88%, color-mix(in oklab, var(--brand) 6%, transparent), transparent 40%),
-    var(--surface-1);
+    radial-gradient(circle at 82% 12%, rgba(200, 152, 72, 0.10), transparent 34%),
+    radial-gradient(circle at 8% 92%, rgba(30, 107, 89, 0.22), transparent 46%),
+    linear-gradient(165deg, var(--brand-primary), var(--brand-primary-deep));
 }
 .login-card {
-  width: min(420px, 100%); padding: 36px;
-  background: color-mix(in oklab, var(--surface-2) 92%, transparent);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border); border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-l);
+  width: min(880px, 100%); padding: 0; overflow: hidden;
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  background: var(--surface-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.14); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-modal);
   animation: pop-in var(--dur-3) var(--ease);
 }
-.login-brand { margin-bottom: 38px; }
-.login-heading > span { color: var(--brand); font-size: 10px; letter-spacing: .16em; font-weight: 700; }
+.login-intro {
+  display: flex; flex-direction: column; gap: 26px; padding: 38px 34px;
+  color: rgba(255, 255, 255, 0.86);
+  background:
+    radial-gradient(circle at 90% 0%, rgba(200, 152, 72, 0.14), transparent 40%),
+    linear-gradient(180deg, var(--brand-primary), var(--brand-primary-deep));
+}
+.login-intro .brand { color: #ffffff; }
+.login-intro-body { margin-top: auto; }
+.login-intro-body h2 { margin: 0 0 10px; font-size: 24px; letter-spacing: -.02em; color: #ffffff; }
+.login-intro-body p { margin: 0; font-size: 13px; line-height: 1.7; color: rgba(255, 255, 255, 0.66); }
+.login-intro-foot { margin-top: auto; color: var(--gold-bright); font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; }
+.login-form-side { padding: 38px 36px; }
+.login-brand { margin-bottom: 0; }
+.login-heading > span { color: var(--brand-primary-hover); font-size: 10px; letter-spacing: .16em; font-weight: 700; }
 .login-heading h1 { font-size: 30px; letter-spacing: -.04em; margin: 9px 0 4px; }
 .login-heading p { margin: 0 0 25px; color: var(--muted); font-size: 13px; }
 .login-card form { display: grid; gap: 15px; }
@@ -91,7 +105,9 @@ svg.lucide {
 }
 .admin-sidebar nav button > svg { width: 18px; height: 18px; flex: 0 0 18px; text-align: center; font-size: 15px; }
 .admin-sidebar nav button:hover { background: color-mix(in oklab, oklch(100% 0 0) 6%, transparent); color: oklch(92% .008 85); }
-.admin-sidebar nav button.active { background: linear-gradient(180deg, var(--sidebar-active-a), var(--sidebar-active-b)); color: var(--sidebar-active-fg); font-weight: 650; box-shadow: 0 6px 16px color-mix(in oklab, oklch(0% 0 0) 28%, transparent); }
+.admin-sidebar nav button.active { position: relative; background: var(--sidebar-active-bg); color: var(--sidebar-active-fg); font-weight: 650; box-shadow: none; }
+.admin-sidebar nav button.active::before { content: ""; position: absolute; inset: 9px auto 9px 0; width: 3px; background: var(--sidebar-active-mark); border-radius: 0 2px 2px 0; }
+.admin-sidebar nav button.active > svg { color: var(--gold-bright); }
 .sidebar-user { margin-top: auto; border-top: 1px solid color-mix(in oklab, oklch(100% 0 0) 10%, transparent); padding: 14px 4px 0; position: relative; min-width: 0; }
 .sidebar-user summary { list-style: none; display: grid; grid-template-columns: 32px minmax(0, 1fr) 16px; align-items: center; gap: 8px; cursor: pointer; }
 .sidebar-user summary::-webkit-details-marker { display: none; }
@@ -99,8 +115,8 @@ svg.lucide {
 .sidebar-user summary strong { overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
 .sidebar-user summary small { color: var(--sidebar-muted); font-size: 10px; }
 .user-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--brand); color: white; font-weight: 800; }
-.user-menu { position: absolute; bottom: calc(100% + 8px); inset-inline: 0; padding: 6px; border-radius: 10px; background: var(--sidebar-active-a); box-shadow: var(--shadow); display: grid; gap: 3px; }
-.user-menu button { display: flex; align-items: center; gap: 8px; padding: 9px; color: var(--sidebar-active-fg); }
+.user-menu { position: absolute; bottom: calc(100% + 8px); inset-inline: 0; padding: 6px; border-radius: 10px; background: color-mix(in oklab, var(--sidebar-bg-b) 86%, #ffffff); box-shadow: var(--shadow-panel); display: grid; gap: 3px; }
+.user-menu button { display: flex; align-items: center; gap: 8px; padding: 9px; color: rgba(255, 255, 255, 0.85); border-radius: 7px; }
 .user-menu svg { width: 15px; height: 15px; }
 .sidebar-user > div { min-width: 0; flex: 1; display: grid; gap: 2px; }
 .sidebar-user strong { overflow: hidden; text-overflow: ellipsis; font-size: 10px; font-weight: 600; }
@@ -310,6 +326,15 @@ svg.lucide {
 .stats-chart { min-width: 0; }
 @media (max-width: 760px) { .stats-overview { grid-template-columns: 1fr; } .stats-kpis { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 720px) { .reminder-editor { grid-template-columns: 1fr; } }
+@media (max-width: 720px) {
+  .login-shell { padding: 16px; }
+  .login-card { grid-template-columns: 1fr; }
+  .login-intro { flex-direction: column; gap: 14px; padding: 22px 22px 18px; }
+  .login-intro-body { margin-top: 0; }
+  .login-intro-body h2 { font-size: 19px; }
+  .login-intro-foot { display: none; }
+  .login-form-side { padding: 24px 20px 28px; }
+}
 .channel-card { min-height: 58px; display: grid; grid-template-columns: 120px minmax(180px, 1fr) auto; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-m); transition: border-color var(--dur-1) var(--ease); }
 .channel-card:hover { border-color: var(--border-strong); }
 .channel-card label { font-size: 11px; font-weight: 600; }
@@ -484,7 +509,7 @@ svg.lucide {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, 0.55), transparent 55%);
 }
-.stat-card.tone-c::after { background: radial-gradient(120% 90% at 100% 0%, rgba(212, 175, 55, 0.18), transparent 55%); }
+.stat-card.tone-c::after { background: radial-gradient(120% 90% at 100% 0%, rgba(200, 152, 72, 0.18), transparent 55%); }
 .stat-card span { color: var(--text-secondary); font-weight: 600; }
 .stat-card strong { color: var(--text-primary); }
 .stat-card.tone-c strong { color: var(--gold-text); }
@@ -496,10 +521,10 @@ svg.lucide {
   padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius-md);
   background: linear-gradient(175deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.20)), var(--surface);
   color: var(--text-primary); font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: var(--glass-highlight), 0 2px 8px rgba(90, 62, 43, 0.14);
+  box-shadow: var(--glass-highlight), 0 2px 8px rgba(17, 38, 30, 0.10);
   transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
-.quick-actions button:hover { border-color: var(--brand-border); background: linear-gradient(175deg, rgba(90, 62, 43, 0.07), rgba(90, 62, 43, 0.02)), var(--surface); }
+.quick-actions button:hover { border-color: var(--brand-border); background: linear-gradient(175deg, rgba(19, 52, 41, 0.07), rgba(19, 52, 41, 0.02)), var(--surface); }
 .quick-actions button:active { transform: scale(.98); }
 .quick-actions button svg { width: 17px; height: 17px; color: var(--brand); }
 
@@ -516,7 +541,7 @@ svg.lucide {
 /* 分类分布静态行：结构与后缀分布一致但不可点击 */
 .distribution-static { display: grid; grid-template-columns: minmax(64px, auto) 1fr auto; gap: 10px; align-items: center; }
 .distribution-static span { font-size: 12.5px; color: var(--text-secondary); }
-.distribution-static .bar { height: 7px; border-radius: 999px; background: rgba(46, 30, 19, 0.10); overflow: hidden; }
+.distribution-static .bar { height: 7px; border-radius: 999px; background: rgba(31, 42, 36, 0.10); overflow: hidden; }
 .distribution-static .bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--brand-primary-light), var(--brand-primary)); }
 .distribution-static strong { font-size: 12.5px; font-variant-numeric: tabular-nums; }
 

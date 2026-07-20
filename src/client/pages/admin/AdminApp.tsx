@@ -98,15 +98,24 @@ function LoginPage({ onLogin }: { onLogin: (user: AdminUser) => void }) {
   return (
     <div className="login-shell">
       <div className="login-card">
-        <a href="/" className="brand login-brand"><img className="brand-mark-img" src="/logo.svg" alt="" /><span>DOMAIN HUNTER</span></a>
-        <div className="login-heading"><span>安全管理控制台</span><h1>欢迎回来</h1><p>请使用管理员账号继续。</p></div>
-        <form onSubmit={submit}>
-          <label>管理员邮箱<input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required autoFocus /></label>
-          <label>密码<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
-          {error && <div className="inline-error">{error}</div>}
-          <button className="primary-button login-button" disabled={loading}>{loading ? "正在验证…" : "登录"}</button>
-        </form>
-        <a className="back-link" href="/">← 返回域名展示页</a>
+        <aside className="login-intro">
+          <a href="/" className="brand login-brand"><img className="brand-mark-img" src="/logo.svg" alt="" /><span>玩米</span></a>
+          <div className="login-intro-body">
+            <h2>精选域名资产管理</h2>
+            <p>域名、分类、到期提醒与安全审计，一站式管理。</p>
+          </div>
+          <span className="login-intro-foot">WanMi · wanmi.org</span>
+        </aside>
+        <div className="login-form-side">
+          <div className="login-heading"><span>安全管理控制台</span><h1>欢迎回来</h1><p>请使用管理员账号继续。</p></div>
+          <form onSubmit={submit}>
+            <label>管理员邮箱<input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required autoFocus /></label>
+            <label>密码<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
+            {error && <div className="inline-error">{error}</div>}
+            <button className="primary-button login-button" disabled={loading}>{loading ? "正在验证…" : "登录"}</button>
+          </form>
+          <a className="back-link" href="/">← 返回域名展示页</a>
+        </div>
       </div>
     </div>
   );
@@ -955,9 +964,9 @@ export function AdminApp() {
   const notify = useCallback((text: string, tone: "success" | "error" = "success") => setToast({ id: Date.now(), text, tone }), []);
   useEffect(() => { api<AdminUser>("/api/auth/me").then(setUser).catch((reason: unknown) => { if (!(reason instanceof ApiError) || reason.status !== 401) notify(reason instanceof Error ? reason.message : "会话检查失败", "error"); }).finally(() => setChecking(false)); }, [notify]);
   useEffect(() => { api<{ site_name: string; logo_url: string | null }>("/api/public/settings").then(setBranding).catch(() => undefined); }, []);
-  if (checking) return <div className="app-loading"><img className="brand-mark-img" src="/logo.svg" alt="" /><p>正在验证 DOMAIN HUNTER 会话…</p></div>;
+  if (checking) return <div className="app-loading"><img className="brand-mark-img" src="/logo.svg" alt="" /><p>正在验证玩米会话…</p></div>;
   if (!user) return <LoginPage onLogin={(loggedIn) => { setUser(loggedIn); setView("overview"); }} />;
   const nav: Array<[AdminView, string, LucideIcon]> = [["overview", "概览", LayoutDashboard], ["domains", "域名管理", Globe], ["categories", "分类", Tag], ["settings", "站点设置", Settings], ["notifications", "到期提醒", Bell], ["security", "账户安全", ShieldCheck], ["logs", "操作日志", History]];
   async function logout() { try { await api("/api/auth/logout", { method: "POST" }); } finally { setUser(null); } }
-  return <div className="admin-shell"><aside className="admin-sidebar"><a href="/" className="brand admin-brand">{branding?.logo_url ? <img className="brand-icon" src={branding.logo_url} alt="" decoding="async" /> : <img className="brand-mark-img" src="/logo.svg" alt="" decoding="async" />}<span>{branding?.site_name ?? "DOMAIN HUNTER"}</span></a><nav>{nav.map(([key, label, Icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => setView(key)}><Icon aria-hidden="true" />{label}</button>)}</nav><details className="sidebar-user"><summary><span className="user-avatar">{user.email.slice(0, 1).toUpperCase()}</span><span><strong>{user.email}</strong><small>管理员</small></span><ChevronDown aria-hidden="true" /></summary><div className="user-menu"><button onClick={() => setView("security")}><ShieldCheck aria-hidden="true" />修改密码</button><button onClick={() => void logout()}><LogOut aria-hidden="true" />退出登录</button></div></details></aside><div className="admin-main"><header className="admin-header"><div><span>DOMAIN HUNTER 管理后台</span><h1>{nav.find(([key]) => key === view)?.[1]}</h1></div><div className="admin-header-actions"><a className="admin-frontend-link" href="/" target="_blank" rel="noopener noreferrer" aria-label="查看前台" title="查看前台"><ExternalLink aria-hidden="true" /></a></div></header><main>{view === "overview" && <OverviewView onTldClick={(tld) => { setDomainsPresetTld(tld); setView("domains"); }} onNavigate={setView} notify={notify} />}{view === "domains" &&<DomainsView key={domainsPresetTld ?? "all"} notify={notify} presetTld={domainsPresetTld} />}{view === "categories" && <CategoriesView notify={notify} />}{view === "settings" && <SettingsView notify={notify} />}{view === "notifications" && <NotificationsView notify={notify} />}{view === "security" && <SecurityView user={user} notify={notify} />}{view === "logs" && <LogsView />}</main></div><Toast message={toast} onClose={() => setToast(null)} /></div>;
+  return <div className="admin-shell"><aside className="admin-sidebar"><a href="/" className="brand admin-brand">{branding?.logo_url ? <img className="brand-icon" src={branding.logo_url} alt="" decoding="async" /> : <img className="brand-mark-img" src="/logo.svg" alt="" decoding="async" />}<span>{branding?.site_name ?? "玩米"}</span></a><nav>{nav.map(([key, label, Icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => setView(key)}><Icon aria-hidden="true" />{label}</button>)}</nav><details className="sidebar-user"><summary><span className="user-avatar">{user.email.slice(0, 1).toUpperCase()}</span><span><strong>{user.email}</strong><small>管理员</small></span><ChevronDown aria-hidden="true" /></summary><div className="user-menu"><button onClick={() => setView("security")}><ShieldCheck aria-hidden="true" />修改密码</button><button onClick={() => void logout()}><LogOut aria-hidden="true" />退出登录</button></div></details></aside><div className="admin-main"><header className="admin-header"><div><span>{`${branding?.site_name ?? "玩米"} 管理后台`}</span><h1>{nav.find(([key]) => key === view)?.[1]}</h1></div><div className="admin-header-actions"><a className="admin-frontend-link" href="/" target="_blank" rel="noopener noreferrer" aria-label="查看前台" title="查看前台"><ExternalLink aria-hidden="true" /></a></div></header><main>{view === "overview" && <OverviewView onTldClick={(tld) => { setDomainsPresetTld(tld); setView("domains"); }} onNavigate={setView} notify={notify} />}{view === "domains" &&<DomainsView key={domainsPresetTld ?? "all"} notify={notify} presetTld={domainsPresetTld} />}{view === "categories" && <CategoriesView notify={notify} />}{view === "settings" && <SettingsView notify={notify} />}{view === "notifications" && <NotificationsView notify={notify} />}{view === "security" && <SecurityView user={user} notify={notify} />}{view === "logs" && <LogsView />}</main></div><Toast message={toast} onClose={() => setToast(null)} /></div>;
 }

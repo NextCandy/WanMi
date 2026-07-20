@@ -1,6 +1,20 @@
 # WanMi HANDOFF
 
-## 最新进度（2026-07-18 · Dark Vault 改版 + 国内访问卡顿修复）
+## 最新进度（2026-07-20 · Elegant Green Gold 雅致绿金主题）
+
+- 全站由浅色暖金升级为「雅致绿金」：墨绿 `#133429` 为品牌主色（主按钮/激活态/链接/侧栏/登录场景），暖白 `#f6f5f0`/`#fefdfa` 为底，香槟金 `#c89848` 降级为精品与重点资产专用（≤2% 面积）。`tokens.css` 全量重写并**移除暗色 `prefers-color-scheme` 媒体块**（按要求固定单一浅色）。
+- 前台：搜索按钮/分页当前页/视图切换器改墨绿实心白字；「访问域名」由金字金边改为绿字绿边次按钮；精品卡身份改由金细边 + 顶部 44×2px 短金线 + 浅金底「★精选」徽章表达（正文保持深色）；到期状态改三级（≤30 天警告、≤7 天与已过期危险，文案「已过期」）；速览弹窗白面板 + 深绿遮罩，QR/价值维度低饱和底保留。
+- 精品详情页：大标题由亮金改深色，访问按钮改实心墨绿，kicker 改中文「★ 精品域名」金棕字；Worker SSR 模板同步删掉遗留的 FEATURED DOMAIN ASSET / DISCOVER MORE 英文 kicker（上一轮只删了客户端侧）。
+- 后台：登录页重做为深墨绿场景 + 左右分栏白卡（左品牌介绍区深绿 + 金点缀、右白表单，手机自动单栏）；侧栏深墨绿渐变（从 `--brand` color-mix 派生，accent 覆盖时整体跟随），active 为白 10% 底 + 左侧 3px 香槟金短条 + 金图标；概览统计卡白卡 + 顶部语义细线（总数墨绿/展示绿/隐藏灰/精品金）+ 语义数值色；表头米白 `--background-soft`、行悬停 `--surface-hover`。admin.css 的黑金基础层与浅色覆盖层合并为单层。
+- 概览 PV/UV 图修复既有 bug：UV 线原用 `var(--ink)`（浅色主题下=白色，白卡上不可见），改香槟金 `--gold-deep` 作第二数据线。
+- accent_color 机制重做：新增 `src/client/lib/accent-color.ts`，历史默认色（含黑金 `#d8b638`、暖金 `#c4a242` 等 5 个）视为「未定制」清除覆盖；真自定义色整套派生 brand/strong/hover/bg/bg-strong/border/ring，配 5 项单测。新增迁移 `0022_elegant_green_accent.sql` 把历史默认值归一为 `#133429`（沿 0014 惯例，不动真自定义色）。**远程执行该迁移会把生产 accent_color 从 `#c4a242` 更新为 `#133429`，属主题配套变更。**
+- 品牌资产同步：`favicon.svg` 墨绿底白菱金芯；`manifest.webmanifest` theme_color `#133429`；`index.html` theme-color `#f6f5f0`；精品 OG 图由黑底金字改墨绿底金字。
+- CSS 清理：删除 hero-*、header-discover、premium-corner、copy-button、group-tabs、section-kicker、mobile-stats、domain-featured-dot、keyword-pill/domain-keywords、copy-filter-link、contact-modal/contact-list/qr-code、domain-list-head、catalogue-intro、row-details、integration-details、bulk-keywords、status-list、highlighted 等确认死类（TSX 全量交叉验证，含动态拼接 `density-${…}`/`badge-…` 检查后保留活类）；棕色系历史阴影（rgba(64,42,20) 等 6 处）与纯黑阴影全部换绿倾向令牌；`--cream-*`、`--glow-gold`、`--gold-muted`、`--premium-fg`、`--ink`、`--foreground` 等死令牌删除；`--fg-3` 补定义（原引用 8 处但从未定义）。app.css 2110→1936 行，前台 CSS 产物 100.63→90.00KB（gzip 17.68→15.85）。
+- 已知限制：管理员在站点设置输入过浅的自定义强调色仍可能破坏主按钮白字对比度（schema 仅校验 hex 格式）；`--gold-bg`/`--gold-soft`/`--brand-secondary` 等主题 API 令牌暂无 CSS 引用，保留作设计系统接口。
+- 生产数据核验（经 Cloudflare MCP 只读查询）发现两处生产侧问题并已随本轮修复：① `site_settings.site_name` 仍是历史品牌 `DOMAIN HUNTER`（copyright 同），新增 `0023_unify_brand_names.sql` 精确匹配修正为 `WanMi` / `© WanMi · 玩米`；② 生产 `/logo.svg`（藏蓝橙点图形）不在 git 中——是上次部署时构建机上未跟踪的本地文件被打进产物，下次从 git 构建部署必然 404 导致页首 Logo 死链，已新增绿金品牌 `public/logo.svg`（与 favicon 同构）补位。
+- 部署前备份：本地 wrangler OAuth 过期无法跑 `pnpm db:backup`，改经 Cloudflare MCP 完成增量逻辑备份 `backups/wanmi-20260720-mcp-pre-green-gold.sql`——以 7-17 全量备份为基线，全表 `updated_at` 核验后仅 3 行变更（mx.ooo、site_settings、notification_settings），两份文件合并即完整现状；敏感表（sessions/密码哈希/渠道密文）本次部署零触碰，由 D1 Time Travel 30 天兜底。
+
+## 前序进度（2026-07-18 · Dark Vault 改版 + 国内访问卡顿修复）
 
 ### 性能（「访问很卡」根因与修复）
 - 根因一（主因）：`index.html` 仍有 Google Fonts 的 Noto Sans SC `<link rel="stylesheet">` 外链。渲染阻塞资源在大陆不可达时要等 TCP 超时才放行渲染，国内用户白屏可达 20 秒以上。已彻底移除（含两个 preconnect），中文走系统字体栈；CSP 同步收紧不再放行 `fonts.googleapis.com`/`fonts.gstatic.com`（集成测试断言已反转）。

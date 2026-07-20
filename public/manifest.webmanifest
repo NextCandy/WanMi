@@ -1,12 +1,12 @@
 {
-  "name": "DOMAIN HUNTER",
-  "short_name": "DOMAIN HUNTER",
-  "description": "DOMAIN HUNTER 精选域名资产展示",
+  "name": "玩米",
+  "short_name": "玩米",
+  "description": "玩米域名展示与管理系统",
   "lang": "zh-CN",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f7f7f5",
-  "theme_color": "#b89530",
+  "background_color": "#f6f5f0",
+  "theme_color": "#133429",
   "icons": [
     {
       "src": "/favicon.svg",

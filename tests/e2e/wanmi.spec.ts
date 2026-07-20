@@ -75,12 +75,12 @@ test.describe.serial("WanMi 生产流程", () => {
       await route.fulfill({ response, json: { ...body, data: { ...body.data, contact_email: "955555@gmail.com", contact_x: "iWangGang", contact_qq: "307203" } } });
     });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveTitle("DOMAIN HUNTER");
-    await expect(page.locator('meta[name="wanmi-build"]')).toHaveAttribute("content", "domain-hunter-2026-07-19-v3");
+    await expect(page).toHaveTitle("WanMi · 域名展示");
+    await expect(page.locator('meta[name="wanmi-build"]')).toHaveAttribute("content", "elegant-green-gold-2026-07-20-v4");
     await expect(page.locator(".domain-total-pill")).toHaveText("859 个域名");
-    await expect(page.locator(".public-header .brand-title")).toHaveText("DOMAIN HUNTER");
+    await expect(page.locator(".public-header .brand-title")).toHaveText("WanMi");
     await expect(page.locator(".public-header .brand-title")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "DOMAIN HUNTER", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: "WanMi", exact: true })).toHaveCount(1);
     await expect(page.locator(".brand-statement, .hero-stats")).toHaveCount(0);
     await expect(page.getByRole("group", { name: "状态筛选" })).toHaveCount(0);
     await expect(page.getByText("DOMAIN ASSET GALLERY", { exact: true })).toHaveCount(0);
@@ -92,9 +92,11 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".view-switch")).toHaveCount(0);
     await expect(page.locator(".domain-list.card-view")).toBeVisible();
     await expect(page.locator(".domain-list.compact-view")).toHaveCount(0);
+    /* 首卡因排序打分随库数据浮动，且首屏卡未必有注册日期：
+       这里只断言两种合法形态；完整日期区间格式由 mx.ooo 链路用例守护。 */
     const firstCatalogueCard = page.locator(".domain-card:not(.skeleton)").first();
-    await expect(firstCatalogueCard.locator(".registration-range")).toHaveText(/^\d{4}\.\d{2}\.\d{2}-\d{4}\.\d{2}\.\d{2}$/);
-    await expect(firstCatalogueCard.locator(".remaining-days")).toHaveText(/^(余\d+天|已过期\d+天)$/);
+    await expect(firstCatalogueCard.locator(".registration-range")).toHaveText(/^(\d{4}\.\d{2}\.\d{2}-\d{4}\.\d{2}\.\d{2}|\d{4}\.\d{2}\.\d{2}|日期待补充)$/);
+    await expect(firstCatalogueCard.locator(".remaining-days")).toHaveText(/^(余\d+天|已过期\d+天|有效期未知)$/);
     const cardGeometry = await firstCatalogueCard.evaluate((card) => {
       const rect = (selector: string) => card.querySelector(selector)!.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
@@ -190,7 +192,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.getByRole("link", { name: "通过 QQ 联系 307203" })).toHaveAttribute("href", "https://wpa.qq.com/msgrd?v=3&uin=307203&site=qq&menu=yes");
     await expect(page.locator(".public-footer .contact-icons-wrap")).toHaveCount(0);
     await expect(page.locator(".footer-logo")).toHaveAttribute("src", "/logo.svg");
-    await expect(page.locator(".footer-copyright")).toHaveText("@ DOMAIN HUNTER");
+    await expect(page.locator(".footer-copyright")).toHaveText("© WanMi · 玩米");
     const footerGeometry = await page.locator(".public-footer").evaluate((footer) => {
       const logo = footer.querySelector(".footer-logo")!.getBoundingClientRect();
       const content = footer.querySelector(".footer-copyright")!.getBoundingClientRect();
@@ -232,7 +234,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".brand-statement")).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "DOMAIN HUNTER", level: 1 })).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: "WanMi", level: 1 })).toHaveCount(1);
     await expect(page.locator(".public-header .brand-title")).toBeVisible();
     await expect(page.locator(".public-header .brand-icon")).toBeVisible();
     await expect(page.locator(".public-header .header-actions")).toBeHidden();
@@ -241,7 +243,7 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".domain-list.compact-view")).toBeVisible();
     await expect(page.locator(".domain-list.card-view")).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "移动端快捷导航" })).toHaveCount(0);
-    await expect(page.locator(".footer-copyright")).toHaveText("@ DOMAIN HUNTER");
+    await expect(page.locator(".footer-copyright")).toHaveText("© WanMi · 玩米");
     expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
     const metrics = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
@@ -327,8 +329,8 @@ test.describe.serial("WanMi 生产流程", () => {
     await page.getByLabel("密码").fill(credentials.password);
     await page.getByRole("button", { name: "登录", exact: true }).click();
     await expect(page.getByRole("heading", { name: "概览", exact: true })).toBeVisible();
-    await expect(page.locator(".admin-brand")).toContainText("DOMAIN HUNTER");
-    await expect(page.locator(".admin-header")).toContainText("DOMAIN HUNTER 管理后台");
+    await expect(page.locator(".admin-brand")).toContainText("WanMi");
+    await expect(page.locator(".admin-header")).toContainText("WanMi 管理后台");
     await expect(page.getByRole("link", { name: "查看前台" })).toHaveText("");
     await expect(page.getByRole("link", { name: "查看前台" }).locator("svg")).toHaveCount(1);
     const adminNavigation = page.locator(".admin-sidebar nav");
@@ -345,11 +347,11 @@ test.describe.serial("WanMi 生产流程", () => {
     await expect(page.locator(".quick-actions button").filter({ hasText: "导出 CSV" })).toBeVisible();
 
     await adminNavigation.getByRole("button", { name: "站点设置", exact: true }).click();
-    await expect(page.getByLabel("站点名称")).toHaveValue("DOMAIN HUNTER");
+    await expect(page.getByLabel("站点名称")).toHaveValue("WanMi");
     await expect(page.getByLabel("站点 Slogan")).toHaveValue("精选域名资产展示");
     await expect(page.locator(".upload-card").nth(0).locator("img")).toHaveAttribute("src", "/logo.svg");
     await expect(page.locator(".upload-card").nth(1).locator("img")).toHaveAttribute("src", "/favicon.svg");
-    await expect(page.getByLabel("版权文字")).toHaveValue("@ DOMAIN HUNTER");
+    await expect(page.getByLabel("版权文字")).toHaveValue("© WanMi · 玩米");
     await expect(page.getByText("页首显示管理入口", { exact: true })).toBeVisible();
     await expect(page.getByText("页脚显示管理入口", { exact: true })).toHaveCount(0);
 

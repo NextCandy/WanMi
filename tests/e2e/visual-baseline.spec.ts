@@ -40,22 +40,23 @@ test.describe("视觉基线", () => {
         await page.evaluate(() => document.fonts.ready);
         // 卡片用 content-visibility（README 性能策略），屏幕外内容按 contain-intrinsic-size
         // 估算高度；fullPage 截图滚动时才渲染成真实高度，导致页面总高在两次运行间抖动。
-        // 先整页滚一遍强制渲染，再回到顶部截图。
+        // 逐屏滚动触发真实渲染后，还要等 scrollHeight 收敛（渲染是异步的，
+        // 快速滚过时部分卡片仍按估算高度参与布局），两次读数一致才算稳定。
         await page.evaluate(async () => {
-          await new Promise<void>((resolve) => {
-            let previous = -1;
-            const step = () => {
-              window.scrollBy(0, window.innerHeight);
-              if (window.scrollY === previous) {
-                resolve();
-                return;
-              }
-              previous = window.scrollY;
-              requestAnimationFrame(step);
-            };
-            step();
-          });
+          const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+          let stable = 0;
+          for (let pass = 0; pass < 12 && stable < 2; pass += 1) {
+            const before = document.documentElement.scrollHeight;
+            for (let y = 0; y <= before; y += window.innerHeight) {
+              window.scrollTo(0, y);
+              await wait(40);
+            }
+            window.scrollTo(0, document.documentElement.scrollHeight);
+            await wait(200);
+            stable = document.documentElement.scrollHeight === before ? stable + 1 : 0;
+          }
           window.scrollTo(0, 0);
+          await wait(160);
         });
         await expect(page).toHaveScreenshot(`${target.name}-${width}.png`, {
           fullPage: true,

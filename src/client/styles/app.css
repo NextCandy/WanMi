@@ -13,9 +13,11 @@
    ============================================================ */
 
 :root {
-  /* 品牌与状态 */
+  /* 品牌与状态：品牌绿承担主按钮/激活态/链接；香槟金仅表达精品资产。
+     --brand 可由站点设置 accent_color 动态覆盖（applyAccentColor 整套派生）。 */
   --brand: var(--brand-primary);
-  --brand-strong: var(--brand-primary-deep);
+  --brand-strong: var(--brand-primary-strong);
+  --brand-hover: var(--brand-primary-hover);
   --premium: var(--gold);
   --premium-fg: var(--gold-text);
 
@@ -30,18 +32,20 @@
   --muted: var(--text-secondary);
   --faint: var(--text-tertiary);
 
-  /* 深棕皮革侧边栏（拟物参考图：深棕侧栏 + 米白内容区 + 金色高亮当前项） */
-  --sidebar-bg-a: var(--brand-primary);
-  --sidebar-bg-b: var(--brand-primary-ink);
-  --sidebar-fg: color-mix(in oklab, var(--text-inverse) 82%, transparent);
-  --sidebar-active-a: var(--gold-bright);
-  --sidebar-active-b: var(--gold);
-  --sidebar-active-fg: var(--brand-primary-ink);
+  /* 深墨绿侧边栏：从 --brand 派生，accent_color 覆盖时整体跟随；
+     active 为半透明浅底 + 白字 + 左侧香槟金短条（不做整块金渐变） */
+  --sidebar-bg-a: var(--brand);
+  --sidebar-bg-b: color-mix(in oklab, var(--brand) 72%, #04120d);
+  --sidebar-fg: rgba(255, 255, 255, 0.70);
+  --sidebar-muted: rgba(255, 255, 255, 0.44);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.10);
+  --sidebar-active-fg: #ffffff;
+  --sidebar-active-mark: var(--gold);
 
   /* 派生 */
   --brand-soft: var(--brand-bg);
-  --brand-ring: var(--brand-border);
-  --shadow-color: var(--background);
+  --shadow-color: #11261e;
   --shadow-s: var(--shadow-card);
   --shadow-m: var(--shadow-card);
   --shadow-l: var(--shadow-card-hover);
@@ -65,7 +69,7 @@
   font-family: var(--font-sans);
   color: var(--fg);
   background: var(--bg);
-  /* color-scheme 由 tokens.css 声明：单一深色主题 */
+  /* color-scheme 由 tokens.css 声明：单一浅色主题 */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -252,8 +256,8 @@ svg.lucide {
   display: flex; flex-direction: column; gap: 14px;
   box-shadow:
     var(--glass-highlight),
-    0 1px 2px rgba(0, 0, 0, 0.25),
-    0 4px 14px rgba(0, 0, 0, 0.22);
+    0 1px 2px rgba(17, 38, 30, 0.10),
+    0 4px 14px rgba(17, 38, 30, 0.09);
   transition: transform var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
   animation: card-in var(--dur-3) var(--ease) backwards;
 }
@@ -267,7 +271,7 @@ svg.lucide {
 .domain-card.featured {
   background: linear-gradient(160deg, color-mix(in oklab, var(--premium) 14%, var(--surface-2)), color-mix(in oklab, var(--premium) 5%, var(--surface-2)));
   border-color: color-mix(in oklab, var(--premium) 45%, var(--border));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.60), 0 2px 6px rgba(90, 62, 43, 0.16), 0 8px 24px color-mix(in oklab, var(--premium) 16%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.60), 0 2px 6px rgba(184, 128, 56, 0.14), 0 8px 24px color-mix(in oklab, var(--premium) 16%, transparent);
 }
 .domain-card.featured::before { opacity: 1; background: linear-gradient(90deg, color-mix(in oklab, var(--premium) 30%, transparent), var(--premium), color-mix(in oklab, var(--premium) 30%, transparent)); }
 .domain-featured-badge {
@@ -326,7 +330,7 @@ svg.lucide {
   font-size: 12px; font-weight: 600; letter-spacing: .02em;
   color: #ffffff; background: linear-gradient(135deg, var(--brand-primary-light), var(--brand-primary));
   text-decoration: none; align-self: flex-start;
-  box-shadow: 0 2px 8px rgba(90, 62, 43, 0.30);
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--brand) 25%, transparent);
   transition: transform var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
 }
 .domain-visit:active { transform: scale(.97); }
@@ -912,8 +916,8 @@ svg.lucide {
 .public-footer > div { display: flex; align-items: center; gap: 16px; }
 .public-footer strong { color: var(--fg); font-size: 14px; }
 .public-footer button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; border: 0; color: var(--fg-2); background: transparent; }
-.modal-backdrop { background: rgba(12, 14, 17, .48); backdrop-filter: blur(3px); }
-.contact-modal { border-radius: 12px; box-shadow: 0 24px 64px rgba(12, 14, 17, .22); }
+.modal-backdrop { background: rgba(15, 45, 36, 0.42); backdrop-filter: blur(3px); }
+.contact-modal { border-radius: 12px; box-shadow: var(--shadow-modal); }
 .contact-modal h2 { margin-top: 0; }
 
 @media (max-width: 1120px) {
@@ -988,7 +992,7 @@ svg.lucide {
 .public-shell .public-header {
   border-bottom: 0;
   background: color-mix(in oklab, var(--surface-2) 88%, transparent);
-  box-shadow: 0 1px 0 color-mix(in oklab, var(--border) 54%, transparent), 0 16px 42px -34px rgba(0, 0, 0, .40);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--border) 54%, transparent), 0 16px 42px -34px rgba(17, 38, 30, 0.34);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -997,7 +1001,7 @@ svg.lucide {
   max-width: none;
   border-color: color-mix(in oklab, var(--border-strong) 68%, transparent);
   border-radius: 15px;
-  box-shadow: 0 12px 32px -28px rgba(0, 0, 0, .45);
+  box-shadow: 0 12px 32px -28px rgba(17, 38, 30, 0.42);
   overflow: hidden;
 }
 .public-shell .filter-search .search-submit { border-radius: 0 14px 14px 0; }
@@ -1009,7 +1013,7 @@ svg.lucide {
   border-radius: 20px;
   padding: 13px 15px;
   background: color-mix(in oklab, var(--surface-1) 60%, var(--surface-2));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 46%, transparent), 0 16px 36px -34px rgba(0, 0, 0, .40);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 46%, transparent), 0 16px 36px -34px rgba(17, 38, 30, 0.36);
 }
 .public-shell .catalogue-toolbar .filter-search { grid-column: 1 / -1; }
 .public-shell .catalogue-toolbar .toolbar-filters { grid-column: 1; }
@@ -1020,14 +1024,14 @@ svg.lucide {
 .public-shell .domain-list.card-view .domain-card {
   border-color: transparent;
   border-radius: 19px;
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 58%, transparent), 0 14px 36px -31px rgba(0, 0, 0, .42);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 58%, transparent), 0 14px 36px -31px rgba(17, 38, 30, 0.40);
   transition: transform 190ms var(--ease), box-shadow 190ms var(--ease), background 190ms var(--ease);
 }
 .public-shell .domain-list.card-view .domain-card:hover {
   transform: translateY(-3px);
   border-color: transparent;
   background: color-mix(in oklab, var(--brand-soft) 34%, var(--surface-2));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--brand) 30%, transparent), 0 22px 45px -31px rgba(0, 0, 0, .46);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--brand) 30%, transparent), 0 22px 45px -31px rgba(17, 38, 30, 0.40);
 }
 .public-shell .domain-list.card-view .domain-card.featured {
   border: 0;
@@ -1042,7 +1046,7 @@ svg.lucide {
   border: 0;
   border-radius: 26px;
   background: color-mix(in oklab, var(--surface-1) 62%, var(--surface-2));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 42%, transparent), 0 22px 52px -44px rgba(0, 0, 0, .40);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 42%, transparent), 0 22px 52px -44px rgba(17, 38, 30, 0.34);
 }
 
 @media (max-width: 780px) {
@@ -1210,7 +1214,7 @@ svg.lucide {
 .domain-detail-dialog {
   width: min(760px, calc(100vw - 32px)); max-height: min(860px, calc(100vh - 40px)); padding: 0;
   border: 1px solid color-mix(in oklab, var(--gold) 24%, var(--border)); border-radius: 24px;
-  color: var(--fg); background: var(--surface-elevated); box-shadow: 0 36px 100px rgba(0, 0, 0, .36); overflow-x: hidden; overflow-y: auto;
+  color: var(--fg); background: var(--surface-elevated); box-shadow: var(--shadow-modal); overflow-x: hidden; overflow-y: auto;
   overscroll-behavior: contain;
 }
 /* 模态从中心轻微放大进入（modal 不做 origin-aware，保持居中）；从 scale(0) 出现违背物理直觉 */
@@ -1224,7 +1228,7 @@ svg.lucide {
   transition: opacity var(--dur-2) var(--ease);
   @starting-style { opacity: 0; }
 }
-.domain-detail-dialog::backdrop { background: rgba(9, 9, 8, .62); backdrop-filter: blur(8px); }
+.domain-detail-dialog::backdrop { background: rgba(15, 45, 36, 0.48); backdrop-filter: blur(8px); }
 .domain-detail-dialog > section { position: relative; padding: clamp(24px, 5vw, 44px); }
 .domain-detail-dialog h2 { max-width: calc(100% - 42px); margin: 0; overflow-wrap: anywhere; font-family: var(--font-display); font-size: clamp(30px, 6vw, 54px); line-height: 1.08; letter-spacing: .01em; }
 .domain-detail-dialog h2 span { color: var(--muted); }
@@ -2183,7 +2187,7 @@ svg.lucide {
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   border: 1px solid var(--border-strong); border-radius: var(--radius-pill);
   font-size: 12px; font-weight: 600; color: var(--text-secondary);
-  background: rgba(46, 30, 19, 0.04);
+  background: rgba(31, 42, 36, 0.04);
 }
 .public-shell .category-badge svg { width: 12px; height: 12px; flex-shrink: 0; color: var(--gold); fill: var(--gold); }
 .public-shell .domain-card .domain-actions { margin-left: auto; display: inline-flex; gap: 2px; }
@@ -2277,20 +2281,20 @@ svg.lucide {
   display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
   border: 1px solid var(--border); border-radius: var(--radius-pill);
   font-size: 13px; font-weight: 600; color: var(--text-secondary);
-  background: rgba(46, 30, 19, 0.04); cursor: pointer;
+  background: rgba(31, 42, 36, 0.04); cursor: pointer;
   transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
-.public-shell .filter-pill:hover { background: rgba(46, 30, 19, 0.08); color: var(--text-primary); }
+.public-shell .filter-pill:hover { background: rgba(31, 42, 36, 0.08); color: var(--text-primary); }
 .public-shell .filter-pill:active { transform: scale(.97); }
 .public-shell .filter-pill em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--text-tertiary); }
 .public-shell .filter-pill.active {
   color: #ffffff; background: linear-gradient(180deg, var(--brand-primary-light), var(--brand-primary));
-  border-color: transparent; box-shadow: 0 2px 10px rgba(90, 62, 43, 0.35);
+  border-color: transparent; box-shadow: 0 2px 10px color-mix(in oklab, var(--brand) 30%, transparent);
 }
 .public-shell .filter-pill.active em { color: rgba(255, 255, 255, 0.72); }
 .public-shell .filter-pill.pill-premium.active {
-  color: #3a2c08; background: linear-gradient(180deg, var(--gold-bright), var(--gold-soft));
-  box-shadow: 0 2px 10px rgba(212, 178, 82, 0.35);
+  color: var(--gold-text); background: linear-gradient(180deg, var(--gold-bright), var(--gold-soft));
+  box-shadow: 0 2px 10px rgba(184, 128, 56, 0.32);
 }
 @media (max-width: 720px) {
   .public-shell .pill-row { gap: 7px; }

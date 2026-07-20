@@ -7,6 +7,7 @@ import { DomainDetailDialog } from "../../components/DomainDetailDialog";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { useTracker } from "../../hooks/useTracker";
+import { applyAccentColor } from "../../lib/accent-color";
 import { api } from "../../lib/api";
 import { clearCatalogueCache, loadCatalogue } from "../../lib/catalogue-cache";
 import { copyText } from "../../lib/clipboard";
@@ -166,8 +167,6 @@ function pageItems(current: number, total: number): Array<number | string> {
   return result;
 }
 
-// 旧版默认品牌色：库里存这些值说明管理员从未自定义过，跳过注入、回退 CSS 新品牌色（皮革棕）
-const LEGACY_ACCENT_DEFAULTS = new Set(["#2fbf9a", "#c4a242", "#b89530", "#d4b252"]);
 const MOBILE_CATALOGUE_QUERY = "(max-width: 720px)";
 
 function SearchIcon() {
@@ -225,11 +224,8 @@ export function PublicPage() {
       if (!active) return;
       if (settingsResult.status === "fulfilled") {
         setSettings(settingsResult.value);
-        const accent = settingsResult.value.accent_color?.trim();
-        if (accent && /^#[0-9a-f]{6}$/i.test(accent) && !LEGACY_ACCENT_DEFAULTS.has(accent.toLowerCase())) {
-          document.documentElement.style.setProperty("--brand", accent);
-        }
-        document.title = "DOMAIN HUNTER";
+        applyAccentColor(settingsResult.value.accent_color);
+        document.title = `${settingsResult.value.site_name} · 域名展示`;
         const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
         description?.setAttribute("content", settingsResult.value.site_description);
         if (settingsResult.value.favicon_url) {
@@ -351,9 +347,9 @@ export function PublicPage() {
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
       <header className="public-header">
         <div className="public-header-inner">
-          <a className="brand" href="/" aria-label="DOMAIN HUNTER 首页">
+          <a className="brand" href="/" aria-label={`${settings?.site_name ?? "玩米"}首页`}>
             <img className="brand-icon" src={settings?.logo_url || "/logo.svg"} alt="" decoding="async" fetchPriority="high" />
-            <span className="brand-title">DOMAIN HUNTER</span>
+            <span className="brand-title">{settings?.site_name ?? "玩米"}</span>
           </a>
           <div className="header-actions">
             <span className="domain-total-pill" aria-label="域名总数">{facets ? facets.total_domains.toLocaleString("zh-CN") : "—"} 个域名</span>
@@ -365,7 +361,7 @@ export function PublicPage() {
 
       <main className="catalogue-layout">
         <section className="domain-section" id="domains" aria-label="全部资产">
-          <h1 className="visually-hidden">DOMAIN HUNTER</h1>
+          <h1 className="visually-hidden">{settings?.site_name ?? "玩米"}</h1>
           <div className="catalogue-toolbar">
             <div className="toolbar-controls">
               <div
@@ -424,8 +420,8 @@ export function PublicPage() {
 
       <footer className="public-footer">
         <div className="footer-copyright">
-          <img className="footer-logo" src={settings?.logo_url || "/logo.svg"} alt="DOMAIN HUNTER Logo" decoding="async" />
-          <span>@ DOMAIN HUNTER</span>
+          <img className="footer-logo" src={settings?.logo_url || "/logo.svg"} alt={`${settings?.site_name ?? "玩米"} Logo`} decoding="async" />
+          <span>{settings?.copyright_text ?? "© WanMi · 玩米"}</span>
         </div>
       </footer>
 

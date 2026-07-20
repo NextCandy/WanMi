@@ -39,7 +39,7 @@ export function FeaturedDomainPage() {
   useTracker(window.location.pathname);
 
   if (!detail) {
-    return <div className="app-loading"><img className="brand-mark-img" src="/logo.svg" alt="DOMAIN HUNTER" /><p>正在打开精选域名…</p></div>;
+    return <div className="app-loading"><img className="brand-mark-img" src="/logo.svg" alt="玩米" /><p>正在打开精选域名…</p></div>;
   }
 
   const domain = detail.domain;
@@ -56,6 +56,7 @@ export function FeaturedDomainPage() {
       <main className="featured-detail-main">
         <a className="featured-detail-back" href="/domains">← 返回域名目录</a>
         <section className="featured-detail-hero">
+          <span className="featured-detail-kicker">★ 精品域名</span>
           <h1>{domain.domain}</h1>
           {categories.length > 0 && <div className="featured-detail-tags" aria-label={`${domain.domain} 分类`}>{categories.map((category) => <span key={category}>{category}</span>)}</div>}
           {domain.description && <p className="featured-detail-description">{domain.description}</p>}

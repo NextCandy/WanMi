@@ -98,8 +98,8 @@ app.get("/", async (c) => {
     ).all<{ full_domain: string; description: string }>(),
     c.env.DB.prepare("SELECT COUNT(*) AS total FROM domains WHERE is_listed = 1").first<{ total: number }>(),
   ]);
-  const site = settings?.site_name ?? "DOMAIN HUNTER";
-  const title = "DOMAIN HUNTER";
+  const site = settings?.site_name ?? "玩米";
+  const title = `${site} · 域名展示`;
   const description = settings?.site_description || "精选域名资产展示";
   const canonical = `${url.origin}/`;
   const image = settings?.logo_url ? absoluteAsset(settings.logo_url, url.origin) : `${url.origin}/favicon.svg`;
