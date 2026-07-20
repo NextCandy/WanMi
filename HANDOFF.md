@@ -1,6 +1,18 @@
 # WanMi HANDOFF
 
-## 最新进度（2026-07-17 · wanmi-final-prompt 方案落地）
+## 最新进度（2026-07-20 · Elegant Green Gold 雅致绿金主题）
+
+- 全站由浅色暖金升级为「雅致绿金」：墨绿 `#133429` 为品牌主色（主按钮/激活态/链接/侧栏/登录场景），暖白 `#f6f5f0`/`#fefdfa` 为底，香槟金 `#c89848` 降级为精品与重点资产专用（≤2% 面积）。`tokens.css` 全量重写并**移除暗色 `prefers-color-scheme` 媒体块**（按要求固定单一浅色）。
+- 前台：搜索按钮/分页当前页/视图切换器改墨绿实心白字；「访问域名」由金字金边改为绿字绿边次按钮；精品卡身份改由金细边 + 顶部 44×2px 短金线 + 浅金底「★精选」徽章表达（正文保持深色）；到期状态改三级（≤30 天警告、≤7 天与已过期危险，文案「已过期」）；速览弹窗白面板 + 深绿遮罩，QR/价值维度低饱和底保留。
+- 精品详情页：大标题由亮金改深色，访问按钮改实心墨绿，kicker 改中文「★ 精品域名」金棕字；Worker SSR 模板同步删掉遗留的 FEATURED DOMAIN ASSET / DISCOVER MORE 英文 kicker（上一轮只删了客户端侧）。
+- 后台：登录页重做为深墨绿场景 + 左右分栏白卡（左品牌介绍区深绿 + 金点缀、右白表单，手机自动单栏）；侧栏深墨绿渐变（从 `--brand` color-mix 派生，accent 覆盖时整体跟随），active 为白 10% 底 + 左侧 3px 香槟金短条 + 金图标；概览统计卡白卡 + 顶部语义细线（总数墨绿/展示绿/隐藏灰/精品金）+ 语义数值色；表头米白 `--background-soft`、行悬停 `--surface-hover`。admin.css 的黑金基础层与浅色覆盖层合并为单层。
+- 概览 PV/UV 图修复既有 bug：UV 线原用 `var(--ink)`（浅色主题下=白色，白卡上不可见），改香槟金 `--gold-deep` 作第二数据线。
+- accent_color 机制重做：新增 `src/client/lib/accent-color.ts`，历史默认色（含黑金 `#d8b638`、暖金 `#c4a242` 等 5 个）视为「未定制」清除覆盖；真自定义色整套派生 brand/strong/hover/bg/bg-strong/border/ring，配 5 项单测。新增迁移 `0022_elegant_green_accent.sql` 把历史默认值归一为 `#133429`（沿 0014 惯例，不动真自定义色）。**远程执行该迁移会把生产 accent_color 从 `#c4a242` 更新为 `#133429`，属主题配套变更。**
+- 品牌资产同步：`favicon.svg` 墨绿底白菱金芯；`manifest.webmanifest` theme_color `#133429`；`index.html` theme-color `#f6f5f0`；精品 OG 图由黑底金字改墨绿底金字。
+- CSS 清理：删除 hero-*、header-discover、premium-corner、copy-button、group-tabs、section-kicker、mobile-stats、domain-featured-dot、keyword-pill/domain-keywords、copy-filter-link、contact-modal/contact-list/qr-code、domain-list-head、catalogue-intro、row-details、integration-details、bulk-keywords、status-list、highlighted 等确认死类（TSX 全量交叉验证，含动态拼接 `density-${…}`/`badge-…` 检查后保留活类）；棕色系历史阴影（rgba(64,42,20) 等 6 处）与纯黑阴影全部换绿倾向令牌；`--cream-*`、`--glow-gold`、`--gold-muted`、`--premium-fg`、`--ink`、`--foreground` 等死令牌删除；`--fg-3` 补定义（原引用 8 处但从未定义）。app.css 2110→1936 行，前台 CSS 产物 100.63→90.00KB（gzip 17.68→15.85）。
+- 已知限制：管理员在站点设置输入过浅的自定义强调色仍可能破坏主按钮白字对比度（schema 仅校验 hex 格式）；`--gold-bg`/`--gold-soft`/`--brand-secondary` 等主题 API 令牌暂无 CSS 引用，保留作设计系统接口。
+
+## 前序进度（2026-07-17 · wanmi-final-prompt 方案落地）
 
 - 依用户提供的最终优化方案执行，先逐项核实再实施；两项方案内容已过时（列表页 ItemList JSON-LD 与卡片 hover 位移均已存在），一项明确拒绝：LXGW WenKai（楷体风格与目录信息密度矛盾，3MB + font-display:optional 意味着慢网用户白下载还看不到；保持系统中文字体回退）。
 - 字体替换：display 字体 Instrument Serif → Cormorant Garamond（tokens/--font-display、fonts.css 由 fetch-fonts 重新生成、og.ts 的 TTF 与 font-family、api.test.ts 同步、旧文件删除、OFL 补齐）。fetch-fonts.ts 新增 EXTRA_TTF：用旧版 UA 请求 css2 拿 gstatic 静态 Regular TTF（290KB，google/fonts 仓库只有 1.1MB 变量字体，resvg 吃静态更稳）。

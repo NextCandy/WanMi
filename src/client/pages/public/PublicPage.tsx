@@ -7,6 +7,7 @@ import { PublicBottomNav } from "../../components/PublicBottomNav";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { useTracker } from "../../hooks/useTracker";
+import { applyAccentColor } from "../../lib/accent-color";
 import { api } from "../../lib/api";
 import { clearCatalogueCache, loadCatalogue } from "../../lib/catalogue-cache";
 import { copyText } from "../../lib/clipboard";
@@ -200,7 +201,7 @@ export function PublicPage() {
       if (!active) return;
       if (settingsResult.status === "fulfilled") {
         setSettings(settingsResult.value);
-        document.documentElement.style.setProperty("--brand", settingsResult.value.accent_color);
+        applyAccentColor(settingsResult.value.accent_color);
         document.title = `${settingsResult.value.site_name} · 域名展示`;
         const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
         description?.setAttribute("content", settingsResult.value.site_description);

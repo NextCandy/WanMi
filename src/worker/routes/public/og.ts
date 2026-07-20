@@ -60,12 +60,12 @@ export async function renderFeaturedDomainOg(c: Context<AppBindings>): Promise<R
   const fontSize = domainFontSize(domain.domain);
   const safeDomain = escapeHtml(domain.domain);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-    <rect width="1200" height="630" fill="#050505"/>
-    <rect x="42" y="42" width="1116" height="546" rx="22" fill="none" stroke="#2b281f" stroke-width="2"/>
-    <circle cx="82" cy="82" r="4" fill="#d8b638"/>
-    <text x="600" y="326" text-anchor="middle" dominant-baseline="middle" fill="#e5c85b" font-family="Cormorant Garamond" font-size="${fontSize}" font-weight="400" letter-spacing="-2">${safeDomain}</text>
-    <line x1="516" y1="444" x2="684" y2="444" stroke="#665727" stroke-width="2"/>
-    <text x="600" y="508" text-anchor="middle" fill="#a69f8b" font-family="Noto Sans SC" font-size="24" font-weight="600" letter-spacing="4">玩米 · 精选域名资产</text>
+    <rect width="1200" height="630" fill="#133429"/>
+    <rect x="42" y="42" width="1116" height="546" rx="22" fill="none" stroke="#2d4f40" stroke-width="2"/>
+    <circle cx="82" cy="82" r="4" fill="#c89848"/>
+    <text x="600" y="326" text-anchor="middle" dominant-baseline="middle" fill="#d8b66f" font-family="Cormorant Garamond" font-size="${fontSize}" font-weight="400" letter-spacing="-2">${safeDomain}</text>
+    <line x1="516" y1="444" x2="684" y2="444" stroke="#3d6152" stroke-width="2"/>
+    <text x="600" y="508" text-anchor="middle" fill="#cfd9d3" font-family="Noto Sans SC" font-size="24" font-weight="600" letter-spacing="4">玩米 · 精选域名资产</text>
   </svg>`;
   const resvg = await Resvg.async(svg, {
     fitTo: { mode: "width", value: 1200 },

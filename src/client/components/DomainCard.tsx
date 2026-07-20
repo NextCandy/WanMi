@@ -47,7 +47,7 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
       <div className="domain-card-meta" aria-label={`${domain.domain} 元数据`}>
         <div className="meta-row">
           <span className="meta-chip"><Globe aria-hidden="true" />.{tld}</span>
-          {remaining !== null && <span className={`meta-chip meta-remaining${remaining <= 90 ? " meta-chip-warning" : ""}`}><Hourglass aria-hidden="true" />{remaining >= 0 ? `剩 ${remaining} 天` : "已到期"}</span>}
+          {remaining !== null && <span className={`meta-chip meta-remaining${remaining <= 7 ? " meta-chip-danger" : remaining <= 30 ? " meta-chip-warning" : ""}`}><Hourglass aria-hidden="true" />{remaining >= 0 ? `剩 ${remaining} 天` : "已过期"}</span>}
         </div>
         {lifespan && <div className="meta-row"><span className="meta-chip meta-lifespan">{lifespan}</span></div>}
       </div>

@@ -94,15 +94,24 @@ function LoginPage({ onLogin }: { onLogin: (user: AdminUser) => void }) {
   return (
     <div className="login-shell">
       <div className="login-card">
-        <a href="/" className="brand login-brand"><span className="brand-mark">玩</span><span>玩米</span></a>
-        <div className="login-heading"><span>安全管理控制台</span><h1>欢迎回来</h1><p>请使用管理员账号继续。</p></div>
-        <form onSubmit={submit}>
-          <label>管理员邮箱<input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required autoFocus /></label>
-          <label>密码<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
-          {error && <div className="inline-error">{error}</div>}
-          <button className="primary-button login-button" disabled={loading}>{loading ? "正在验证…" : "登录"}</button>
-        </form>
-        <a className="back-link" href="/">← 返回域名展示页</a>
+        <aside className="login-intro">
+          <a href="/" className="brand login-brand"><span className="brand-mark">玩</span><span>玩米</span></a>
+          <div className="login-intro-body">
+            <h2>精选域名资产管理</h2>
+            <p>域名、分类、到期提醒与安全审计，一站式管理。</p>
+          </div>
+          <span className="login-intro-foot">WanMi · wanmi.org</span>
+        </aside>
+        <div className="login-form-side">
+          <div className="login-heading"><span>安全管理控制台</span><h1>欢迎回来</h1><p>请使用管理员账号继续。</p></div>
+          <form onSubmit={submit}>
+            <label>管理员邮箱<input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required autoFocus /></label>
+            <label>密码<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
+            {error && <div className="inline-error">{error}</div>}
+            <button className="primary-button login-button" disabled={loading}>{loading ? "正在验证…" : "登录"}</button>
+          </form>
+          <a className="back-link" href="/">← 返回域名展示页</a>
+        </div>
       </div>
     </div>
   );
@@ -120,12 +129,12 @@ function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string)
   }, []);
   if (error) return <div className="state-panel error-panel">{error}</div>;
   if (!data) return <div className="state-panel">正在读取真实统计…</div>;
-  const cards = [
-    ["域名总数", data.counts.total], ["前台展示", data.counts.listed], ["已隐藏", data.counts.hidden], ["精品域名", data.counts.featured],
+  const cards: Array<[string, number, string]> = [
+    ["域名总数", data.counts.total, "total"], ["前台展示", data.counts.listed, "listed"], ["已隐藏", data.counts.hidden, "hidden"], ["精品域名", data.counts.featured, "featured"],
   ];
   return <div className="admin-stack">
-    <div className="stat-grid">{cards.map(([label, value]) => <div className="stat-card" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
-    <div className="stats-overview"><div className="stats-kpis"><div><span>今日 PV</span><strong>{data.stats.today.pv ?? 0}</strong></div><div><span>今日 UV</span><strong>{data.stats.today.uv ?? 0}</strong></div><div><span>域名点击</span><strong>{data.stats.topDomains.reduce((total, item) => total + Number(item.clicks || 0), 0)}</strong></div></div><div className="stats-chart"><ResponsiveContainer width="100%" height={180}><LineChart data={data.stats.sevenDays}><XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={10} /><Tooltip /><Line type="monotone" dataKey="pv" stroke="var(--brand)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="uv" stroke="var(--ink)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div></div>
+    <div className="stat-grid">{cards.map(([label, value, tone]) => <div className={`stat-card stat-${tone}`} key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
+    <div className="stats-overview"><div className="stats-kpis"><div><span>今日 PV</span><strong>{data.stats.today.pv ?? 0}</strong></div><div><span>今日 UV</span><strong>{data.stats.today.uv ?? 0}</strong></div><div><span>域名点击</span><strong>{data.stats.topDomains.reduce((total, item) => total + Number(item.clicks || 0), 0)}</strong></div></div><div className="stats-chart"><ResponsiveContainer width="100%" height={180}><LineChart data={data.stats.sevenDays}><XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={10} /><Tooltip /><Line type="monotone" dataKey="pv" stroke="var(--brand)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="uv" stroke="var(--gold-deep)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div></div>
     <div className="admin-two-columns"><Panel title="域名点击 Top 10"><div className="kpi-list">{data.stats.topDomains.length ? data.stats.topDomains.map((item) => <button key={item.domain} onClick={() => onDomainClick?.(item.domain)}><span className="mono">{item.domain}</span><b>{item.clicks} 次</b><small title={formatExact(item.latest * 1000)}>{formatRelative(item.latest * 1000)}</small></button>) : <div className="empty-inline">尚无域名点击</div>}</div></Panel><Panel title="访客地区 Top 5"><div className="kpi-list">{data.stats.countries.map((item) => <div key={item.country}><span>{item.country}</span><b>{item.visitors}</b></div>)}</div></Panel></div>
     <Panel title="后缀分布" description="点击跳转到筛选后的域名管理"><div className="distribution-list">{data.tlds.slice(0, 12).map((item) => <a key={item.tld} onClick={() => onTldClick(item.tld)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onTldClick(item.tld); }}><span>.{item.tld}</span><div className="bar"><i style={{ width: `${Math.max(4, item.count / Math.max(data.counts.total, 1) * 100)}%` }} /></div><strong>{item.count}</strong></a>)}</div></Panel>
     <div className="admin-two-columns">

@@ -1,59 +1,68 @@
 /* ============================================================
-   WanMi Design Tokens · Soft Light Domain Asset Vault
-   —— 米白背景 + 柔和调淡金强调
+   WanMi Design Tokens · Elegant Green Gold 雅致绿金
+   —— 墨绿为主（品牌/主按钮/激活态）、暖白米白为底、香槟金点缀（仅精品与重点资产）
    —— 前台 / 详情 / 后台 / 登录共用这一套令牌
    —— 组件内禁止硬编码色值，一律引用这里的变量
+   —— 单一浅色主题：不提供暗色模式，不读取系统深浅色偏好
+   —— 色彩比例：暖白米白 ≈70% · 墨绿 ≈20% · 灰米辅助 ≈8% · 香槟金 ≤2%
    ============================================================ */
 
 :root {
-  /* Background —— 米白柔和 */
-  --background: #f7f7f5;
-  --background-soft: #efefed;
+  /* Background —— 暖白纸感 */
+  --background: #f6f5f0;
+  --background-soft: #f1efe8;
 
-  /* Surface —— 白色分层 */
-  --surface: #ffffff;
-  --surface-secondary: #f3f3f1;
+  /* Surface —— 奶油白卡片分层 */
+  --surface: #fefdfa;
+  --surface-secondary: #f4f2ec;
   --surface-elevated: #ffffff;
-  --surface-hover: #f7f7f5;
+  --surface-hover: #efede6;
 
-  /* Border —— 细边框，靠透明度分级 */
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.14);
-  --border-subtle: rgba(0, 0, 0, 0.04);
+  /* Border —— 极浅绿灰边框，靠透明度分级 */
+  --border-subtle: rgba(31, 42, 36, 0.06);
+  --border: rgba(31, 42, 36, 0.10);
+  --border-strong: rgba(31, 42, 36, 0.17);
 
-  /* Brand Gold —— 调淡金强调色 */
-  --gold: #c4a242;
-  --gold-bright: #d4b252;
-  --gold-soft: #b89530;
-  --gold-muted: #8a7a4a;
-  --gold-bg: rgba(196, 162, 66, 0.08);
-  --gold-bg-strong: rgba(196, 162, 66, 0.14);
-  --gold-border: rgba(196, 162, 66, 0.22);
-  --gold-divider: rgba(196, 162, 66, 0.18);
+  /* Brand Green —— 深墨绿品牌主色 */
+  --brand-primary: #133429;
+  --brand-primary-strong: #0f3c32;
+  --brand-primary-hover: #1e6b59;
+  --brand-secondary: #2d4f40;
+  --brand-bg: rgba(19, 52, 41, 0.08);
+  --brand-bg-strong: rgba(19, 52, 41, 0.14);
+  --brand-border: rgba(19, 52, 41, 0.26);
+  --brand-ring: rgba(30, 107, 89, 0.20);
+
+  /* Champagne Gold —— 只用于精品域名、重点资产、重要数值与极小面积装饰；
+     禁止用于普通正文、普通筛选、TLD 标签、大面积背景与菜单激活态。
+     浅色背景上的金色小字一律用 --gold-text，不得直接用 --gold / --gold-bright。 */
+  --gold: #c89848;
+  --gold-deep: #b88038;
+  --gold-bright: #d8b66f;
+  --gold-soft: #e8d8b8;
+  --gold-text: #79551f;
+  --gold-bg: rgba(200, 152, 72, 0.11);
+  --gold-bg-strong: rgba(200, 152, 72, 0.18);
+  --gold-border: rgba(184, 128, 56, 0.38);
+  --gold-divider: rgba(184, 128, 56, 0.30);
 
   /* Text */
-  --text-primary: #1d1d1f;
-  --text-secondary: #515154;
-  --text-tertiary: #86868b;
-  --text-inverse: #f7f7f5;
+  --text-primary: #1f2a24;
+  --text-secondary: #5d675f;
+  --text-tertiary: #7e877f;
+  --text-inverse: #ffffff;
+  --text-on-brand: #ffffff;
 
   /* Semantic */
-  --success: #2d9a4e;
-  --warning: #c97d12;
-  --danger: #d63b3b;
-  --info: #3976d8;
+  --success: #34745a;
+  --warning: #a76b22;
+  --danger: #b95343;
+  --info: #4e7469;
 
-  --success-bg: rgba(45, 154, 78, 0.10);
-  --warning-bg: rgba(201, 125, 18, 0.10);
-  --danger-bg: rgba(214, 59, 59, 0.10);
-  --info-bg: rgba(57, 118, 216, 0.10);
-
-  /* 暖色高亮卡：浅色下微暖高亮 */
-  --cream-a: #fdf6e3;
-  --cream-b: #f5edd0;
-  --cream-fg: #3a3220;
-  --cream-fg-soft: rgba(58, 50, 32, 0.62);
-  --cream-rule: rgba(58, 50, 32, 0.14);
+  --success-bg: rgba(52, 116, 90, 0.10);
+  --warning-bg: rgba(167, 107, 34, 0.10);
+  --danger-bg: rgba(185, 83, 67, 0.10);
+  --info-bg: rgba(78, 116, 105, 0.10);
 
   /* Typography */
   --font-display: "Cormorant Garamond", "Songti SC", "Noto Serif SC", ui-serif, Georgia, serif;
@@ -82,12 +91,12 @@
   --space-xl: 48px;
   --space-2xl: 64px;
 
-  /* Elevation —— 浅色下柔和阴影 */
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
-  --shadow-panel: 0 12px 40px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-modal: 0 24px 70px rgba(0, 0, 0, 0.16);
-  --glow-gold: 0 0 16px rgba(184, 149, 48, 0.08);
+  /* Elevation —— 带绿色倾向的低透明度阴影，禁止纯黑阴影 */
+  --shadow-card: 0 1px 2px rgba(17, 38, 30, 0.035), 0 7px 20px rgba(17, 38, 30, 0.055);
+  --shadow-card-hover: 0 2px 5px rgba(17, 38, 30, 0.055), 0 16px 34px rgba(17, 38, 30, 0.10);
+  --shadow-panel: 0 12px 34px rgba(17, 38, 30, 0.075);
+  --shadow-modal: 0 24px 64px rgba(15, 45, 36, 0.18);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.76);
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -100,35 +109,5 @@
   --bottom-nav-h: 76px;
 }
 
-/* 默认浅色；暗色跟随系统偏好自动切换（无手动开关）。
-   仅覆盖颜色类令牌，结构/间距/动效令牌两套主题共用。 */
+/* 单一浅色主题：固定 light，不跟随 prefers-color-scheme。 */
 :root { color-scheme: light; }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --background: #0f0f0f;
-    --background-soft: #1a1a1a;
-    --surface: #151515;
-    --surface-secondary: #1e1e1e;
-    --surface-elevated: #222222;
-    --surface-hover: #1a1a1a;
-    --border: rgba(255, 255, 255, 0.08);
-    --border-strong: rgba(255, 255, 255, 0.14);
-    --border-subtle: rgba(255, 255, 255, 0.04);
-    --gold: #d4b252;
-    --gold-bright: #e4c262;
-    --gold-soft: #c4a242;
-    --gold-bg: rgba(212, 178, 82, 0.10);
-    --gold-bg-strong: rgba(212, 178, 82, 0.16);
-    --gold-border: rgba(212, 178, 82, 0.20);
-    --gold-divider: rgba(212, 178, 82, 0.16);
-    --text-primary: #f5f5f7;
-    --text-secondary: #a1a1a6;
-    --text-tertiary: #6e6e73;
-    --text-inverse: #0f0f0f;
-    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.4);
-    --glow-gold: 0 0 16px rgba(212, 178, 82, 0.06);
-  }
-}
