@@ -11,6 +11,8 @@
 - 品牌资产同步：`favicon.svg` 墨绿底白菱金芯；`manifest.webmanifest` theme_color `#133429`；`index.html` theme-color `#f6f5f0`；精品 OG 图由黑底金字改墨绿底金字。
 - CSS 清理：删除 hero-*、header-discover、premium-corner、copy-button、group-tabs、section-kicker、mobile-stats、domain-featured-dot、keyword-pill/domain-keywords、copy-filter-link、contact-modal/contact-list/qr-code、domain-list-head、catalogue-intro、row-details、integration-details、bulk-keywords、status-list、highlighted 等确认死类（TSX 全量交叉验证，含动态拼接 `density-${…}`/`badge-…` 检查后保留活类）；棕色系历史阴影（rgba(64,42,20) 等 6 处）与纯黑阴影全部换绿倾向令牌；`--cream-*`、`--glow-gold`、`--gold-muted`、`--premium-fg`、`--ink`、`--foreground` 等死令牌删除；`--fg-3` 补定义（原引用 8 处但从未定义）。app.css 2110→1936 行，前台 CSS 产物 100.63→90.00KB（gzip 17.68→15.85）。
 - 已知限制：管理员在站点设置输入过浅的自定义强调色仍可能破坏主按钮白字对比度（schema 仅校验 hex 格式）；`--gold-bg`/`--gold-soft`/`--brand-secondary` 等主题 API 令牌暂无 CSS 引用，保留作设计系统接口。
+- 生产数据核验（经 Cloudflare MCP 只读查询）发现两处生产侧问题并已随本轮修复：① `site_settings.site_name` 仍是历史品牌 `DOMAIN HUNTER`（copyright 同），新增 `0023_unify_brand_names.sql` 精确匹配修正为 `WanMi` / `© WanMi · 玩米`；② 生产 `/logo.svg`（藏蓝橙点图形）不在 git 中——是上次部署时构建机上未跟踪的本地文件被打进产物，下次从 git 构建部署必然 404 导致页首 Logo 死链，已新增绿金品牌 `public/logo.svg`（与 favicon 同构）补位。
+- 部署前备份：本地 wrangler OAuth 过期无法跑 `pnpm db:backup`，改经 Cloudflare MCP 完成增量逻辑备份 `backups/wanmi-20260720-mcp-pre-green-gold.sql`——以 7-17 全量备份为基线，全表 `updated_at` 核验后仅 3 行变更（mx.ooo、site_settings、notification_settings），两份文件合并即完整现状；敏感表（sessions/密码哈希/渠道密文）本次部署零触碰，由 D1 Time Travel 30 天兜底。
 
 ## 前序进度（2026-07-17 · wanmi-final-prompt 方案落地）
 
