@@ -31,7 +31,7 @@ async function visit(directory: string): Promise<string[]> {
 const files = await visit(dist);
 for (const file of files) {
   const basename = path.basename(file);
-  if (basename.startsWith(".dev.vars") || basename === ".env" || basename.startsWith(".env.")) {
+  if (basename === ".DS_Store" || basename === "Thumbs.db" || basename.startsWith(".dev.vars") || basename === ".env" || basename.startsWith(".env.")) {
     await fs.rm(file, { force: true });
   }
 }

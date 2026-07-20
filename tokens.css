@@ -1,18 +1,21 @@
 /* ============================================================
    WanMi Design Tokens · Elegant Green Gold 雅致绿金
-   —— 墨绿为主（品牌/主按钮/激活态）、暖白米白为底、香槟金点缀（仅精品与重点资产）
+   —— v4.0（2026-07-20）：墨绿为主（品牌/主按钮/激活态）、暖白米白为底、
+      香槟金点缀（仅精品与重点资产，占比 ≤2%）
    —— 前台 / 详情 / 后台 / 登录共用这一套令牌
    —— 组件内禁止硬编码色值，一律引用这里的变量
    —— 单一浅色主题：不提供暗色模式，不读取系统深浅色偏好
-   —— 色彩比例：暖白米白 ≈70% · 墨绿 ≈20% · 灰米辅助 ≈8% · 香槟金 ≤2%
+   —— teal / accent / cream 令牌为历史各轮遗留的兼容别名，禁止新用
    ============================================================ */
 
 :root {
+  color-scheme: light;
+
   /* Background —— 暖白纸感 */
   --background: #f6f5f0;
   --background-soft: #f1efe8;
 
-  /* Surface —— 奶油白卡片分层 */
+  /* Surface —— 奶油白卡片分层（弹窗/下拉必须不透底） */
   --surface: #fefdfa;
   --surface-secondary: #f4f2ec;
   --surface-elevated: #ffffff;
@@ -23,37 +26,58 @@
   --border: rgba(31, 42, 36, 0.10);
   --border-strong: rgba(31, 42, 36, 0.17);
 
-  /* Brand Green —— 深墨绿品牌主色 */
+  /* Brand Green —— 深墨绿品牌主色
+     浅底上前景/背景双达标：作前景 12.8:1，作实底配白字 12.8:1 */
   --brand-primary: #133429;
   --brand-primary-strong: #0f3c32;
   --brand-primary-hover: #1e6b59;
   --brand-secondary: #2d4f40;
+  /* main 侧 Warm Craft 组件引用的派生名，映射到绿金等价色 */
+  --brand-primary-light: #1e6b59;  /* 渐变亮端 / hover */
+  --brand-primary-deep: #0b2b23;   /* 按压态 / 渐变暗端 */
+  --brand-primary-ink: #10241c;    /* 近黑绿：正文级最强 */
   --brand-bg: rgba(19, 52, 41, 0.08);
   --brand-bg-strong: rgba(19, 52, 41, 0.14);
   --brand-border: rgba(19, 52, 41, 0.26);
   --brand-ring: rgba(30, 107, 89, 0.20);
 
+  /* Accent —— 品牌 logo 点缀位：雅致绿金下用香槟金取代珊瑚红；
+     仅限 logo 与极小品牌点缀，UI 强调一律用品牌绿/语义色 */
+  --accent: #c89848;
+  --accent-light: #d8b66f;
+  --accent-bg: rgba(200, 152, 72, 0.12);
+
+  /* Teal —— v1 深色遗留，仅兼容保留，禁止新用（映射品牌绿系） */
+  --teal: #1e6b59;
+  --teal-bright: #2d8a72;
+  --teal-deep: #133429;
+  --teal-dim: #2d4f40;
+  --teal-bg: rgba(30, 107, 89, 0.10);
+  --teal-bg-strong: rgba(30, 107, 89, 0.16);
+  --teal-border: rgba(30, 107, 89, 0.28);
+
   /* Champagne Gold —— 只用于精品域名、重点资产、重要数值与极小面积装饰；
-     禁止用于普通正文、普通筛选、TLD 标签、大面积背景与菜单激活态。
-     浅色背景上的金色小字一律用 --gold-text，不得直接用 --gold / --gold-bright。 */
+     禁止用于普通正文、普通筛选、TLD 标签、大面积背景与菜单激活态。 */
   --gold: #c89848;
   --gold-deep: #b88038;
   --gold-bright: #d8b66f;
   --gold-soft: #e8d8b8;
+  --gold-muted: #9a8850;
+  /* 浅底金色文字（≥4.5:1）；gold/gold-bright 仅作渐变与装饰，禁止直接作浅底文字色 */
   --gold-text: #79551f;
   --gold-bg: rgba(200, 152, 72, 0.11);
   --gold-bg-strong: rgba(200, 152, 72, 0.18);
   --gold-border: rgba(184, 128, 56, 0.38);
   --gold-divider: rgba(184, 128, 56, 0.30);
 
-  /* Text */
+  /* Text —— 深绿墨色系 */
   --text-primary: #1f2a24;
   --text-secondary: #5d675f;
   --text-tertiary: #7e877f;
   --text-inverse: #ffffff;
   --text-on-brand: #ffffff;
 
-  /* Semantic */
+  /* Semantic —— 浅底加深（全部 ≥4.5:1） */
   --success: #34745a;
   --warning: #a76b22;
   --danger: #b95343;
@@ -63,6 +87,13 @@
   --warning-bg: rgba(167, 107, 34, 0.10);
   --danger-bg: rgba(185, 83, 67, 0.10);
   --info-bg: rgba(78, 116, 105, 0.10);
+
+  /* 高亮卡：暖白高光层（沿用 cream 令牌名，避免全量替换引用） */
+  --cream-a: #fefdfa;
+  --cream-b: #f4f2ec;
+  --cream-fg: #1f2a24;
+  --cream-fg-soft: rgba(31, 42, 36, 0.62);
+  --cream-rule: rgba(31, 42, 36, 0.14);
 
   /* Typography */
   --font-display: "Cormorant Garamond", "Songti SC", "Noto Serif SC", ui-serif, Georgia, serif;
@@ -96,6 +127,10 @@
   --shadow-card-hover: 0 2px 5px rgba(17, 38, 30, 0.055), 0 16px 34px rgba(17, 38, 30, 0.10);
   --shadow-panel: 0 12px 34px rgba(17, 38, 30, 0.075);
   --shadow-modal: 0 24px 64px rgba(15, 45, 36, 0.18);
+  --glow-gold: 0 0 18px rgba(200, 152, 72, 0.16);
+  --glow-teal: 0 0 18px rgba(30, 107, 89, 0.10); /* 兼容保留 */
+  --glow-brand: 0 0 18px rgba(19, 52, 41, 0.14);
+  /* 拟物卡顶部内高光：叠加在 box-shadow 首位使用 */
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.76);
 
   /* Motion */
@@ -108,6 +143,3 @@
   /* 移动端底部导航高度：正文用它预留滚动空间 */
   --bottom-nav-h: 76px;
 }
-
-/* 单一浅色主题：固定 light，不跟随 prefers-color-scheme。 */
-:root { color-scheme: light; }

@@ -1,9 +1,9 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Settings } from "lucide-react";
 
-import { ContactIcons } from "../../components/ContactIcons";
+import { ContactLinks } from "../../components/ContactIcons";
 import { DomainCard } from "../../components/DomainCard";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
-import { PublicBottomNav } from "../../components/PublicBottomNav";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { useTracker } from "../../hooks/useTracker";
@@ -18,6 +18,7 @@ interface SiteSettings {
   site_description: string;
   site_bio: string | null;
   logo_url: string | null;
+  favicon_url: string | null;
   accent_color: string;
   display_density: string;
   copyright_text: string | null;
@@ -35,6 +36,14 @@ interface SiteSettings {
 
 type SortKey = "default" | "added_desc" | "length_asc" | "length_desc" | "tld_asc" | "random";
 type GroupKey = "all" | "featured";
+/** 到期状态仅保留 URL/API 兼容，不再在前台提供状态胶囊。 */
+type ExpiryKey = "" | "7d" | "30d" | "expired";
+
+const EXPIRY_OPTIONS: Array<[ExpiryKey, string]> = [
+  ["7d", "7 天内到期"],
+  ["30d", "30 天内到期"],
+  ["expired", "已过期"],
+];
 
 /* 高级筛选面板已移除；minLength/maxLength 仍由位数下拉驱动，
    contains/excludes/kind 保留 URL 直传兼容（无 UI 入口，API 仍支持）。 */
@@ -57,7 +66,7 @@ const EMPTY_ADVANCED_FILTERS: AdvancedFilterValue = {
 };
 
 const SORTS: Array<[SortKey, string]> = [
-  ["default", "默认"],
+  ["default", "排序"],
   ["added_desc", "最新加入"],
   ["length_asc", "字符数升序"],
   ["length_desc", "字符数降序"],
@@ -70,6 +79,7 @@ interface Filters {
   tld: string;
   category: string;
   group: GroupKey;
+  expiry: ExpiryKey;
   sort: SortKey;
   page: number;
   advanced: AdvancedFilterValue;
@@ -82,11 +92,13 @@ function initialFilters(): Filters {
   const category = params.get("category") ?? "";
   const kind = params.get("kind") as DomainKind | null;
   const legacyLength = group === "two" ? "2" : group === "three" ? "3" : "";
+  const expiry = params.get("expiry");
   return {
     q: params.get("q") ?? "",
     tld: params.get("tld") ?? "",
     category: category === "精品" ? "" : category,
     group: category === "精品" || group === "featured" ? "featured" : "all",
+    expiry: expiry && EXPIRY_OPTIONS.some(([key]) => key === expiry) ? (expiry as ExpiryKey) : "",
     sort: sort && SORTS.some(([key]) => key === sort) ? sort : "default",
     page: Math.max(1, Number(params.get("page") ?? 1) || 1),
     advanced: {
@@ -132,6 +144,7 @@ function catalogueUrl(filters: Filters, page = filters.page): string {
     ...(filters.q ? { q: filters.q } : {}),
     ...(filters.tld ? { tld: filters.tld } : {}),
     ...(filters.category ? { category: filters.category } : {}),
+    ...(filters.expiry ? { expiry: filters.expiry } : {}),
     ...groupParams(filters.group),
     ...advancedParams(filters.advanced),
     sort: filters.sort,
@@ -154,12 +167,14 @@ function pageItems(current: number, total: number): Array<number | string> {
   return result;
 }
 
+const MOBILE_CATALOGUE_QUERY = "(max-width: 720px)";
+
 function SearchIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.2 16.2 4.1 4.1"/></svg>;
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m16.2 16.2 4.1 4.1"/></svg>;
 }
 
 function TrashIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>;
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>;
 }
 
 function pickRandomDomains(domains: PublicDomain[], count: number): PublicDomain[] {
@@ -181,12 +196,20 @@ export function PublicPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [historyFocused, setHistoryFocused] = useState(false);
-  const [viewMode, setViewMode] = useState<"cards" | "compact">("cards");
+  const [isMobileCatalogue, setIsMobileCatalogue] = useState(() => window.matchMedia(MOBILE_CATALOGUE_QUERY).matches);
   const [selectedDomain, setSelectedDomain] = useState<PublicDomain | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const dataVersion = useRef("");
   const requestSequence = useRef(0);
   const history = useSearchHistory();
+
+  useEffect(() => {
+    const media = window.matchMedia(MOBILE_CATALOGUE_QUERY);
+    const syncLayout = () => setIsMobileCatalogue(media.matches);
+    syncLayout();
+    media.addEventListener("change", syncLayout);
+    return () => media.removeEventListener("change", syncLayout);
+  }, []);
 
   const notify = useCallback((text: string, tone: "success" | "error" = "success") => {
     setToast({ id: Date.now(), text, tone });
@@ -195,7 +218,7 @@ export function PublicPage() {
   useEffect(() => {
     let active = true;
     void Promise.allSettled([
-      api<SiteSettings>("/api/public/settings"),
+      api<SiteSettings>("/api/public/settings", { cache: "no-store" }),
       api<PublicHomeData>("/api/public/facets"),
     ]).then(([settingsResult, facetsResult]) => {
       if (!active) return;
@@ -205,6 +228,9 @@ export function PublicPage() {
         document.title = `${settingsResult.value.site_name} · 域名展示`;
         const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
         description?.setAttribute("content", settingsResult.value.site_description);
+        if (settingsResult.value.favicon_url) {
+          document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.setAttribute("href", settingsResult.value.favicon_url);
+        }
       } else {
         setError(settingsResult.reason instanceof Error ? settingsResult.reason.message : "站点设置加载失败");
       }
@@ -219,6 +245,7 @@ export function PublicPage() {
     if (filters.tld) params.set("tld", filters.tld);
     if (filters.category) params.set("category", filters.category);
     if (filters.group === "featured") params.set("category", "精品");
+    if (filters.expiry) params.set("expiry", filters.expiry);
     params.set("sort", filters.sort);
     if (filters.page > 1) params.set("page", String(filters.page));
     Object.entries(advancedParams(filters.advanced)).forEach(([key, value]) => params.set(key, value));
@@ -270,7 +297,7 @@ export function PublicPage() {
     };
   }, []);
 
-  const hasActiveFilter = Boolean(filters.q || filters.tld || filters.category || filters.group !== "all" || filters.sort !== "default" || hasAdvancedFilters(filters.advanced));
+  const hasActiveFilter = Boolean(filters.q || filters.tld || filters.category || filters.group !== "all" || filters.expiry || filters.sort !== "default" || hasAdvancedFilters(filters.advanced));
   const categories = useMemo(() => [
     { value: "", label: "全部", count: facets?.total_domains ?? 0 },
     { value: "__featured", label: "精品", count: facets?.total_featured ?? 0 },
@@ -279,6 +306,10 @@ export function PublicPage() {
   const catalogueItems = pageData?.items ?? [];
   const displayedItems = catalogueItems;
   const emptyRecommendations = useMemo(() => pickRandomDomains(facets?.featured_domains ?? [], 3), [facets?.featured_domains]);
+  const emptyBrowseCategories = useMemo(() => (facets?.categories ?? []).slice(0, 5).map((category) => ({
+    category,
+    count: facets?.categoryCounts[category] ?? 0,
+  })), [facets]);
 
   function applySearch(value: string) {
     const query = value.trim();
@@ -296,7 +327,7 @@ export function PublicPage() {
   function resetFilters() {
     setDraftSearch("");
     setHistoryFocused(false);
-    setFilters({ q: "", tld: "", category: "", group: "all", sort: "default", page: 1, advanced: EMPTY_ADVANCED_FILTERS });
+    setFilters({ q: "", tld: "", category: "", group: "all", expiry: "", sort: "default", page: 1, advanced: EMPTY_ADVANCED_FILTERS });
   }
 
   function selectCategory(value: string) {
@@ -304,6 +335,8 @@ export function PublicPage() {
       ? { ...current, category: "", group: "featured", page: 1 }
       : { ...current, category: value, group: "all", page: 1 });
   }
+
+  const effectiveViewMode = isMobileCatalogue ? "compact" : "cards";
 
   const copyDomain = useCallback(async (domain: string) => {
     if (await copyText(domain)) notify(`已复制 ${domain}`);
@@ -313,61 +346,65 @@ export function PublicPage() {
   return (
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
       <header className="public-header">
-        <a className="brand" href="/" aria-label="玩米首页">
-          <img className="brand-icon" src="/favicon.svg" alt="玩米 Logo" decoding="async" fetchPriority="high" />
-        </a>
-        <div className="header-actions">
-          {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin">后台</a>}
+        <div className="public-header-inner">
+          <a className="brand" href="/" aria-label="DOMAIN HUNTER 首页">
+            <img className="brand-icon" src={settings?.logo_url || "/logo.svg"} alt="" decoding="async" fetchPriority="high" />
+            <span className="brand-title">DOMAIN HUNTER</span>
+          </a>
+          <div className="header-actions">
+            <span className="domain-total-pill" aria-label="域名总数">{facets ? facets.total_domains.toLocaleString("zh-CN") : "—"} 个域名</span>
+            <ContactLinks settings={settings} />
+            {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin" aria-label="后台"><Settings aria-hidden="true" /></a>}
+          </div>
         </div>
       </header>
 
       <main className="catalogue-layout">
-        <section className="brand-statement">
-          <h1>精选域名资产</h1>
-          <p>{facets ? `${facets.total_domains.toLocaleString("zh-CN")} 个精选域名，覆盖 ${facets.total_tlds} 个后缀。` : "精选短字符域名的展示目录。"}为你的下一个项目找到合适的域名。</p>
-        </section>
-
         <section className="domain-section" id="domains" aria-label="全部资产">
+          <h1 className="visually-hidden">DOMAIN HUNTER</h1>
           <div className="catalogue-toolbar">
-            <div
-              className="search-area"
-              onFocus={() => setHistoryFocused(true)}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) setHistoryFocused(false);
-              }}
-            >
-              <form className="filter-search" onSubmit={submitSearch}>
-                <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="输入域名或关键词，例如 wanmi" aria-label="搜索域名" autoComplete="off" />
-                {draftSearch && <button className="search-clear" type="button" aria-label="清空搜索" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
-                <button className="search-submit" type="submit">搜索</button>
-              </form>
-              {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" className="clear-search-history" aria-label="清除搜索历史" title="清除搜索历史" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
+            <div className="toolbar-controls">
+              <div
+                className="search-area"
+                onFocus={() => setHistoryFocused(true)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setHistoryFocused(false);
+                }}
+              >
+                <form className="filter-search" onSubmit={submitSearch}>
+                  <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="输入域名或关键词，例如 wanmi" aria-label="搜索域名" autoComplete="off" />
+                  {draftSearch && <button className="search-clear" type="button" aria-label="清空搜索" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
+                  <button className="search-submit" type="submit">搜索</button>
+                </form>
+                {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" className="clear-search-history" aria-label="清除搜索历史" title="清除搜索历史" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
+              </div>
+              <div className="toolbar-filters">
+                <label className="category-control"><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.value ? option.label : "分类"}</option>)}</select></label>
+                <label><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">后缀</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
+                <label><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
+                  const pick = event.target.value;
+                  const range = pick === "all" ? { minLength: "", maxLength: "" } : pick === "10plus" ? { minLength: "10", maxLength: "" } : { minLength: pick, maxLength: pick };
+                  setFilters((current) => ({ ...current, advanced: { ...current.advanced, ...range }, page: 1 }));
+                }}>
+                  <option value="all">位数</option>
+                  {lengthPickOf(filters.advanced) === "custom" && <option value="custom" disabled>自定义区间</option>}
+                  {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} 位</option>)}
+                  <option value="10plus">10 位以上</option>
+                </select></label>
+                <label className="sort-control"><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
+              </div>
             </div>
-            <div className="toolbar-filters">
-              <label><span>分类</span><select aria-label="分类筛选" value={filters.group === "featured" ? "__featured" : filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.map((option) => <option key={option.value || "all"} value={option.value}>{option.label}{option.count > 0 ? `（${option.count}）` : ""}</option>)}</select></label>
-              <label><span>后缀</span><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">全部</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
-              <label><span>位数</span><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
-                const pick = event.target.value;
-                const range = pick === "all" ? { minLength: "", maxLength: "" } : pick === "10plus" ? { minLength: "10", maxLength: "" } : { minLength: pick, maxLength: pick };
-                setFilters((current) => ({ ...current, advanced: { ...current.advanced, ...range }, page: 1 }));
-              }}>
-                <option value="all">全部</option>
-                {lengthPickOf(filters.advanced) === "custom" && <option value="custom" disabled>自定义区间</option>}
-                {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} 位</option>)}
-                <option value="10plus">10 位以上</option>
-              </select></label>
-              <label className="sort-control"><span>排序</span><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
-            </div>
-            <div className="toolbar-summary"><span>{loading ? "正在读取…" : `共 ${pageData?.total ?? 0} 个域名`}</span><div className="view-switch"><button type="button" className={viewMode === "cards" ? "active" : ""} onClick={() => setViewMode("cards")}>卡片</button><button type="button" className={viewMode === "compact" ? "active" : ""} onClick={() => setViewMode("compact")}>紧凑</button></div>{hasActiveFilter && <button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button>}</div>
+            {hasActiveFilter && <div className="toolbar-summary"><button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button></div>}
           </div>
 
           {error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}
           {loading && <div className="domain-list skeleton-list">{Array.from({ length: 8 }, (_, index) => <div className="domain-card skeleton" key={index} />)}</div>}
           {!loading && !error && pageData?.items.length === 0 && <section className="empty-results" aria-labelledby="empty-results-title">
             <div className="state-panel"><h3 id="empty-results-title">未找到匹配的域名</h3><span>换一个关键词，或清除筛选后再试。</span><button type="button" onClick={resetFilters}>清除筛选</button></div>
+            {emptyBrowseCategories.length > 0 && <div className="empty-category-browse" aria-labelledby="empty-category-title"><h3 id="empty-category-title">按分类浏览</h3><div>{emptyBrowseCategories.map((item) => <button type="button" key={item.category} onClick={() => selectCategory(item.category)}><span>{item.category}</span><em>{item.count.toLocaleString("zh-CN")}</em></button>)}</div></div>}
             {emptyRecommendations.length > 0 && <div className="empty-recommendations"><header><span>为你推荐</span><h3>试试这些精选域名</h3></header><div className="domain-list card-view">{emptyRecommendations.map((domain) => <DomainCard key={domain.id} domain={domain} onCopy={copyDomain} onQuickView={setSelectedDomain} />)}</div></div>}
           </section>}
-          {displayedItems.length > 0 && !loading && <div className={`domain-list ${viewMode === "compact" ? "compact-view" : "card-view"}`}>
+          {displayedItems.length > 0 && !loading && <div className={`domain-list ${effectiveViewMode === "compact" ? "compact-view" : "card-view"}`}>
             {displayedItems.map((domain) => <DomainCard
               key={domain.id}
               domain={domain}
@@ -381,21 +418,14 @@ export function PublicPage() {
       </main>
 
 
-      <footer className="public-footer footer-grid">
-        <div className="footer-brand">
-          <div className="footer-brand-row">
-            <strong>{settings?.site_name ?? "玩米"}</strong>
-            <span className="footer-dot" aria-hidden="true">·</span>
-            <span>{settings?.copyright_text || `© ${new Date().getFullYear()} 保留所有权利`}</span>
-          </div>
-          {settings?.icp_number && <span className="footer-icp">{settings.icp_number}</span>}
+      <footer className="public-footer">
+        <div className="footer-copyright">
+          <img className="footer-logo" src={settings?.logo_url || "/logo.svg"} alt="DOMAIN HUNTER Logo" decoding="async" />
+          <span>@ DOMAIN HUNTER</span>
         </div>
-        {settings && <ContactIcons settings={settings} notify={notify} />}
-        <div className="footer-right" />
       </footer>
 
       <DomainDetailDialog domain={selectedDomain} candidates={catalogueItems} onClose={() => setSelectedDomain(null)} onCopy={copyDomain} onSelect={setSelectedDomain} />
-      <PublicBottomNav />
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   );

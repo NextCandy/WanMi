@@ -74,12 +74,32 @@ describe.sequential("WanMi API 集成", () => {
     const productionDocumentPolicy = productionDocumentResponse.headers.get("content-security-policy") ?? "";
     const apiPolicy = apiResponse.headers.get("content-security-policy") ?? "";
 
-    expect(documentPolicy).toContain("https://fonts.googleapis.com");
-    expect(documentPolicy).toContain("https://fonts.gstatic.com");
+    // 字体全部自托管后 CSP 不再放行 Google Fonts（外链 stylesheet 在国内会阻塞渲染）
+    expect(documentPolicy).not.toContain("fonts.googleapis.com");
+    expect(documentPolicy).not.toContain("fonts.gstatic.com");
+    expect(documentPolicy).toContain("font-src 'self'");
     expect(documentPolicy).toContain("script-src 'self' 'unsafe-inline'");
     expect(productionDocumentPolicy).not.toContain("script-src 'self' 'unsafe-inline'");
     expect(apiPolicy).toContain("script-src 'self'");
     expect(apiPolicy).not.toContain("fonts.googleapis.com");
+  });
+
+  it("所有 SPA HTML 入口禁用旧缓存并只清理一次浏览器缓存", async () => {
+    const first = await request("/domains");
+    expect(first.status).toBe(200);
+    expect(first.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
+    expect(first.headers.get("cdn-cache-control")).toBe("no-store");
+    expect(first.headers.get("cloudflare-cdn-cache-control")).toBe("no-store");
+    expect(first.headers.get("clear-site-data")).toBe('"cache"');
+    expect(first.headers.get("x-wanmi-build")).toBe("domain-hunter-2026-07-19-v3");
+    expect(first.headers.get("etag")).toBeNull();
+
+    const cacheCookie = first.headers.get("set-cookie")?.split(";", 1)[0];
+    expect(cacheCookie).toBe("wanmi_html_cache=domain-hunter-2026-07-19-v3");
+    const subsequent = await request("/admin", { headers: { Cookie: cacheCookie! } });
+    expect(subsequent.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
+    expect(subsequent.headers.get("clear-site-data")).toBeNull();
+    expect(subsequent.headers.get("x-wanmi-build")).toBe("domain-hunter-2026-07-19-v3");
   });
 
   it("精品域名详情查询与 SSR 标记包含完整内容和两组推荐", async () => {
@@ -133,6 +153,12 @@ describe.sequential("WanMi API 集成", () => {
   });
 
   it("未登录访问管理 API 返回 401", async () => expect((await request("/api/admin/dashboard")).status).toBe(401));
+
+  it("公开站点设置禁用缓存以便后台联系方式即时生效", async () => {
+    const response = await request("/api/public/settings");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
 
   it("错误密码不能登录", async () => {
     const response = await request("/api/auth/login", { method: "POST", headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify({ email: "admin@example.com", password: "wrong" }) });
@@ -208,12 +234,15 @@ describe.sequential("WanMi API 集成", () => {
     const fetchItems = async (sort: string) => {
       const response = await request(`/api/public/domains?pageSize=100&sort=${sort}`);
       expect(response.status).toBe(200);
-      const body = await response.json() as { data: { items: Array<{ id: number; name: string; tld: string }> } };
+      const body = await response.json() as { data: { items: Array<{ id: number; name: string; tld: string; is_featured: boolean }> } };
       return { response, items: body.data.items };
     };
 
     const expectedDefault = await env.DB.prepare(
-      "SELECT id FROM domains WHERE is_listed = 1 ORDER BY updated_at DESC, normalized_domain ASC LIMIT 100",
+      `SELECT id FROM domains WHERE is_listed = 1
+       ORDER BY is_featured DESC,
+         CASE lower(tld) WHEN 'com' THEN 0 WHEN 'cn' THEN 1 WHEN 'net' THEN 2 WHEN 'org' THEN 3 WHEN 'io' THEN 4 WHEN 'is' THEN 5 WHEN 'do' THEN 6 ELSE 7 END ASC,
+         length(name) ASC, normalized_domain ASC LIMIT 100`,
     ).all<{ id: number }>();
     const expectedAdded = await env.DB.prepare(
       "SELECT id FROM domains WHERE is_listed = 1 ORDER BY created_at DESC, normalized_domain ASC LIMIT 100",
@@ -227,6 +256,13 @@ describe.sequential("WanMi API 集成", () => {
     const randomSecond = await fetchItems("random");
 
     expect(defaults.items.map((item) => item.id)).toEqual(expectedDefault.results.map((item) => item.id));
+    const tldPriority = (tld: string) => ["com", "cn", "net", "org", "io", "is", "do"].indexOf(tld) + 1 || 8;
+    const expectedDefaultOrder = [...defaults.items].sort((left, right) =>
+      Number(right.is_featured) - Number(left.is_featured)
+      || tldPriority(left.tld) - tldPriority(right.tld)
+      || left.name.length - right.name.length,
+    );
+    expect(defaults.items.map((item) => item.id)).toEqual(expectedDefaultOrder.map((item) => item.id));
     expect(added.items.map((item) => item.id)).toEqual(expectedAdded.results.map((item) => item.id));
     expect(lengthAscending.items.map((item) => item.name.replaceAll(".", "").length)).toEqual(
       [...lengthAscending.items].map((item) => item.name.replaceAll(".", "").length).sort((left, right) => left - right),

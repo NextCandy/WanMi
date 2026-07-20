@@ -6,7 +6,7 @@
 /** 当前主题的默认品牌色（tokens.css --brand-primary）。 */
 export const THEME_BRAND_HEX = "#133429";
 
-/* 历史各轮主题的默认 accent（珊瑚橙 → 黑金 → 暖金 → 雅致绿金）。
+/* 历史各轮主题的默认 accent（珊瑚橙 → 黑金 → 暖金 → teal → 皮革棕 → 雅致绿金）。
    命中即视为「管理员未定制」，走 CSS 静态令牌；仅真正的自定义色才做动态派生。 */
 const HISTORICAL_DEFAULT_ACCENTS = new Set([
   "#f97316",
@@ -14,6 +14,9 @@ const HISTORICAL_DEFAULT_ACCENTS = new Set([
   "#d8b638",
   "#b89530",
   "#c4a242",
+  "#d4b252",
+  "#2fbf9a",
+  "#5a3e2b",
   THEME_BRAND_HEX,
 ]);
 
@@ -21,6 +24,8 @@ const ACCENT_PROPERTIES = [
   "--brand",
   "--brand-strong",
   "--brand-hover",
+  "--brand-primary-light",
+  "--brand-primary-deep",
   "--brand-bg",
   "--brand-bg-strong",
   "--brand-border",
@@ -44,6 +49,8 @@ export function applyAccentColor(accent: string | null | undefined): void {
   root.setProperty("--brand", normalized);
   root.setProperty("--brand-strong", `color-mix(in oklab, ${normalized} 90%, #04120d)`);
   root.setProperty("--brand-hover", `color-mix(in oklab, ${normalized} 72%, #ffffff)`);
+  root.setProperty("--brand-primary-light", `color-mix(in oklab, ${normalized} 72%, #ffffff)`);
+  root.setProperty("--brand-primary-deep", `color-mix(in oklab, ${normalized} 78%, #04120d)`);
   root.setProperty("--brand-bg", `color-mix(in oklab, ${normalized} 8%, transparent)`);
   root.setProperty("--brand-bg-strong", `color-mix(in oklab, ${normalized} 14%, transparent)`);
   root.setProperty("--brand-border", `color-mix(in oklab, ${normalized} 26%, transparent)`);

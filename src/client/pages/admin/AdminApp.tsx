@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState
 import {
   Bell,
   ChevronDown,
+  ExternalLink,
   Globe,
   History,
   LayoutDashboard,
@@ -11,7 +12,7 @@ import {
   Tag,
   type LucideIcon,
 } from "lucide-react";
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 import { Toast, type ToastMessage } from "../../components/Toast";
 // 后台专属样式：AdminApp 本身是懒加载的，样式随 admin chunk 一起按需加载，不进前台首屏
@@ -32,6 +33,9 @@ interface AdminUser {
 
 interface DashboardData {
   counts: { total: number; listed: number; hidden: number; featured: number };
+  expiringSoonCount: number;
+  expiringTrend: Array<{ month: string; count: number }>;
+  categorySpread: Array<{ category: string; count: number }>;
   expiring90d: Array<{ full_domain: string; expires_at: string }>;
   tlds: Array<{ tld: string; count: number }>;
   recentLogs: Array<{ id: number; level: string; action: string; message: string; success: number; created_at: string }>;
@@ -95,7 +99,7 @@ function LoginPage({ onLogin }: { onLogin: (user: AdminUser) => void }) {
     <div className="login-shell">
       <div className="login-card">
         <aside className="login-intro">
-          <a href="/" className="brand login-brand"><span className="brand-mark">玩</span><span>玩米</span></a>
+          <a href="/" className="brand login-brand"><img className="brand-mark-img" src="/logo.svg" alt="" /><span>玩米</span></a>
           <div className="login-intro-body">
             <h2>精选域名资产管理</h2>
             <p>域名、分类、到期提醒与安全审计，一站式管理。</p>
@@ -121,7 +125,71 @@ function Panel({ title, description, actions, children }: { title: string; descr
   return <section className="admin-panel"><div className="panel-heading"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{actions && <div className="panel-actions">{actions}</div>}</div>{children}</section>;
 }
 
-function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string) => void; onDomainClick?: (domain: string) => void }) {
+function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
+  return <label className="toggle-control">
+    <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+    <span className="toggle-track" aria-hidden="true"><span /></span>
+    <span className="toggle-label">{label}</span>
+  </label>;
+}
+
+function calendarDate(year: number, month: number, day: number): string {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function ExpiryCalendar() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const leadingDays = new Date(year, month, 1).getDay();
+  const [domains, setDomains] = useState<AdminDomain[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const query = new URLSearchParams({
+      page: "1",
+      pageSize: "200",
+      orderBy: "expires_at",
+      dir: "asc",
+      expiresFrom: calendarDate(year, month, 1),
+      expiresTo: calendarDate(year, month, daysInMonth),
+    });
+    void api<AdminDomainPage>(`/api/admin/domains?${query}`).then((result) => setDomains(result.items)).catch(() => setFailed(true));
+  }, [daysInMonth, month, year]);
+
+  const domainsByDay = new Map<number, AdminDomain[]>();
+  for (const domain of domains ?? []) {
+    if (!domain.expires_at) continue;
+    const expires = new Date(domain.expires_at);
+    if (Number.isNaN(expires.getTime()) || expires.getFullYear() !== year || expires.getMonth() !== month) continue;
+    const day = expires.getDate();
+    domainsByDay.set(day, [...(domainsByDay.get(day) ?? []), domain]);
+  }
+  const cells: Array<number | null> = [
+    ...Array.from({ length: leadingDays }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+  ];
+
+  return <section className="expiry-calendar" aria-labelledby="expiry-calendar-title">
+    <header><div><h3 id="expiry-calendar-title">{year} 年 {month + 1} 月到期月历</h3><p>金色标记到期日，7 天内自动标红。</p></div><span>{domains?.length ?? 0} 个域名</span></header>
+    <div className="expiry-calendar-grid" role="grid" aria-label={`${year} 年 ${month + 1} 月域名到期日历`}>
+      {["日", "一", "二", "三", "四", "五", "六"].map((label) => <span className="calendar-weekday" role="columnheader" key={label}>{label}</span>)}
+      {cells.map((day, index) => {
+        if (day === null) return <span className="calendar-day is-empty" aria-hidden="true" key={`empty-${index}`} />;
+        const expiring = domainsByDay.get(day) ?? [];
+        const current = new Date(year, month, day);
+        const remaining = Math.ceil((current.getTime() - new Date(year, month, today.getDate()).getTime()) / 86_400_000);
+        const urgent = expiring.length > 0 && remaining >= 0 && remaining < 7;
+        const title = expiring.length ? `${calendarDate(year, month, day)}\n${expiring.map((domain) => domain.full_domain).join("\n")}` : calendarDate(year, month, day);
+        return <span className={`calendar-day${expiring.length ? " has-expiry" : ""}${urgent ? " is-urgent" : ""}`} role="gridcell" title={title} aria-label={expiring.length ? `${month + 1} 月 ${day} 日，${expiring.length} 个域名到期` : `${month + 1} 月 ${day} 日`} key={day}><b>{day}</b>{expiring.length > 0 && <i aria-hidden="true" />}</span>;
+      })}
+    </div>
+    {failed && <div className="empty-inline">到期月历暂时无法读取</div>}
+  </section>;
+}
+
+function OverviewView({ onTldClick, onDomainClick, onNavigate, notify }: { onTldClick: (tld: string) => void; onDomainClick?: (domain: string) => void; onNavigate: (view: AdminView) => void; notify: (text: string, tone?: "success" | "error") => void }) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -130,11 +198,44 @@ function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string)
   if (error) return <div className="state-panel error-panel">{error}</div>;
   if (!data) return <div className="state-panel">正在读取真实统计…</div>;
   const cards: Array<[string, number, string]> = [
-    ["域名总数", data.counts.total, "total"], ["前台展示", data.counts.listed, "listed"], ["已隐藏", data.counts.hidden, "hidden"], ["精品域名", data.counts.featured, "featured"],
+    ["域名总数", data.counts.total, "tone-a"],
+    ["即将到期", data.expiringSoonCount, "tone-b"],
+    ["精品域名", data.counts.featured, "tone-c"],
+    ["已隐藏", data.counts.hidden, "tone-d"],
   ];
+  const trendData = data.expiringTrend.map((point) => ({ ...point, label: `${Number(point.month.slice(5))} 月` }));
+  const expiryShare = [
+    { name: "即将到期", value: Math.max(0, data.expiringSoonCount), fill: "var(--warning)" },
+    { name: "正常", value: Math.max(0, data.counts.total - data.expiringSoonCount), fill: "var(--brand)" },
+  ];
+  const maxCategory = Math.max(1, ...data.categorySpread.map((item) => Number(item.count)));
+  async function exportAll() {
+    try { await download("/api/admin/domains/export"); notify("CSV 已开始下载"); }
+    catch (reason) { notify(reason instanceof Error ? reason.message : "CSV 导出失败", "error"); }
+  }
   return <div className="admin-stack">
-    <div className="stat-grid">{cards.map(([label, value, tone]) => <div className={`stat-card stat-${tone}`} key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
-    <div className="stats-overview"><div className="stats-kpis"><div><span>今日 PV</span><strong>{data.stats.today.pv ?? 0}</strong></div><div><span>今日 UV</span><strong>{data.stats.today.uv ?? 0}</strong></div><div><span>域名点击</span><strong>{data.stats.topDomains.reduce((total, item) => total + Number(item.clicks || 0), 0)}</strong></div></div><div className="stats-chart"><ResponsiveContainer width="100%" height={180}><LineChart data={data.stats.sevenDays}><XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={10} /><Tooltip /><Line type="monotone" dataKey="pv" stroke="var(--brand)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="uv" stroke="var(--gold-deep)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div></div>
+    <div className="stat-grid">{cards.map(([label, value, tone]) => <div className={`stat-card ${tone}`} key={label}><span>{label}</span><strong>{Number(value).toLocaleString("zh-CN")}</strong></div>)}</div>
+    <div className="quick-actions" role="group" aria-label="快捷操作">
+      <button type="button" onClick={() => onNavigate("domains")}><Globe aria-hidden="true" />添加域名</button>
+      <button type="button" onClick={() => onNavigate("domains")}><LayoutDashboard aria-hidden="true" />批量 CSV 导入</button>
+      <button type="button" onClick={() => void exportAll()}><History aria-hidden="true" />导出 CSV</button>
+      <button type="button" onClick={() => onNavigate("notifications")}><Bell aria-hidden="true" />到期提醒设置</button>
+    </div>
+    <div className="overview-analytics-grid">
+      <Panel title="到期占比" description="90 天内到期与正常域名">
+        <div className="expiry-donut">
+          <ResponsiveContainer width="100%" height={190}><PieChart><Pie data={expiryShare} dataKey="value" nameKey="name" innerRadius={52} outerRadius={76} paddingAngle={data.counts.total ? 2 : 0} stroke="var(--surface)" strokeWidth={2}>{expiryShare.map((item) => <Cell key={item.name} fill={item.fill} />)}</Pie><Tooltip formatter={(value) => [`${Number(value ?? 0)} 个`, "域名"]} /></PieChart></ResponsiveContainer>
+          <div><strong>{data.expiringSoonCount.toLocaleString("zh-CN")}</strong><span>即将到期</span></div>
+        </div>
+      </Panel>
+      <Panel title="到期趋势" description="未来 6 个月按月统计">
+        {trendData.length ? <ResponsiveContainer width="100%" height={200}><LineChart data={trendData} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}><XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={11} /><Tooltip formatter={(value) => [`${Number(value ?? 0)} 个`, "到期域名"]} /><Line type="monotone" dataKey="count" name="到期域名" stroke="var(--brand)" strokeWidth={2.5} dot={{ r: 3, fill: "var(--brand)" }} /></LineChart></ResponsiveContainer> : <div className="empty-inline">暂无未来 6 个月内到期的域名</div>}
+      </Panel>
+      <Panel title="分类分布" description="人工分类优先，其余按自动标签">
+        <div className="distribution-list">{data.categorySpread.map((item) => <div className="distribution-static" key={item.category}><span>{item.category}</span><div className="bar"><i style={{ width: `${Math.max(4, Number(item.count) / maxCategory * 100)}%` }} /></div><strong>{item.count}</strong></div>)}</div>
+      </Panel>
+    </div>
+    <div className="stats-overview"><div className="stats-kpis"><div><span>今日 PV</span><strong>{data.stats.today.pv ?? 0}</strong></div><div><span>今日 UV</span><strong>{data.stats.today.uv ?? 0}</strong></div><div><span>域名点击</span><strong>{data.stats.topDomains.reduce((total, item) => total + Number(item.clicks || 0), 0)}</strong></div></div><div className="stats-chart"><ResponsiveContainer width="100%" height={180}><LineChart data={data.stats.sevenDays}><XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={10} /><Tooltip /><Line type="monotone" dataKey="pv" stroke="var(--brand)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="uv" stroke="var(--premium)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div></div>
     <div className="admin-two-columns"><Panel title="域名点击 Top 10"><div className="kpi-list">{data.stats.topDomains.length ? data.stats.topDomains.map((item) => <button key={item.domain} onClick={() => onDomainClick?.(item.domain)}><span className="mono">{item.domain}</span><b>{item.clicks} 次</b><small title={formatExact(item.latest * 1000)}>{formatRelative(item.latest * 1000)}</small></button>) : <div className="empty-inline">尚无域名点击</div>}</div></Panel><Panel title="访客地区 Top 5"><div className="kpi-list">{data.stats.countries.map((item) => <div key={item.country}><span>{item.country}</span><b>{item.visitors}</b></div>)}</div></Panel></div>
     <Panel title="后缀分布" description="点击跳转到筛选后的域名管理"><div className="distribution-list">{data.tlds.slice(0, 12).map((item) => <a key={item.tld} onClick={() => onTldClick(item.tld)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onTldClick(item.tld); }}><span>.{item.tld}</span><div className="bar"><i style={{ width: `${Math.max(4, item.count / Math.max(data.counts.total, 1) * 100)}%` }} /></div><strong>{item.count}</strong></a>)}</div></Panel>
     <div className="admin-two-columns">
@@ -147,9 +248,9 @@ function OverviewView({ onTldClick, onDomainClick }: { onTldClick: (tld: string)
   </div>;
 }
 
-type DomainOrderBy = "domain";
-const OPTIONAL_COLUMNS: Array<[string, string]> = [["description", "简介"], ["category", "人工分类"]];
-const DEFAULT_COLUMNS = ["category"];
+type DomainOrderBy = "domain" | "expires_at";
+const OPTIONAL_COLUMNS: Array<[string, string]> = [["description", "简介"], ["category", "人工分类"], ["expiry", "到期日期"], ["registrar", "注册商"]];
+const DEFAULT_COLUMNS = ["category", "expiry"];
 const DOMAIN_PAGE_SIZE = 100;
 const DOMAIN_SEARCH_DEBOUNCE_MS = 300;
 /** 必须与 bulkDomainSchema 的 ids 上限一致；选中数超过时前端自动分批提交 */
@@ -481,9 +582,22 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
 
   function toggleSort(key: DomainOrderBy) {
     if (orderBy === key) setDir((current) => (current === "asc" ? "desc" : "asc"));
-    else { setOrderBy(key); setDir(key === "domain" ? "asc" : "desc"); }
+    else { setOrderBy(key); setDir("asc"); }
   }
   const arrow = (key: DomainOrderBy) => orderBy === key ? <span className="sort-arrow">{dir === "asc" ? "↑" : "↓"}</span> : null;
+
+  /** 到期单元格：30 天内红色警示，已过期同样标红并注明 */
+  function expiryCell(domain: AdminDomain) {
+    if (!domain.expires_at) return <span className="expiry-none">—</span>;
+    const date = new Date(domain.expires_at);
+    if (Number.isNaN(date.getTime())) return <span className="expiry-none">—</span>;
+    const text = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const remaining = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
+    if (remaining < 0) return <span className="expiry-danger">{text}<small>已过期</small></span>;
+    if (remaining <= 30) return <span className="expiry-danger">{text}<small>剩 {remaining} 天</small></span>;
+    if (remaining <= 90) return <span className="expiry-warning">{text}<small>剩 {remaining} 天</small></span>;
+    return <span>{text}</span>;
+  }
 
   async function setCategoryFor(domain: AdminDomain, value: string) {
     if (value === "__new__") {
@@ -598,6 +712,8 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
     <div className="admin-table-wrap domains-table-wrap"><table className={`admin-table domains-table${virtualEnabled ? " is-virtualized" : ""}`}><thead><tr>
       <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(items.map((domain) => domain.id)))} aria-label="全选已加载域名" /></th>
       <th className="sortable" onClick={() => toggleSort("domain")}>域名{arrow("domain")}</th>
+      {has("expiry") && <th className="sortable" onClick={() => toggleSort("expires_at")}>到期日期{arrow("expires_at")}</th>}
+      {has("registrar") && <th>注册商</th>}
       {has("description") && <th>简介</th>}
       {has("category") && <th>分类</th>}
       <th>精品</th><th>前台展示</th><th>操作</th>
@@ -606,6 +722,8 @@ function DomainsView({ notify, presetTld, presetQuery }: { notify: (text: string
       {visibleItems.map((domain) => <tr key={domain.id} data-virtual-row="">
       <td data-label="选择"><input type="checkbox" checked={selected.has(domain.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(domain.id)) next.delete(domain.id); else next.add(domain.id); return next; })} /></td>
       <td data-label="域名"><strong>{domain.full_domain}</strong><small>.{domain.tld}</small></td>
+      {has("expiry") && <td data-label="到期日期" className="expiry-cell">{expiryCell(domain)}</td>}
+      {has("registrar") && <td data-label="注册商" className="registrar-cell">{domain.registrar_name || <span className="expiry-none">—</span>}</td>}
       {has("description") && <td data-label="简介" className="description-cell"><span>{domain.description}</span><button className="table-link" aria-label={`编辑 ${domain.full_domain} 简介`} onClick={() => setEditing(domain)}>编辑简介</button></td>}
       {has("category") && <td data-label="分类"><small>{domain.category_source === "manual" ? "人工" : "自动"} · {domain.auto_category}/{domain.auto_subcategory}</small><select className="table-link" value={domain.category && manualCategoryNames.has(domain.category) ? domain.category : domain.category ?? ""} onChange={(event) => void setCategoryFor(domain, event.target.value)} aria-label={`${domain.full_domain} 分类`}>
         <option value="">恢复自动（{domain.auto_category}）</option>
@@ -679,7 +797,7 @@ function SettingsView({ notify }: { notify: (text: string, tone?: "success" | "e
   return <div className="admin-stack"><Panel title="站点设置" description="按品牌、联系方式和展示偏好分区管理"><form className="settings-form settings-sections" onSubmit={(event) => void save(event)}>
     <fieldset><legend>品牌</legend><div className="form-grid"><label>站点名称<input value={form.site_name} onChange={(event) => field("site_name", event.target.value)} /></label><label>主题色<div className="color-field"><input type="color" value={form.accent_color} onChange={(event) => field("accent_color", event.target.value)} /><span>{form.accent_color}</span></div></label><label className="wide">站点 Slogan<input value={form.site_description} onChange={(event) => field("site_description", event.target.value)} /></label><label className="wide">品牌简介<input value={form.site_bio ?? ""} onChange={(event) => field("site_bio", event.target.value || null)} maxLength={500} /></label></div><div className="site-preview" style={{ "--preview-accent": form.accent_color } as CSSProperties}><span>实时预览</span><strong>{form.site_name}</strong><p>{form.site_description}</p></div><div className="upload-grid">{(["logo", "favicon", "wechatQr"] as const).map((target) => { const preview = target === "logo" ? form.logo_url : target === "favicon" ? form.favicon_url : form.wechat_qr_url; return <label className="upload-card" key={target}>{preview ? <img src={preview} alt="" /> : <span>拖拽或选择图片</span>}<strong>{target === "logo" ? "Logo" : target === "favicon" ? "Favicon" : "微信二维码"}</strong><small>PNG / JPEG / WebP，最大 2 MB</small><input type="file" accept="image/png,image/jpeg,image/webp,image/x-icon" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file, target); }} /></label>; })}</div></fieldset>
     <fieldset><legend>联系方式</legend><div className="form-grid"><label>公开邮箱<input type="email" value={form.contact_email ?? ""} onChange={(event) => field("contact_email", event.target.value || null)} /></label><label>微信<input value={form.contact_wechat ?? ""} onChange={(event) => field("contact_wechat", event.target.value || null)} /></label><label>Telegram<input value={form.contact_telegram ?? ""} onChange={(event) => field("contact_telegram", event.target.value || null)} /></label><label>WhatsApp<input value={form.contact_whatsapp ?? ""} onChange={(event) => field("contact_whatsapp", event.target.value || null)} placeholder="国际区号手机号" /></label><label>X<input value={form.contact_x ?? ""} onChange={(event) => field("contact_x", event.target.value || null)} /></label><label>小红书 URL<input value={form.contact_xiaohongshu ?? ""} onChange={(event) => field("contact_xiaohongshu", event.target.value || null)} /></label><label>QQ<input value={form.contact_qq ?? ""} onChange={(event) => field("contact_qq", event.target.value || null)} /></label></div></fieldset>
-    <fieldset><legend>展示偏好</legend><div className="form-grid"><label>页面密度<select value={form.display_density} onChange={(event) => field("display_density", event.target.value as SiteSettingsForm["display_density"])}><option value="compact">紧凑</option><option value="comfortable">舒适</option><option value="spacious">宽松</option></select></label><label>ICP备案号<input value={form.icp_number ?? ""} onChange={(event) => field("icp_number", event.target.value || null)} /></label><label>版权文字<input value={form.copyright_text ?? ""} onChange={(event) => field("copyright_text", event.target.value || null)} /></label></div><div className="checkbox-row"><label><input type="checkbox" checked={Boolean(form.featured_first)} onChange={(event) => field("featured_first", event.target.checked ? 1 : 0)} />精品优先</label><label><input type="checkbox" checked={Boolean(form.show_admin_link_in_footer)} onChange={(event) => field("show_admin_link_in_footer", event.target.checked ? 1 : 0)} />页脚显示管理入口</label></div></fieldset>
+    <fieldset><legend>展示偏好</legend><div className="form-grid"><label>页面密度<select value={form.display_density} onChange={(event) => field("display_density", event.target.value as SiteSettingsForm["display_density"])}><option value="compact">紧凑</option><option value="comfortable">舒适</option><option value="spacious">宽松</option></select></label><label>ICP备案号<input value={form.icp_number ?? ""} onChange={(event) => field("icp_number", event.target.value || null)} /></label><label>版权文字<input value={form.copyright_text ?? ""} onChange={(event) => field("copyright_text", event.target.value || null)} /></label></div><div className="checkbox-row"><Toggle checked={Boolean(form.featured_first)} label="精品优先" onChange={(checked) => field("featured_first", checked ? 1 : 0)} /><Toggle checked={Boolean(form.show_admin_link_in_footer)} label="页首显示管理入口" onChange={(checked) => field("show_admin_link_in_footer", checked ? 1 : 0)} /></div></fieldset>
     <button className="primary-button align-start">保存全部设置</button>
   </form></Panel></div>;
 }
@@ -711,27 +829,26 @@ function NotificationsView({ notify }: { notify: (text: string, tone?: "success"
   return <Panel title="到期提醒与通知渠道" description="Cloudflare Cron 每天 09:00（Asia/Shanghai）检查；密钥/Webhook 一律 AES-GCM 加密存储">
     <div className="notification-stack">
       <div className="reminder-editor"><div><strong>到期前提醒</strong><small>按天设置，可自由增删</small></div><div className="reminder-chips">{reminderDays.map((day) => <button key={day} onClick={() => setReminderDays(reminderDays.filter((value) => value !== day))}>{day} 天 ×</button>)}<button className="add-chip" onClick={() => { const value = Number(window.prompt("输入提前提醒天数", "60")); if (Number.isInteger(value) && value > 0 && value <= 365) setReminderDays([...reminderDays, value]); }}>＋ 添加</button></div><button className="secondary-button" onClick={() => void saveSchedule()}>保存提醒日期</button></div>
+      <ExpiryCalendar />
       {form.channels.map((item) => <div className="channel-card" key={item.channel}>
-        <label><input type="checkbox" checked={Boolean(item.enabled)} onChange={(event) => setEnabled(item.channel, event.target.checked)} />{CHANNEL_LABELS[item.channel]}</label>
+        <Toggle checked={Boolean(item.enabled)} label={CHANNEL_LABELS[item.channel]} onChange={(checked) => setEnabled(item.channel, checked)} />
         {item.channel === "bark" && <><input value={field(item.channel, "server_url", "https://api.day.app")} onChange={(event) => change(item.channel, "server_url", event.target.value)} placeholder="https://api.day.app" /><input type="password" value={field(item.channel, "device_key")} onChange={(event) => change(item.channel, "device_key", event.target.value)} placeholder={item.configured ? "Device Key 已加密；留空不修改" : "Device Key"} /></>}
         {item.channel === "telegram" && <><input type="password" value={field(item.channel, "bot_token")} onChange={(event) => change(item.channel, "bot_token", event.target.value)} placeholder={item.configured ? "Bot Token 已加密；留空不修改" : "Bot Token"} /><input value={field(item.channel, "chat_id")} onChange={(event) => change(item.channel, "chat_id", event.target.value)} placeholder="Chat ID" /></>}
         {item.channel === "serverchan" && <input type="password" value={field(item.channel, "send_key")} onChange={(event) => change(item.channel, "send_key", event.target.value)} placeholder={item.configured ? "SendKey 已加密；留空不修改" : "SendKey"} />}
         {(["wecom", "feishu", "discord"] as string[]).includes(item.channel) && <input type="password" value={field(item.channel, "webhook_url")} onChange={(event) => change(item.channel, "webhook_url", event.target.value)} placeholder={item.configured ? "Webhook 已加密；留空不修改" : "Webhook URL"} />}
         {item.channel === "email" && <><input type="email" value={field(item.channel, "from")} onChange={(event) => change(item.channel, "from", event.target.value)} placeholder="发件邮箱" /><input type="email" value={field(item.channel, "to")} onChange={(event) => change(item.channel, "to", event.target.value)} placeholder="收件邮箱" /></>}
         <div className={`test-badge ${item.last_test?.ok ? "ok" : item.last_test ? "failed" : ""}`}>{item.last_test ? `${item.last_test.ok ? "最近测试成功" : "最近测试失败"} · ${new Date(item.last_test.at).toLocaleString("zh-CN")}${item.last_test.error ? ` · ${item.last_test.error}` : ""}` : "尚未测试"}</div>
-        <button onClick={() => void saveChannel(item)}>保存</button><button onClick={() => void test(item.channel)}>发送真实测试</button>
+        <button type="button" onClick={() => void saveChannel(item)}>保存</button><button type="button" onClick={() => void test(item.channel)}>发送真实测试</button>
       </div>)}
     </div>
   </Panel>;
 }
 
-interface SessionRow { id: string; expires_at: string; created_at: string; last_seen_at: string; user_agent: string; ip_country: string | null; is_current: number; }
 function SecurityView({ user, notify }: { user: AdminUser; notify: (text: string, tone?: "success" | "error") => void }) {
-  const [sessions, setSessions] = useState<SessionRow[]>([]); const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState("");
   const passwordStrength = Math.min(4, [newPassword.length >= 12, /[A-Z]/.test(newPassword), /\d/.test(newPassword), /[^A-Za-z0-9]/.test(newPassword)].filter(Boolean).length);
-  const load = useCallback(() => { api<SessionRow[]>("/api/auth/sessions").then(setSessions).catch((reason: unknown) => notify(reason instanceof Error ? reason.message : "会话加载失败", "error")); }, [notify]); useEffect(load, [load]);
-  async function changePassword(event: FormEvent) { event.preventDefault(); try { await api("/api/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }); setCurrentPassword(""); setNewPassword(""); notify("密码已修改，其他旧会话已失效"); load(); } catch (reason) { notify(reason instanceof Error ? reason.message : "修改失败", "error"); } }
-  return <div className="admin-stack"><Panel title="账户安全" description={`当前管理员：${user.email}`}><form className="security-form" onSubmit={(event) => void changePassword(event)}><label>当前密码<input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label>新密码<input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="至少 12 位" /><span className="password-strength" aria-label={`密码强度 ${passwordStrength}/4`}>{[1, 2, 3, 4].map((level) => <i key={level} className={level <= passwordStrength ? "active" : ""} />)}</span></label><button className="primary-button">修改密码</button></form></Panel><Panel title="双重验证（TOTP）" description="为管理员登录增加动态验证码保护"><div className="empty-inline">即将支持 · 当前请使用高强度密码并定期检查会话</div></Panel><Panel title="当前会话" actions={<button className="secondary-button" onClick={() => void api<{ revoked: number }>("/api/auth/logout-others", { method: "POST" }).then((result) => { notify(`已退出其他 ${result.revoked} 个会话`); load(); })}>退出其他会话</button>}><div className="session-list">{sessions.map((session) => <div key={session.id}><div><strong>{session.is_current ? "当前设备" : "其他设备"}{session.ip_country ? ` · ${session.ip_country}` : ""}</strong><span>{session.user_agent}</span><small title={formatExact(session.last_seen_at)}>最近活动 {formatRelative(session.last_seen_at)} · 到期 {formatRelative(session.expires_at)}</small></div>{!session.is_current && <button className="danger-text" onClick={() => void api(`/api/auth/sessions/${session.id}`, { method: "DELETE" }).then(() => { notify("会话已撤销"); load(); })}>撤销</button>}</div>)}</div></Panel></div>;
+  async function changePassword(event: FormEvent) { event.preventDefault(); try { await api("/api/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }); setCurrentPassword(""); setNewPassword(""); notify("密码已修改，其他旧会话已失效"); } catch (reason) { notify(reason instanceof Error ? reason.message : "修改失败", "error"); } }
+  return <div className="admin-stack"><Panel title="账户安全" description={`当前管理员：${user.email}`}><form className="security-form" onSubmit={(event) => void changePassword(event)}><label>当前密码<input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label>新密码<input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="至少 12 位" /><span className="password-strength" aria-label={`密码强度 ${passwordStrength}/4`}>{[1, 2, 3, 4].map((level) => <i key={level} className={level <= passwordStrength ? "active" : ""} />)}</span></label><button className="primary-button">修改密码</button></form></Panel></div>;
 }
 
 interface LogPage {
@@ -762,7 +879,7 @@ const LOG_ACTIONS: Array<[string, string]> = [
   ["domains.bulk.feature", "批量设为精品"],
   ["domains.bulk.unfeature", "批量取消精品"],
   ["domains.bulk.categorize", "批量设置分类"],
-  ["domains.bulk.price", "批量设置报价"],
+  ["domains.bulk.price", "批量更新"],
   ["domains.bulk.delete", "批量删除"],
   ["ai.config.create", "新增 AI 配置"],
   ["ai.config.update", "更新 AI 配置"],
@@ -829,7 +946,13 @@ function LogsView() {
       <input type="date" value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} aria-label="结束日期" />
       <span>共 {data?.total ?? 0} 条</span>
     </div>
-    <div className="log-table log-table-enhanced"><header><span>结果</span><span>时间</span><span>操作</span><span>对象</span><span>操作者</span><span>说明</span></header>{data ? (data.items.length ? data.items.map((log) => <div key={log.id}><span className={log.success ? "log-result success" : "log-result error"}>{log.success ? "成功" : "失败"}</span><time title={formatExact(log.created_at)}>{new Date(log.created_at).toLocaleString("zh-CN")}</time><strong>{LOG_ACTIONS.find(([value]) => value === log.action)?.[1] ?? log.action}</strong><span>{log.resource_type}{log.resource_id ? ` #${log.resource_id}` : ""}</span><span>{log.actor_email}</span><span>{log.message}</span></div>) : <div className="empty-inline">没有匹配的日志</div>) : <div className="empty-inline">正在读取日志…</div>}</div>
+    {data ? (data.items.length ? <ol className="activity-timeline">{data.items.map((log) => {
+      const dangerous = !log.success || log.action.includes("delete") || log.action.includes("revoke");
+      return <li className={dangerous ? "is-danger" : ""} key={log.id}>
+        <span className="timeline-marker" aria-hidden="true"><i /></span>
+        <article><header><strong>{LOG_ACTIONS.find(([value]) => value === log.action)?.[1] ?? log.action}</strong><time title={formatExact(log.created_at)}>{new Date(log.created_at).toLocaleString("zh-CN")}</time></header><p>{log.message}</p><footer><span>{log.resource_type}{log.resource_id ? ` #${log.resource_id}` : ""}</span><span>{log.actor_email}</span><span className={log.success ? "log-result success" : "log-result error"}>{log.success ? "成功" : "失败"}</span></footer></article>
+      </li>;
+    })}</ol> : <div className="empty-inline">没有匹配的日志</div>) : <div className="empty-inline">正在读取日志…</div>}
     {data && data.totalPages > 1 && <div className="pagination admin-pagination"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {data.page} / {data.totalPages} 页</span><button type="button" disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}
   </Panel>;
 }
@@ -837,11 +960,13 @@ function LogsView() {
 export function AdminApp() {
   const [user, setUser] = useState<AdminUser | null>(null); const [checking, setChecking] = useState(true); const [view, setView] = useState<AdminView>("overview"); const [toast, setToast] = useState<ToastMessage | null>(null);
   const [domainsPresetTld, setDomainsPresetTld] = useState<string | undefined>(undefined);
+  const [branding, setBranding] = useState<{ site_name: string; logo_url: string | null } | null>(null);
   const notify = useCallback((text: string, tone: "success" | "error" = "success") => setToast({ id: Date.now(), text, tone }), []);
   useEffect(() => { api<AdminUser>("/api/auth/me").then(setUser).catch((reason: unknown) => { if (!(reason instanceof ApiError) || reason.status !== 401) notify(reason instanceof Error ? reason.message : "会话检查失败", "error"); }).finally(() => setChecking(false)); }, [notify]);
-  if (checking) return <div className="app-loading"><span className="brand-mark">玩</span><p>正在验证玩米会话…</p></div>;
+  useEffect(() => { api<{ site_name: string; logo_url: string | null }>("/api/public/settings").then(setBranding).catch(() => undefined); }, []);
+  if (checking) return <div className="app-loading"><img className="brand-mark-img" src="/logo.svg" alt="" /><p>正在验证 DOMAIN HUNTER 会话…</p></div>;
   if (!user) return <LoginPage onLogin={(loggedIn) => { setUser(loggedIn); setView("overview"); }} />;
   const nav: Array<[AdminView, string, LucideIcon]> = [["overview", "概览", LayoutDashboard], ["domains", "域名管理", Globe], ["categories", "分类", Tag], ["settings", "站点设置", Settings], ["notifications", "到期提醒", Bell], ["security", "账户安全", ShieldCheck], ["logs", "操作日志", History]];
   async function logout() { try { await api("/api/auth/logout", { method: "POST" }); } finally { setUser(null); } }
-  return <div className="admin-shell"><aside className="admin-sidebar"><a href="/" className="brand admin-brand"><span className="brand-mark">玩</span><span>玩米</span></a><nav>{nav.map(([key, label, Icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => setView(key)}><Icon aria-hidden="true" />{label}</button>)}</nav><details className="sidebar-user"><summary><span className="user-avatar">{user.email.slice(0, 1).toUpperCase()}</span><span><strong>{user.email}</strong><small>管理员</small></span><ChevronDown aria-hidden="true" /></summary><div className="user-menu"><button onClick={() => setView("security")}><ShieldCheck aria-hidden="true" />修改密码</button><button onClick={() => void logout()}><LogOut aria-hidden="true" />退出登录</button></div></details></aside><div className="admin-main"><header className="admin-header"><div><span>玩米管理后台</span><h1>{nav.find(([key]) => key === view)?.[1]}</h1></div><div className="admin-header-actions"><a href="/" target="_blank">查看前台 ↗</a></div></header><main>{view === "overview" && <OverviewView onTldClick={(tld) => { setDomainsPresetTld(tld); setView("domains"); }} />}{view === "domains" &&<DomainsView key={domainsPresetTld ?? "all"} notify={notify} presetTld={domainsPresetTld} />}{view === "categories" && <CategoriesView notify={notify} />}{view === "settings" && <SettingsView notify={notify} />}{view === "notifications" && <NotificationsView notify={notify} />}{view === "security" && <SecurityView user={user} notify={notify} />}{view === "logs" && <LogsView />}</main></div><Toast message={toast} onClose={() => setToast(null)} /></div>;
+  return <div className="admin-shell"><aside className="admin-sidebar"><a href="/" className="brand admin-brand">{branding?.logo_url ? <img className="brand-icon" src={branding.logo_url} alt="" decoding="async" /> : <img className="brand-mark-img" src="/logo.svg" alt="" decoding="async" />}<span>{branding?.site_name ?? "DOMAIN HUNTER"}</span></a><nav>{nav.map(([key, label, Icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => setView(key)}><Icon aria-hidden="true" />{label}</button>)}</nav><details className="sidebar-user"><summary><span className="user-avatar">{user.email.slice(0, 1).toUpperCase()}</span><span><strong>{user.email}</strong><small>管理员</small></span><ChevronDown aria-hidden="true" /></summary><div className="user-menu"><button onClick={() => setView("security")}><ShieldCheck aria-hidden="true" />修改密码</button><button onClick={() => void logout()}><LogOut aria-hidden="true" />退出登录</button></div></details></aside><div className="admin-main"><header className="admin-header"><div><span>DOMAIN HUNTER 管理后台</span><h1>{nav.find(([key]) => key === view)?.[1]}</h1></div><div className="admin-header-actions"><a className="admin-frontend-link" href="/" target="_blank" rel="noopener noreferrer" aria-label="查看前台" title="查看前台"><ExternalLink aria-hidden="true" /></a></div></header><main>{view === "overview" && <OverviewView onTldClick={(tld) => { setDomainsPresetTld(tld); setView("domains"); }} onNavigate={setView} notify={notify} />}{view === "domains" &&<DomainsView key={domainsPresetTld ?? "all"} notify={notify} presetTld={domainsPresetTld} />}{view === "categories" && <CategoriesView notify={notify} />}{view === "settings" && <SettingsView notify={notify} />}{view === "notifications" && <NotificationsView notify={notify} />}{view === "security" && <SecurityView user={user} notify={notify} />}{view === "logs" && <LogsView />}</main></div><Toast message={toast} onClose={() => setToast(null)} /></div>;
 }

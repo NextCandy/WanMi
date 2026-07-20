@@ -27,36 +27,42 @@ function renderCard(value: PublicDomain = domain): string {
   }));
 }
 
+function dottedDate(iso: string): string {
+  return iso.slice(0, 10).replaceAll("-", ".");
+}
+
 describe("DomainCard", () => {
-  it("按域名、简介、元数据与访问入口的层级渲染精品卡片", () => {
+  it("按徽章行、衬线域名与到期行的层级渲染精品卡片", () => {
     const markup = renderCard();
 
     expect(markup).toContain('class="domain-card featured"');
-    expect(markup).toContain('class="domain-featured-badge"');
-    expect(markup).toContain("精选");
+    // 徽章行：统一样式的 TLD 徽章 + 分类徽章，精品只用星标表达。
+    expect(markup).toContain('class="tld-badge">.ooo</span>');
+    expect(markup).toContain('class="category-badge"');
+    expect(markup).toContain("纯字母");
+    expect(markup).not.toContain("· 精品");
     expect(markup).toContain('<strong>mx</strong>');
     expect(markup).toContain('class="domain-tld">.ooo</span>');
     expect(markup).toContain('class="domain-description placeholder"');
-    expect(markup).toContain('class="meta-chip"');
-    expect(markup).toContain(".ooo");
-    // 元数据：后缀 + 剩余天数 + 日期区间小框；无日期数据时后两者不渲染
-    expect(markup).not.toContain("字符");
-    expect(markup).not.toContain("纯字母");
-    expect(markup).not.toContain("meta-lifespan");
-    expect(markup).not.toContain("meta-remaining");
+    // 日期行：无日期时明确提示，精品语义只保留在左上分类徽章。
+    expect(markup).not.toContain('class="domain-featured-badge"');
+    expect(markup).toContain("日期待补充");
+    expect(markup).toContain("有效期未知");
     expect(markup.match(/<button/g)).toHaveLength(2);
     expect(markup).toContain('aria-label="复制 mx.ooo"');
-    expect(markup).toContain('aria-label="速览 mx.ooo"');
-    expect(markup).toContain('class="domain-visit"');
-    expect(markup).toContain("访问域名");
-    expect(markup).toContain('aria-label="访问 mx.ooo"');
+    expect(markup).toContain('aria-label="查看 mx.ooo"');
+    // 访问入口是域名本体链接，不再有单独的「访问域名」按钮
+    expect(markup).toContain('href="https://mx.ooo"');
+    expect(markup).not.toContain("domain-visit");
   });
 
-  it("普通域名不渲染精品标记", () => {
+  it("普通域名不渲染精品星标", () => {
     const markup = renderCard({ ...domain, is_featured: false });
 
     expect(markup).not.toContain("domain-featured-badge");
-    expect(markup).toContain('aria-label="访问 mx.ooo"');
+    expect(markup).not.toContain("· 精品");
+    expect(markup).toContain('class="registration-range date-unknown"');
+    expect(markup).toContain('href="https://mx.ooo"');
   });
 
   it("有简介时显示简介文案", () => {
@@ -66,21 +72,36 @@ describe("DomainCard", () => {
     expect(markup).not.toContain("placeholder");
   });
 
-  it("有生命周期数据时渲染剩余天数与日期区间，临近到期加警示", () => {
-    const soon = new Date(Date.now() + 30 * 86_400_000).toISOString();
+  it("7 天内渲染紧急角标，30 天内渲染警告，已过期渲染过期标记", () => {
+    const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();
     const markup = renderCard({ ...domain, registered_at: "2015-05-12T00:00:00.000Z", expires_at: soon });
 
-    // 区间为点分日期、无「注册/到期」标签
-    expect(markup).toContain(`>2015.05.12-${soon.slice(0, 10).replaceAll("-", ".")}<`);
-    expect(markup).not.toContain("注册 ");
-    expect(markup).not.toContain("到期 ");
-    expect(markup).toMatch(/剩 (29|30) 天/);
-    expect(markup).toContain("meta-chip-warning");
+    expect(markup).toContain(`2015.05.12-${dottedDate(soon)}`);
+    expect(markup).toContain("is-urgent");
+    expect(markup).toMatch(/余\d+天/);
+
+    const warningDate = new Date(Date.now() + 20 * 86_400_000).toISOString();
+    const warning = renderCard({ ...domain, expires_at: warningDate });
+    expect(warning).toContain("is-warning");
+    expect(warning).not.toContain("紧急");
+
+    const past = renderCard({ ...domain, expires_at: "2020-01-07T00:00:00.000Z" });
+    expect(past).toContain("is-expired");
   });
 
-  it("仅有到期日期时区间框只显示到期日", () => {
-    const markup = renderCard({ ...domain, expires_at: "2027-01-07T00:00:00.000Z" });
-    expect(markup).toContain(">2027.01.07<");
+  it("不同域名主体共用同一种后缀徽章", () => {
+    expect(renderCard()).not.toContain("data-type=");
+    expect(renderCard({ ...domain, domain: "094.org", name: "094", tld: "org" })).toContain('class="tld-badge">.org</span>');
+    expect(renderCard({ ...domain, domain: "a-1.com", name: "a-1", tld: "com" })).toContain('class="tld-badge">.com</span>');
+  });
+
+  it("充裕到期日期正常显示且无紧急标记", () => {
+    const far = new Date(Date.now() + 300 * 86_400_000).toISOString();
+    const markup = renderCard({ ...domain, expires_at: far });
+    expect(markup).toContain(`日期待补充`);
+    expect(markup).toMatch(/余\d+天/);
+    expect(markup).not.toContain("is-urgent");
+    expect(markup).not.toContain("（紧急）");
   });
 });
 

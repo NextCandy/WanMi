@@ -9,7 +9,7 @@ export const securityHeaders = createMiddleware<AppBindings>(async (c, next) => 
   c.header("X-Frame-Options", "DENY");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
   c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  // SPA 文档需要 Google Fonts 与 Cloudflare 前端资源；API/JSON 响应保持严格 CSP。
+  // 字体已全部自托管，CSP 不再放行 Google Fonts；API/JSON 响应保持严格 CSP。
   const isHtmlDocument = c.req.path === "/"
     || c.req.path === "/domains"
     || c.req.path.startsWith("/admin")
@@ -20,7 +20,7 @@ export const securityHeaders = createMiddleware<AppBindings>(async (c, next) => 
   c.header(
     "Content-Security-Policy",
     isHtmlDocument
-      ? `default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'${allowDevelopmentPreamble} https://challenges.cloudflare.com https://static.cloudflareinsights.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com https://cloudflareinsights.com ws: wss:`
+      ? `default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'${allowDevelopmentPreamble} https://challenges.cloudflare.com https://static.cloudflareinsights.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com https://cloudflareinsights.com ws: wss:`
       : "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'",
   );
   if (c.req.path.startsWith("/api/admin/") || c.req.path.startsWith("/api/auth/")) {

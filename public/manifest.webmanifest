@@ -1,7 +1,7 @@
 {
-  "name": "玩米",
-  "short_name": "玩米",
-  "description": "玩米域名展示与管理系统",
+  "name": "DOMAIN HUNTER",
+  "short_name": "DOMAIN HUNTER",
+  "description": "DOMAIN HUNTER 精选域名资产展示",
   "lang": "zh-CN",
   "start_url": "/",
   "display": "standalone",
