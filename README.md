@@ -18,7 +18,9 @@ UnUseDomain 是部署在 Cloudflare Workers 上的中文域名展示与管理系
 
 - 对外品牌、网页标题、管理后台、通知和下载文件名统一使用 `UnUseDomain`；生产域名统一为 `unusedomain.com`。
 - 版权文字统一为 `© 2026 UnUseDomain. All rights reserved.`。
-- `public/unusedomain-logo.png`、`public/favicon.ico`、多尺寸 PNG、Apple Touch Icon 与 PWA 图标均由项目品牌原图生成；站点设置通过品牌迁移指向这些静态资源。
+- 品牌标志为「对分圆环」：圆环沿竖轴对分，左半石墨灰 `#3B3E47`、右半靛蓝 `#233393`，固定配色，不随 `accent_color` 变化。
+- `public/` 下全部图标由同一张 1092×1092 透明原图确定性生成，分两组：`unusedomain-logo.png`（512）、`favicon-16/32/48.png` 与含 6 档条目的 `favicon.ico` 为**透明底**，供页内品牌标与浏览器标签使用；`apple-touch-icon.png`（180）、`icon-192.png`、`icon-512.png` 为**白底**，因为 iOS 会把透明合成为黑色、PWA `purpose: "any maskable"` 需要不透明底并把内容收进 80% 直径的安全区。
+- 站点设置通过品牌迁移指向这些静态资源；后台上传的 `logo_url`/`favicon_url` 优先级高于静态默认值。
 - Cookie、浏览器存储键、缓存标记与诊断 Header 使用 `unusedomain` 命名；品牌迁移会使旧管理会话失效一次，需要重新登录。
 
 ## 产品边界

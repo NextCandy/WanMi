@@ -229,16 +229,22 @@ background: radial-gradient(circle at 0% 0%, color-mix(in oklab, var(--brand) 16
 
 ### Brand Mark & Iconography
 
-**品牌 Logo「一线成域」**:藏青线条(#22355E)+ 珊瑚红节点(#FF5C38),固定配色,**不**随 `accent_color` 改色。米白底上藏青 10:1 直接裸放;**深棕侧栏上需奶油底板**。
+**品牌 Logo(对分圆环)**:圆环沿竖轴对分,左半石墨灰(#3B3E47)+ 右半靛蓝(#233393),固定配色,**不**随 `accent_color` 改色。暖白底上直接裸放;深色侧栏上需奶油底板(`admin.css` 为 `.admin-brand` 提供 `var(--surface)` 底板 + 3px 内边距)。
 
 | 场景 | 尺寸 | 说明 |
 |------|------|------|
-| Header Logo(.brand-icon)| 32×32px | 裸放 |
+| Header Logo(.brand-icon)| 32×32px(≤720px 为 28×28)| 裸放 |
 | 后台侧栏/登录(.brand-mark-img)| 28×28px | 侧栏加 `var(--surface)` 底板 |
 | 加载态(.brand-mark-img)| 34×34px | 裸放 |
-| Favicon | 32×32px | 居中优化版 viewBox |
+| 页脚(.footer-logo)| 30×30px(≤720px 为 28×28)| 裸放 |
+| Favicon | 16/32/48px | 透明底 PNG,另有 6 档 ICO |
 
-资源：`public/unusedomain-logo.png` 为 512×512 品牌图，`public/favicon.ico`、16/32/48 PNG、Apple Touch Icon 与 192/512 PWA 图标由同一附件确定性裁切缩放生成。`settings.logo_url` 优先，未配置回退 `/unusedomain-logo.png`。卡片内 `<Star>` = 精品标记，**非**收藏。
+资源:全部图标由 `UnUseDomain-svg.png`(1092×1092 透明原图)确定性生成,分两组——
+
+- **透明底**(`unusedomain-logo.png` 512、`favicon-16/32/48.png`、`favicon.ico` 含 16/32/48/64/128/256 六档 PNG 条目):标志裁到包围盒后按 94%(favicon 96%)占比居中,因为 `.brand-icon`/`.footer-logo` 用 `object-fit: contain` 且无底色,原图 16.6% 的留白会让 30px 容器里的标志缩到 20px。
+- **白底**(`apple-touch-icon.png` 180、`icon-192/512.png`):iOS 会把透明合成为黑色,PWA `purpose: "any maskable"` 的安全区是 80% 直径圆,故内容分别压到 78% 与 68% 并合成到 #FFFFFF。
+
+缩放在预乘 Alpha 空间做面积平均,避免直通 Alpha 降采样从全透明像素渗出黑边。`settings.logo_url` 优先,未配置回退 `/unusedomain-logo.png`。卡片内 `<Star>` = 精品标记,**非**收藏。
 
 **UI 图标**:lucide 全局 `stroke-width 1.75` 圆头;手写图标补全 `fill="none" stroke="currentColor"`;普通图标禁用珊瑚红。
 
@@ -333,16 +339,18 @@ background: radial-gradient(circle at 0% 0%, color-mix(in oklab, var(--brand) 16
 
 ## 附录 A:品牌图标规范
 
-**「一线成域」SVG**:圆弧(域/globe)+ 折线(一线/连接)+ 珊瑚红节点(活力)。
+**对分圆环**:整圆沿竖轴一分为二,两半各留一道内缺口,合为「UD」的抽象骨架。
 
 ```
-viewBox="98 100 200 200"(居中优化版,logo 与 favicon 统一)
-线条: stroke="#22355E" stroke-width="7"(favicon 8)round cap/join
-节点: fill="#FF5C38" r="8"(favicon 9)
+左半: #3B3E47(石墨灰)
+右半: #233393(靛蓝)
+权威原图: UnUseDomain-svg.png 1092×1092 透明底,标志包围盒 730×730(占画布 66.8%)
 ```
 
 - 固定配色,不随 `accent_color`/主题变色
-- 米白底裸放;深棕侧栏上加 `var(--surface)` 奶油底板
+- 暖白底裸放;深色侧栏上加 `var(--surface)` 奶油底板
+- 无 SVG 版本:标志为栅格原图,全站一律引用 `public/` 下的 PNG/ICO,不要手工描摹 SVG 复刻
+- 该标志本身是深色的,深色背景上对比度会下降;站点为单一浅色主题,仅浏览器深色标签栏会受影响
 - `PublicPage` 头部 `settings?.logo_url || "/unusedomain-logo.png"`；`FeaturedDomainPage` 加载态与后台品牌标统一用 `.brand-mark-img`
 
 **动态品牌色注入**(`PublicPage.tsx`):`accent_color` 合法 6 位 hex 且**不在旧默认集** `{#2fbf9a, #c4a242, #b89530, #d4b252}` 时才注入 `--brand`;否则回退 CSS 深棕。
