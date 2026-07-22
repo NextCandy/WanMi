@@ -1,12 +1,13 @@
-/* 品牌字体：英文 Averia Serif Libre Light，中文仓耳华新体。
-   两份都是本地提供的 TTF 自行子集化后自托管（见 scripts/build-brand-fonts.ts），
-   与 fonts.css 分开——那份由 pnpm fonts:fetch 生成，不能手改。
+/* 前台品牌字体：只有英文 Averia Serif Libre Light（37KB）。
+   由本地 TTF 子集化后自托管（见 scripts/build-brand-fonts.ts），与 fonts.css 分开
+   ——那份由 pnpm fonts:fetch 生成，不能手改。
 
-   中文子集按 unicode-range 限定在 CJK 区：前台文案已全部英文化，浏览器只有在
-   页面真的出现汉字时（后台）才会去下载这 800KB，前台首屏不受影响。
+   中文仓耳华新体（815KB）不在这里，只随 admin.css 进后台：前台文案虽已全部英文，
+   但域名简介等库内数据仍可能是中文，一旦命中 unicode-range 就会为了几个字拉下
+   815KB，字体换上时整屏文字跳一次。前台的少量中文改由 tokens.css 的系统中文字体
+   承担，后台才用仓耳华新体。
 
-   授权：Averia Serif Libre 为 SIL OFL；仓耳华新体为仓耳字库商业字体，
-   已由站点所有者确认取得商用授权。 */
+   授权：Averia Serif Libre 为 SIL OFL。 */
 
 @font-face {
   font-family: 'Averia Serif Libre';
@@ -17,14 +18,4 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
     U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212,
     U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'Tsanger HuaXin';
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url('/fonts/tsanger-huaxin-sc.woff2') format('woff2');
-  unicode-range: U+2E80-2EFF, U+3000-303F, U+3200-33FF, U+4E00-9FFF, U+F900-FAFF,
-    U+FE30-FE4F, U+FF00-FFEF;
 }

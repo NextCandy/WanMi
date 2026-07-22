@@ -2,6 +2,9 @@ import { createMiddleware } from "hono/factory";
 
 import type { AppBindings } from "../types";
 
+/** 由 vite define 注入；测试等未经打包的环境回退成固定值 */
+const BUILD_ID = typeof __BUILD_ID__ === "string" ? __BUILD_ID__ : "dev";
+
 /**
  * 公开只读接口的 Cloudflare 边缘缓存。
  * 跨境用户到 Worker 的一次往返实测 1 秒以上；命中边缘 POP 后只剩一次轻量
@@ -23,6 +26,9 @@ export const edgeCache = createMiddleware<AppBindings>(async (c, next) => {
   ).first<{ v: string }>().catch(() => null);
   const keyUrl = new URL(c.req.url);
   keyUrl.searchParams.set("__pv", version?.v ?? "0");
+  // 数据版本只在数据改动时自增，改排序、序列化这类纯代码逻辑不会碰它。
+  // 再带上构建标识，部署后立刻换键，不必等 s-maxage 到期。
+  keyUrl.searchParams.set("__bv", BUILD_ID);
   const key = new Request(keyUrl.toString(), { method: "GET" });
   const hit = await cache.match(key);
   if (hit) return new Response(hit.body, hit);

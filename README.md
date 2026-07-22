@@ -65,8 +65,11 @@ UnUseDomain 是部署在 Cloudflare Workers 上的中文域名展示与管理系
 - 样式按域拆分：`app.css` 为前台与共享层，`admin.css` 为后台专属层，随已懒加载的 `AdminApp` 按需加载，不进前台首屏（前台 CSS 135.93KB → 108.66KB，gzip 23.54 → 19.19KB）。
 - 全部字体自托管，Google Fonts 在中国大陆不可达，外链会让国内用户完全拿不到。分两组：
   - `src/client/styles/fonts.css` 由 `pnpm fonts:fetch` 生成（Manrope、IBM Plex Mono 等 OFL 字体的 latin/latin-ext 子集），**不要手改**。
-  - `src/client/styles/brand-fonts.css` 是品牌字体：英文 Averia Serif Libre Light（OFL，37KB），中文仓耳华新体（仓耳字库商业授权，站点所有者已确认取得网页嵌入授权；原始 TTF 不入库）。由 `pnpm fonts:brand -- --cjk <中文TTF> --latin <拉丁TTF>` 生成。
-- 中文字体必须子集化：全字库 28565 字、17MB，按「源码里出现的汉字 + GB2312 一级字库 3755 常用字 + 常用标点」裁到约 800KB。`@font-face` 的 unicode-range 限定在 CJK 区——前台文案已全部英文化，浏览器只有在页面真的出现汉字时（后台）才会去下载它，前台首屏不受影响。子集外的生僻字按 `tokens.css` 的字体栈回退系统中文字体，不会缺字。
+  - `src/client/styles/brand-fonts.css` 只放英文 Averia Serif Libre Light（OFL，37KB），随前台加载。
+  - 中文仓耳华新体（仓耳字库商业授权，站点所有者已确认取得网页嵌入授权；原始 TTF 不入库）的 `@font-face` 放在 `admin.css`，**只随后台加载**。两份都由 `pnpm fonts:brand -- --cjk <中文TTF> --latin <拉丁TTF>` 生成。
+- 中文字体必须子集化：全字库 28565 字、17MB，按「源码里出现的汉字 + GB2312 一级字库 3755 常用字 + 常用标点」裁到约 815KB。
+- 中文字体不进前台：前台文案虽已全部英文，但域名简介等库内数据仍可能带中文，只要命中 unicode-range 就会为几个字拉下 815KB，字体换上时整屏文字跳一次（用户可见的"刷新闪动"即由此而来）。前台的少量中文改由 `tokens.css` 的系统中文字体栈承担。
+- 边缘缓存键除 `public_data_version` 外还带构建标识 `__bv`（`vite.config.ts` 的 `define` 注入，CI 用提交 SHA）：数据版本只在数据改动时自增，改排序、序列化这类纯代码逻辑不会碰它，没有构建标识时部署后仍会命中旧响应直到 `s-maxage` 到期。
 - 拆分依据是真实页面的 DOM 探测而非命名前缀：只有「前台完全不匹配、仅后台匹配」的选择器才进 `admin.css`。实测前后台共享选择器仅 19 个（`html`/`body`/`button`/`.brand`/`.secondary-button`/`.pagination` 等），全部留在 `app.css`；两个文件选择器不重叠，因此 `admin.css` 的加载顺序不影响前台层叠。注意 `.admin-link` 是前台页脚的管理入口，不可按前缀误判为后台样式。
 - 后台域名列表每页 100 条服务端分页，滚动到底自动累积下一页；桌面按视口虚拟化渲染，行高由首行实测得出。
 - 720px 以下表格切换为卡片式布局、行高不定，此时关闭虚拟化直接整段渲染；宽表格只在自身容器内横向滚动，页面本身不横向滚动。
