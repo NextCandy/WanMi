@@ -238,11 +238,15 @@ describe.sequential("UnUseDomain API 集成", () => {
       return { response, items: body.data.items };
     };
 
+    // 默认序：精品优先，精品组只按位数升序、普通组只按后缀优先级
     const expectedDefault = await env.DB.prepare(
       `SELECT id FROM domains WHERE is_listed = 1
        ORDER BY is_featured DESC,
-         CASE lower(tld) WHEN 'com' THEN 0 WHEN 'cn' THEN 1 WHEN 'net' THEN 2 WHEN 'org' THEN 3 WHEN 'io' THEN 4 WHEN 'is' THEN 5 WHEN 'do' THEN 6 ELSE 7 END ASC,
-         length(name) ASC, normalized_domain ASC LIMIT 100`,
+         CASE WHEN is_featured = 1 THEN length(name) END ASC,
+         CASE WHEN is_featured = 0 THEN
+           CASE lower(tld) WHEN 'com' THEN 0 WHEN 'cn' THEN 1 WHEN 'net' THEN 2 WHEN 'org' THEN 3 WHEN 'io' THEN 4 WHEN 'is' THEN 5 WHEN 'do' THEN 6 ELSE 7 END
+         END ASC,
+         normalized_domain ASC LIMIT 100`,
     ).all<{ id: number }>();
     const expectedAdded = await env.DB.prepare(
       "SELECT id FROM domains WHERE is_listed = 1 ORDER BY created_at DESC, normalized_domain ASC LIMIT 100",
@@ -259,8 +263,9 @@ describe.sequential("UnUseDomain API 集成", () => {
     const tldPriority = (tld: string) => ["com", "cn", "net", "org", "io", "is", "do"].indexOf(tld) + 1 || 8;
     const expectedDefaultOrder = [...defaults.items].sort((left, right) =>
       Number(right.is_featured) - Number(left.is_featured)
-      || tldPriority(left.tld) - tldPriority(right.tld)
-      || left.name.length - right.name.length,
+      || (left.is_featured
+        ? left.name.length - right.name.length
+        : tldPriority(left.tld) - tldPriority(right.tld)),
     );
     expect(defaults.items.map((item) => item.id)).toEqual(expectedDefaultOrder.map((item) => item.id));
     expect(added.items.map((item) => item.id)).toEqual(expectedAdded.results.map((item) => item.id));

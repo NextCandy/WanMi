@@ -116,7 +116,7 @@ test.describe.serial("UnUseDomain 生产流程", () => {
       };
     });
     expect(cardGeometry).toEqual({ actionsAtTopRight: true, contentOrder: true, remainingAtBottomRight: true });
-    // 分类徽章已从卡片移除，徽章行只剩后缀 + 精品星标 + 域龄
+    // 徽章行顺序：精品星标 → 后缀 → 域龄；分类徽章已从卡片移除
     const badgeGeometry = await page.evaluate(() => {
       const firstCard = document.querySelector(".domain-card:not(.skeleton)")!;
       const tld = firstCard.querySelector(".tld-badge")!.getBoundingClientRect();
@@ -125,13 +125,13 @@ test.describe.serial("UnUseDomain 生产流程", () => {
       return {
         categoryBadges: document.querySelectorAll(".category-badge").length,
         tldWidth: tld.width,
-        starAfterTld: star ? star.left >= tld.right - 1 : true,
-        badgesLeaveFlexibleSpace: actions.left - (star ?? tld).right,
+        starBeforeTld: star ? star.right <= tld.left + 1 : true,
+        badgesLeaveFlexibleSpace: actions.left - tld.right,
       };
     });
     expect(badgeGeometry.categoryBadges).toBe(0);
     expect(badgeGeometry.tldWidth).toBeLessThan(90);
-    expect(badgeGeometry.starAfterTld).toBe(true);
+    expect(badgeGeometry.starBeforeTld).toBe(true);
     expect(badgeGeometry.badgesLeaveFlexibleSpace).toBeGreaterThan(12);
     const badgeStyle = async () => page.locator(".tld-badge").first().evaluate((element) => {
       const style = getComputedStyle(element);
