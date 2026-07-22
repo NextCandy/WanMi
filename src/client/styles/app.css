@@ -2717,6 +2717,13 @@ svg.lucide {
   overflow-x: auto;
   scrollbar-width: none;
 }
+/* 改版前留下的 `@media (max-width: 780px) { .public-footer > div { flex-direction: column } }`
+   会把这两个新加的 div 也竖过来（友链和联系图标都得横排），这里显式压回去。 */
+.public-shell .public-footer > .footer-friend-links,
+.public-shell .public-footer > .hero-contact-links {
+  flex-direction: row;
+  align-items: center;
+}
 .public-shell .public-footer > .hero-contact-links::-webkit-scrollbar { display: none; }
 
 .footer-friend-links {
@@ -2744,27 +2751,39 @@ svg.lucide {
 }
 .footer-friend-link:hover,
 .footer-friend-link:focus-visible { color: var(--brand); }
-/* 友链 LOGO 多是横向文字标志，锁死正方形会压扁；限高、宽度随比例走 */
+/* 友链 LOGO 多是横向文字标志，锁死正方形会压扁；限高、宽度随比例走。
+   min-width 是为了图还没到时元素不塌成 0 宽，否则整栏跟着塌掉。 */
 .friend-link-logo {
   width: auto;
   height: 20px;
+  min-width: 20px;
   max-width: 104px;
   flex: 0 0 auto;
   display: block;
   object-fit: contain;
 }
 
-/* 窄屏改为三行堆叠居中，与改版前的居中页脚观感一致 */
+/* 窄屏保持三栏横向：左友链、中品牌、右联系图标。不堆叠，靠压缩每栏的内容让位——
+   有 LOGO 的友链收成纯图标，中栏只留品牌 LOGO，联系图标本身已是一排。 */
 @media (max-width: 900px) {
   .public-shell .public-footer {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 10px;
+    padding: 9px 12px;
   }
-  .public-shell .public-footer > .footer-friend-links,
-  .public-shell .public-footer > .footer-copyright,
-  .public-shell .public-footer > .hero-contact-links { justify-self: center; }
-  .footer-friend-links { justify-content: center; }
+  .footer-friend-links { flex-wrap: nowrap; gap: 8px; }
+  .footer-friend-link { max-width: 132px; }
+  /* has-logo 由组件在 LOGO 可用时才加；图挂了会自动摘掉，名字随之恢复 */
+  .footer-friend-link.has-logo > span { display: none; }
+  /* 中栏是 1fr，会把两侧吃掉：联系图标锁 max-content 才能整排显示而不是缩成滚动条 */
+  .public-shell .public-footer > .hero-contact-links {
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+  }
+  .public-shell .public-footer > .footer-copyright > span { display: none; }
+  .public-shell .public-footer > .footer-copyright { gap: 0; }
+  .friend-link-logo { height: 22px; max-width: 92px; }
 }
 
 @media (max-width: 720px) {
@@ -2772,6 +2791,9 @@ svg.lucide {
     width: auto;
     max-width: none;
     margin: 14px 14px 8px;
-    padding: 9px 12px;
+    padding: 8px 10px;
+    gap: 8px;
   }
+  .footer-friend-link { max-width: 108px; }
+  .friend-link-logo { height: 20px; max-width: 76px; }
 }

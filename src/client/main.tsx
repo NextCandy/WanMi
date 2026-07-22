@@ -5,7 +5,6 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles/fonts.css";
 import "./styles/app.css";
-import "./styles/domain-annotations.css";
 
 // Safari 等浏览器可能通过前进/后退缓存恢复完整旧 DOM；恢复时强制重新请求当前 HTML。
 window.addEventListener("pageshow", (event) => {
