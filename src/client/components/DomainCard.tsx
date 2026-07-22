@@ -27,6 +27,16 @@ function daysUntil(value: string | null): number | null {
   return Math.round((expires - current) / 86_400_000);
 }
 
+/** 注册至今的整年数；不足一年返回 0，无注册日期返回 null */
+function ageInYears(value: string | null): number | null {
+  if (!value) return null;
+  const calendarDate = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!calendarDate) return null;
+  const registered = Date.UTC(Number(calendarDate[1]), Number(calendarDate[2]) - 1, Number(calendarDate[3]));
+  const years = (Date.now() - registered) / (365.2425 * 86_400_000);
+  return years < 0 ? null : Math.floor(years);
+}
+
 const WARNING_DAYS = 30;
 const URGENT_DAYS = 7;
 
@@ -39,19 +49,21 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
   const urgent = remaining !== null && remaining >= 0 && remaining <= URGENT_DAYS;
   const warning = remaining !== null && remaining > URGENT_DAYS && remaining <= WARNING_DAYS;
   const category = domain.categories[0] ?? domain.category;
+  const age = ageInYears(domain.registered_at);
 
   return (
     <article id={`domain-card-${domain.id}`} className={`domain-card${domain.is_featured ? " featured" : ""}`} aria-labelledby={`domain-${domain.id}`}>
       <div className="card-badge-row">
         <span className="tld-badge">.{tld}</span>
         {category ? <span className="category-badge">{domain.is_featured ? <Star aria-hidden="true" /> : null}{category}</span> : null}
+        {age !== null ? <span className={`age-badge${age >= 10 ? " is-aged" : ""}`}>{age > 0 ? `域龄${age}年` : "新注册"}</span> : null}
         <div className="domain-actions">
           <button type="button" aria-label={`复制 ${domain.domain}`} title={`复制 ${domain.domain}`} onClick={() => onCopy(domain.domain)}><Copy aria-hidden="true" /></button>
           <button type="button" aria-label={`查看 ${domain.domain}`} title={`查看 ${domain.domain}`} onClick={() => onQuickView(domain)}><Eye aria-hidden="true" /></button>
         </div>
       </div>
       <div className="domain-name"><a id={`domain-${domain.id}`} href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow"><strong>{domain.name}</strong><span className="domain-tld">.{domain.tld}</span></a></div>
-      {domain.description ? <p className="domain-description">{domain.description}</p> : <p className="domain-description placeholder" aria-hidden="true" />}
+      {domain.description ? <p className="domain-description">{domain.description}</p> : null}
       <div className="card-expiry-row">
         <span className={`registration-range${registeredOn && expiresOn ? "" : " date-unknown"}`}>
           {registeredOn && expiresOn ? `${registeredOn}-${expiresOn}` : "日期待补充"}

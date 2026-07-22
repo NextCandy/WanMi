@@ -103,13 +103,15 @@ test.describe.serial("UnUseDomain 生产流程", () => {
       const badges = rect(".card-badge-row");
       const actions = rect(".domain-actions");
       const name = rect(".domain-name");
-      const description = rect(".domain-description");
+      // 简介为空时整段不渲染（卡片收紧的前提），只有存在时才参与顺序校验
+      const description = card.querySelector(".domain-description")?.getBoundingClientRect() ?? null;
       const dates = rect(".card-expiry-row");
       const range = rect(".registration-range");
       const remaining = rect(".remaining-days");
       return {
         actionsAtTopRight: actions.top >= badges.top - 1 && actions.right > cardRect.left + cardRect.width / 2 && cardRect.right - actions.right <= 20,
-        contentOrder: badges.top < name.top && name.top < description.top && description.top < dates.top,
+        contentOrder: badges.top < name.top && name.top < dates.top
+          && (!description || (name.top < description.top && description.top < dates.top)),
         remainingAtBottomRight: remaining.right > range.right && cardRect.right - remaining.right <= 20,
       };
     });

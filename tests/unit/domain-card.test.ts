@@ -43,7 +43,8 @@ describe("DomainCard", () => {
     expect(markup).not.toContain("· 精品");
     expect(markup).toContain('<strong>mx</strong>');
     expect(markup).toContain('class="domain-tld">.ooo</span>');
-    expect(markup).toContain('class="domain-description placeholder"');
+    // 简介为空时整段不渲染：卡片靠这一条收到约 150px 高
+    expect(markup).not.toContain("domain-description");
     // 日期行：无日期时明确提示，精品语义只保留在左上分类徽章。
     expect(markup).not.toContain('class="domain-featured-badge"');
     expect(markup).toContain("日期待补充");
