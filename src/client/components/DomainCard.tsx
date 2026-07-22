@@ -91,7 +91,7 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
         <HandNote kind="remaining" label="剩余时间" />
       </div>
       <div className="card-badge-row">
-        <span className="tld-badge" data-annotation-target="tld">.{tld}</span>
+        <span className="tld-badge">.{tld}</span>
         {category ? <span className="category-badge">{domain.is_featured ? <Star aria-hidden="true" /> : null}{category}</span> : null}
         <div className="domain-actions">
           <button type="button" aria-label={`复制 ${domain.domain}`} title={`复制 ${domain.domain}`} onClick={() => onCopy(domain.domain)}><Copy aria-hidden="true" /></button>
@@ -99,12 +99,12 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
         </div>
       </div>
       <div className="domain-name"><a id={`domain-${domain.id}`} href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow"><strong>{domain.name}</strong><span className="domain-tld">.{domain.tld}</span></a></div>
-      {domain.description ? <p className="domain-description" data-annotation-target="description">{domain.description}</p> : <p className="domain-description placeholder" data-annotation-target="description" aria-hidden="true" />}
+      {domain.description ? <p className="domain-description">{domain.description}</p> : <p className="domain-description placeholder" aria-hidden="true" />}
       <div className="card-expiry-row">
         <span className={`registration-range${registeredOn && expiresOn ? "" : " date-unknown"}`}>
           {registeredOn && expiresOn ? `${registeredOn}-${expiresOn}` : "日期待补充"}
         </span>
-        <span data-annotation-target="remaining" className={`remaining-days${expired ? " is-expired" : urgent ? " is-urgent" : warning ? " is-warning" : remaining === null ? " expiry-unknown" : ""}`}>
+        <span className={`remaining-days${expired ? " is-expired" : urgent ? " is-urgent" : warning ? " is-warning" : remaining === null ? " expiry-unknown" : ""}`}>
           {remaining === null ? "有效期未知" : expired ? `已过期${Math.abs(remaining)}天` : `余${remaining}天`}
         </span>
       </div>
