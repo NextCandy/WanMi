@@ -68,7 +68,7 @@ UnUseDomain 是部署在 Cloudflare Workers 上的中文域名展示与管理系
   - `src/client/styles/brand-fonts.css` 只放英文 Averia Serif Libre Light（OFL，37KB），随前台加载。
   - 中文仓耳华新体（仓耳字库商业授权，站点所有者已确认取得网页嵌入授权；原始 TTF 不入库）的 `@font-face` 放在 `admin.css`，**只随后台加载**。两份都由 `pnpm fonts:brand -- --cjk <中文TTF> --latin <拉丁TTF>` 生成。
 - 中文字体必须子集化：全字库 28565 字、17MB，按「源码里出现的汉字 + GB2312 一级字库 3755 常用字 + 常用标点」裁到约 815KB。
-- 中文字体不进前台：前台文案虽已全部英文，但域名简介等库内数据仍可能带中文，只要命中 unicode-range 就会为几个字拉下 815KB，字体换上时整屏文字跳一次（用户可见的"刷新闪动"即由此而来）。前台的少量中文改由 `tokens.css` 的系统中文字体栈承担。
+- 中文字体不进前台：前台文案与库内简介均已英文化（`0030_english_descriptions.sql` 翻掉了仅有的两条中文简介），前台不再出现汉字，815KB 的中文子集只随 `admin.css` 进后台。此前它会因为一条中文简介被整体拉下来，字体换上时整屏文字跳一次——即用户可见的"刷新闪动"。若日后前台又出现中文（例如友情链接名），按 `tokens.css` 的系统中文字体栈渲染，不会再触发下载。
 - 边缘缓存键除 `public_data_version` 外还带构建标识 `__bv`（`vite.config.ts` 的 `define` 注入，CI 用提交 SHA）：数据版本只在数据改动时自增，改排序、序列化这类纯代码逻辑不会碰它，没有构建标识时部署后仍会命中旧响应直到 `s-maxage` 到期。
 - 拆分依据是真实页面的 DOM 探测而非命名前缀：只有「前台完全不匹配、仅后台匹配」的选择器才进 `admin.css`。实测前后台共享选择器仅 19 个（`html`/`body`/`button`/`.brand`/`.secondary-button`/`.pagination` 等），全部留在 `app.css`；两个文件选择器不重叠，因此 `admin.css` 的加载顺序不影响前台层叠。注意 `.admin-link` 是前台页脚的管理入口，不可按前缀误判为后台样式。
 - 后台域名列表每页 100 条服务端分页，滚动到底自动累积下一页；桌面按视口虚拟化渲染，行高由首行实测得出。
@@ -140,6 +140,7 @@ pnpm verify:production
 - `0026_unusedomain_rebrand.sql`：统一生产站点名称、Slogan、版权、Logo 与 Favicon，同时保留联系方式、主题色、展示密度和其他管理员设置。
 - `0028_friend_links.sql`：新建 `friend_links` 表承载页脚友情链接（名称、地址、LOGO、显示形式、排序），并写入首条「大佬论坛」；只新增表，不触碰既有数据。
 - `0029_footer_copyright_trim.sql`：把页脚版权的 `. All rights reserved.` 后缀去掉，只保留 `© 2026 UnUseDomain`；用 REPLACE 而非整句覆盖，后台改过前半段时不会被抹掉。
+- `0030_english_descriptions.sql`：把全站仅有的两条中文简介（`mx.ooo`、`namesale.cn`）翻成英文，使前台彻底无汉字；以当前值为条件，后台改过则跳过，不覆盖人工编辑。
 
 所有远程 Token 只能通过环境变量、CI Secret 或交互式输入提供。不得写入 README、`.dev.vars.example`、Wrangler 配置、构建产物、Issue 或日志；聊天中暴露过的长期凭据应在发布后轮换。
 
