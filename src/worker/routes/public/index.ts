@@ -176,7 +176,7 @@ function publicFilters(query: ReturnType<typeof publicDomainQuerySchema.parse>):
   if (query.excludes) {
     const excludedCharacters = [...new Set(Array.from(query.excludes.toLowerCase()))];
     for (const character of excludedCharacters) {
-      where.push("instr(lower(d.name), ?) > 0");
+      where.push("instr(lower(d.name), ?) = 0");
       params.push(character);
     }
   }
