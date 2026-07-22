@@ -2706,15 +2706,19 @@ svg.lucide {
   align-items: center;
   gap: 14px;
 }
-.public-shell .public-footer > .footer-friend-links { justify-self: start; }
-.public-shell .public-footer > .footer-copyright { justify-self: center; }
+/* 列号写死：没有友情链接时 grid 只剩两个子元素，靠自动排列会把版权顶到第一列、
+   联系方式挤到中间。锁住列号后，左栏空着也不影响 logo 居中与联系方式右对齐。
+   左右两列同为 1fr，中栏才是页脚的真正中心，而不只是剩余空间的中心。 */
+.public-shell .public-footer > .footer-friend-links { grid-column: 1; justify-self: start; }
+.public-shell .public-footer > .footer-copyright { grid-column: 2; justify-self: center; }
 .public-shell .public-footer > .hero-contact-links {
+  grid-column: 3;
   justify-self: end;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  max-width: 100%;
-  overflow-x: auto;
+  min-width: max-content;
+  overflow: visible;
   scrollbar-width: none;
 }
 /* 改版前留下的 `@media (max-width: 780px) { .public-footer > div { flex-direction: column } }`
@@ -2763,11 +2767,11 @@ svg.lucide {
   object-fit: contain;
 }
 
-/* 窄屏保持三栏横向：左友链、中品牌、右联系图标。不堆叠，靠压缩每栏的内容让位——
-   有 LOGO 的友链收成纯图标，中栏只留品牌 LOGO，联系图标本身已是一排。 */
+/* 窄屏保持三栏横向：左友链、中品牌、右联系图标。列模板沿用桌面的 1fr auto 1fr，
+   中栏才落在页脚正中；靠压缩每栏内容让位——有 LOGO 的友链收成纯图标，
+   中栏只留品牌 LOGO，联系图标本身已是一排。 */
 @media (max-width: 900px) {
   .public-shell .public-footer {
-    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 10px;
     padding: 9px 12px;
   }
@@ -2775,12 +2779,6 @@ svg.lucide {
   .footer-friend-link { max-width: 132px; }
   /* has-logo 由组件在 LOGO 可用时才加；图挂了会自动摘掉，名字随之恢复 */
   .footer-friend-link.has-logo > span { display: none; }
-  /* 中栏是 1fr，会把两侧吃掉：联系图标锁 max-content 才能整排显示而不是缩成滚动条 */
-  .public-shell .public-footer > .hero-contact-links {
-    min-width: max-content;
-    max-width: none;
-    overflow: visible;
-  }
   .public-shell .public-footer > .footer-copyright > span { display: none; }
   .public-shell .public-footer > .footer-copyright { gap: 0; }
   .friend-link-logo { height: 22px; max-width: 92px; }

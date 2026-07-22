@@ -423,7 +423,7 @@ export function PublicPage() {
         <FriendLinks links={settings?.friend_links} />
         <div className="footer-copyright">
           <img className="footer-logo" src={settings?.logo_url || "/unusedomain-logo.png"} alt={`${settings?.site_name ?? "UnUseDomain"} Logo`} decoding="async" />
-          <span>{settings?.copyright_text ?? "© 2026 UnUseDomain. All rights reserved."}</span>
+          <span>{settings?.copyright_text ?? "© 2026 UnUseDomain"}</span>
         </div>
         <ContactLinks settings={settings} />
       </footer>

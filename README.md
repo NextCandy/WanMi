@@ -17,7 +17,7 @@ UnUseDomain 是部署在 Cloudflare Workers 上的中文域名展示与管理系
 ## 品牌与图标
 
 - 对外品牌、网页标题、管理后台、通知和下载文件名统一使用 `UnUseDomain`；生产域名统一为 `unusedomain.com`。
-- 版权文字统一为 `© 2026 UnUseDomain. All rights reserved.`。
+- 版权文字统一为 `© 2026 UnUseDomain`（0029 迁移去掉了原先的 `. All rights reserved.` 后缀）。
 - 品牌标志为「对分圆环」：圆环沿竖轴对分，左半石墨灰 `#3B3E47`、右半靛蓝 `#233393`，固定配色，不随 `accent_color` 变化。
 - `public/` 下全部图标由同一张 1092×1092 透明原图确定性生成，分两组：`unusedomain-logo.png`（512）、`favicon-16/32/48.png` 与含 6 档条目的 `favicon.ico` 为**透明底**，供页内品牌标与浏览器标签使用；`apple-touch-icon.png`（180）、`icon-192.png`、`icon-512.png` 为**白底**，因为 iOS 会把透明合成为黑色、PWA `purpose: "any maskable"` 需要不透明底并把内容收进 80% 直径的安全区。
 - 站点设置通过品牌迁移指向这些静态资源；后台上传的 `logo_url`/`favicon_url` 优先级高于静态默认值。
@@ -46,7 +46,7 @@ UnUseDomain 是部署在 Cloudflare Workers 上的中文域名展示与管理系
 
 - 搜索与筛选：关键词、分类（下拉含全部/精品/各分类及计数）、后缀、位数（全部、1–9 位与 10 位以上，驱动 minLength/maxLength），状态同步到 URL；高级筛选面板已移除，`contains`/`excludes`/`kind` 与旧链接的 `group=two/three` 仍可通过 URL 直传兼容。
 - 首页无 Hero：页首（品牌 Logo + 右侧域名总数与「后台」入口）之下直接是搜索与域名列表；无独立精选区块、无分类 pills 行、无「全部资产」标题行；精品域名以主列表卡片上的精品标记区分。页脚不再有管理入口。
-- 页脚为三栏：左侧友情链接、中间品牌 Logo 与版权（保持视觉居中）、右侧联系方式小图标（原先在页首右上角，已整体下移）。窄屏（≤900px）仍是横向三栏，靠压缩内容让位：带 LOGO 的友链收成纯图标、中间只留品牌 Logo 不显示版权文字，联系图标保持一排。
+- 页脚为三栏：左侧友情链接、中间品牌 Logo 与版权、右侧联系方式小图标（原先在页首右上角，已整体下移）。三栏的列号写死为 1/2/3，左右两列同为 `1fr`，因此没有友情链接时中栏仍落在页脚正中、联系方式仍靠右，不会因为少一个子元素而顺次前移。窄屏（≤900px）沿用同一套列模板，靠压缩内容让位：带 LOGO 的友链收成纯图标、中间只留品牌 Logo 不显示版权文字，联系图标保持一排。
 - 搜索按钮固定为右侧 72px 紧凑按钮，不再拉伸占据工具栏。
 - 每张域名卡片底部仅保留收藏、复制、速览三枚图标；无可见中文按钮文字，也没有“我想要”。
 - 点击域名名称直接在新标签页访问对应域名；站内保留原生 `dialog` 速览，精品域名速览额外提供独立详情页入口。
@@ -129,6 +129,7 @@ pnpm verify:production
 - `0017_domain_keywords_field.sql`：为域名和导入暂存记录增加逗号分隔关键词，按中英文逗号与顿号迁移有效简介，同时完整保留原 `description`。
 - `0026_unusedomain_rebrand.sql`：统一生产站点名称、Slogan、版权、Logo 与 Favicon，同时保留联系方式、主题色、展示密度和其他管理员设置。
 - `0028_friend_links.sql`：新建 `friend_links` 表承载页脚友情链接（名称、地址、LOGO、显示形式、排序），并写入首条「大佬论坛」；只新增表，不触碰既有数据。
+- `0029_footer_copyright_trim.sql`：把页脚版权的 `. All rights reserved.` 后缀去掉，只保留 `© 2026 UnUseDomain`；用 REPLACE 而非整句覆盖，后台改过前半段时不会被抹掉。
 
 所有远程 Token 只能通过环境变量、CI Secret 或交互式输入提供。不得写入 README、`.dev.vars.example`、Wrangler 配置、构建产物、Issue 或日志；聊天中暴露过的长期凭据应在发布后轮换。
 

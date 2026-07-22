@@ -202,7 +202,7 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     await expect(page.getByRole("link", { name: "通过 QQ 联系 307203" })).toHaveAttribute("href", "https://wpa.qq.com/msgrd?v=3&uin=307203&site=qq&menu=yes");
     await expect(page.locator(".public-footer .contact-icons-wrap")).toHaveCount(0);
     await expect(page.locator(".footer-logo")).toHaveAttribute("src", "/unusedomain-logo.png");
-    await expect(page.locator(".footer-copyright")).toHaveText("© 2026 UnUseDomain. All rights reserved.");
+    await expect(page.locator(".footer-copyright")).toHaveText("© 2026 UnUseDomain");
     const footerGeometry = await page.locator(".public-footer").evaluate((footer) => {
       const logo = footer.querySelector(".footer-logo")!.getBoundingClientRect();
       const content = footer.querySelector(".footer-copyright")!.getBoundingClientRect();
@@ -254,7 +254,7 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     await expect(page.locator(".domain-list.compact-view")).toBeVisible();
     await expect(page.locator(".domain-list.card-view")).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "移动端快捷导航" })).toHaveCount(0);
-    await expect(page.locator(".footer-copyright")).toHaveText("© 2026 UnUseDomain. All rights reserved.");
+    await expect(page.locator(".footer-copyright")).toHaveText("© 2026 UnUseDomain");
     expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
     const metrics = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
@@ -362,7 +362,7 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     await expect(page.getByLabel("站点 Slogan")).toHaveValue("Unused Domains List");
     await expect(page.locator(".upload-card").nth(0).locator("img")).toHaveAttribute("src", "/unusedomain-logo.png");
     await expect(page.locator(".upload-card").nth(1).locator("img")).toHaveAttribute("src", "/favicon-32x32.png");
-    await expect(page.getByLabel("版权文字")).toHaveValue("© 2026 UnUseDomain. All rights reserved.");
+    await expect(page.getByLabel("版权文字")).toHaveValue("© 2026 UnUseDomain");
     await expect(page.getByText("页首显示管理入口", { exact: true })).toBeVisible();
     await expect(page.getByText("页脚显示管理入口", { exact: true })).toHaveCount(0);
 
