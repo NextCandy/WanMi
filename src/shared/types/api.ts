@@ -19,6 +19,7 @@ export interface PublicDomain {
   is_featured: boolean;
   registered_at: string | null;
   expires_at: string | null;
+  registrar_name?: string | null;
   public_price?: string | null;
 }
 
