@@ -48,28 +48,27 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
   const expired = remaining !== null && remaining < 0;
   const urgent = remaining !== null && remaining >= 0 && remaining <= URGENT_DAYS;
   const warning = remaining !== null && remaining > URGENT_DAYS && remaining <= WARNING_DAYS;
-  const category = domain.categories[0] ?? domain.category;
   const age = ageInYears(domain.registered_at);
 
   return (
     <article id={`domain-card-${domain.id}`} className={`domain-card${domain.is_featured ? " featured" : ""}`} aria-labelledby={`domain-${domain.id}`}>
       <div className="card-badge-row">
         <span className="tld-badge">.{tld}</span>
-        {category ? <span className="category-badge">{domain.is_featured ? <Star aria-hidden="true" /> : null}{category}</span> : null}
-        {age !== null ? <span className={`age-badge${age >= 10 ? " is-aged" : ""}`}>{age > 0 ? `域龄${age}年` : "新注册"}</span> : null}
+        {domain.is_featured ? <span className="featured-star" aria-label="Featured" title="Featured"><Star aria-hidden="true" /></span> : null}
+        {age !== null ? <span className={`age-badge${age >= 10 ? " is-aged" : ""}`}>{age > 0 ? `Age ${age} ${age === 1 ? "Year" : "Years"}` : "New"}</span> : null}
         <div className="domain-actions">
-          <button type="button" aria-label={`复制 ${domain.domain}`} title={`复制 ${domain.domain}`} onClick={() => onCopy(domain.domain)}><Copy aria-hidden="true" /></button>
-          <button type="button" aria-label={`查看 ${domain.domain}`} title={`查看 ${domain.domain}`} onClick={() => onQuickView(domain)}><Eye aria-hidden="true" /></button>
+          <button type="button" aria-label={`Copy ${domain.domain}`} title={`Copy ${domain.domain}`} onClick={() => onCopy(domain.domain)}><Copy aria-hidden="true" /></button>
+          <button type="button" aria-label={`View ${domain.domain}`} title={`View ${domain.domain}`} onClick={() => onQuickView(domain)}><Eye aria-hidden="true" /></button>
         </div>
       </div>
       <div className="domain-name"><a id={`domain-${domain.id}`} href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow"><strong>{domain.name}</strong><span className="domain-tld">.{domain.tld}</span></a></div>
       {domain.description ? <p className="domain-description">{domain.description}</p> : null}
       <div className="card-expiry-row">
         <span className={`registration-range${registeredOn && expiresOn ? "" : " date-unknown"}`}>
-          {registeredOn && expiresOn ? `${registeredOn}-${expiresOn}` : "日期待补充"}
+          {registeredOn && expiresOn ? `${registeredOn}-${expiresOn}` : "Date pending"}
         </span>
         <span className={`remaining-days${expired ? " is-expired" : urgent ? " is-urgent" : warning ? " is-warning" : remaining === null ? " expiry-unknown" : ""}`}>
-          {remaining === null ? "有效期未知" : expired ? `已过期${Math.abs(remaining)}天` : `余${remaining}天`}
+          {remaining === null ? "Unknown" : expired ? `Expired ${Math.abs(remaining)} Days` : `${remaining} Days`}
         </span>
       </div>
     </article>

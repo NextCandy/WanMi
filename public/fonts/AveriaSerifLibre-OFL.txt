@@ -1,0 +1,4 @@
+Averia Serif Libre is licensed under the SIL Open Font License, Version 1.1.
+Copyright (c) 2011, Dan Sayers (http://iotic.com/averia/)
+
+This license is available at: https://scripts.sil.org/OFL

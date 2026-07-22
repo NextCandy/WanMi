@@ -36,22 +36,21 @@ describe("DomainCard", () => {
     const markup = renderCard();
 
     expect(markup).toContain('class="domain-card featured"');
-    // 徽章行：统一样式的 TLD 徽章 + 分类徽章，精品只用星标表达。
+    // 徽章行只剩后缀 + 精品星标 + 域龄；分类徽章已从卡片移除
     expect(markup).toContain('class="tld-badge">.ooo</span>');
-    expect(markup).toContain('class="category-badge"');
-    expect(markup).toContain("纯字母");
-    expect(markup).not.toContain("· 精品");
+    expect(markup).not.toContain("category-badge");
+    expect(markup).toContain('class="featured-star"');
     expect(markup).toContain('<strong>mx</strong>');
     expect(markup).toContain('class="domain-tld">.ooo</span>');
     // 简介为空时整段不渲染：卡片靠这一条收到约 150px 高
     expect(markup).not.toContain("domain-description");
-    // 日期行：无日期时明确提示，精品语义只保留在左上分类徽章。
+    // 前台文案统一英文
     expect(markup).not.toContain('class="domain-featured-badge"');
-    expect(markup).toContain("日期待补充");
-    expect(markup).toContain("有效期未知");
+    expect(markup).toContain("Date pending");
+    expect(markup).toContain("Unknown");
     expect(markup.match(/<button/g)).toHaveLength(2);
-    expect(markup).toContain('aria-label="复制 mx.ooo"');
-    expect(markup).toContain('aria-label="查看 mx.ooo"');
+    expect(markup).toContain('aria-label="Copy mx.ooo"');
+    expect(markup).toContain('aria-label="View mx.ooo"');
     // 访问入口是域名本体链接，不再有单独的「访问域名」按钮
     expect(markup).toContain('href="https://mx.ooo"');
     expect(markup).not.toContain("domain-visit");
@@ -61,7 +60,7 @@ describe("DomainCard", () => {
     const markup = renderCard({ ...domain, is_featured: false });
 
     expect(markup).not.toContain("domain-featured-badge");
-    expect(markup).not.toContain("· 精品");
+    expect(markup).not.toContain("featured-star");
     expect(markup).toContain('class="registration-range date-unknown"');
     expect(markup).toContain('href="https://mx.ooo"');
   });
@@ -79,12 +78,12 @@ describe("DomainCard", () => {
 
     expect(markup).toContain(`2015.05.12-${dottedDate(soon)}`);
     expect(markup).toContain("is-urgent");
-    expect(markup).toMatch(/余\d+天/);
+    expect(markup).toMatch(/\d+ Days/);
 
     const warningDate = new Date(Date.now() + 20 * 86_400_000).toISOString();
     const warning = renderCard({ ...domain, expires_at: warningDate });
     expect(warning).toContain("is-warning");
-    expect(warning).not.toContain("紧急");
+    expect(warning).toContain("Days");
 
     const past = renderCard({ ...domain, expires_at: "2020-01-07T00:00:00.000Z" });
     expect(past).toContain("is-expired");
@@ -99,10 +98,10 @@ describe("DomainCard", () => {
   it("充裕到期日期正常显示且无紧急标记", () => {
     const far = new Date(Date.now() + 300 * 86_400_000).toISOString();
     const markup = renderCard({ ...domain, expires_at: far });
-    expect(markup).toContain(`日期待补充`);
-    expect(markup).toMatch(/余\d+天/);
+    expect(markup).toContain("Date pending");
+    expect(markup).toMatch(/\d+ Days/);
     expect(markup).not.toContain("is-urgent");
-    expect(markup).not.toContain("（紧急）");
+    expect(markup).not.toContain("is-urgent");
   });
 });
 
@@ -126,28 +125,27 @@ describe("DomainDetailDialog", () => {
     const markup = renderDialog(domain);
     expect(markup).toContain('class="detail-page-link"');
     expect(markup).toContain('href="/d/mx.ooo"');
-    expect(markup).toContain("查看详情页 →");
+    expect(markup).toContain("View details →");
   });
 
   it("普通域名速览不显示独立详情页入口", () => {
     const markup = renderDialog({ ...domain, is_featured: false });
     expect(markup).not.toContain("detail-page-link");
-    expect(markup).not.toContain("查看详情页");
+    expect(markup).not.toContain("View details");
   });
 
   it("显示价值维度、外部查询与分组后的相似域名", () => {
     const markup = renderDialog(domain);
 
-    expect(markup).toContain("域名价值维度");
-    expect(markup).toContain("字符构成");
-    expect(markup).toContain("纯字母");
-    expect(markup).toContain("特色");
-    expect(markup).toContain("WHOIS 查询");
+    expect(markup).toContain("Domain profile");
+    expect(markup).toContain("Composition");
+    expect(markup).toContain("Letters");
+    expect(markup).toContain("WHOIS");
     expect(markup).toContain('href="https://whois.com/whois/mx.ooo" target="_blank" rel="noopener noreferrer"');
     expect(markup).toContain('href="https://web.archive.org/web/*/mx.ooo" target="_blank" rel="noopener noreferrer"');
     expect(markup).toContain('href="https://www.infibeam.com/" target="_blank" rel="noopener noreferrer"');
-    expect(markup).toContain("同后缀");
-    expect(markup).toContain("同长度");
+    expect(markup).toContain("Same TLD");
+    expect(markup).toContain("Same length");
     expect(markup).not.toMatch(/购买|注册引导/);
   });
 });

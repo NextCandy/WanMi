@@ -56,7 +56,7 @@ function serializeRecommendation(row: RecommendationRow): FeaturedDomainRecommen
 }
 
 export function featuredDomainDescription(domain: FeaturedDomainRecord): string {
-  return domain.description || `${domain.domain} 是 UnUseDomain 精选域名资产，主体简洁、辨识度高，适合品牌、产品或数字项目使用。`;
+  return domain.description || `${domain.domain} is a featured domain on UnUseDomain — short, memorable, and well suited to brands, products and digital projects.`;
 }
 
 export async function loadFeaturedDomainDetail(db: D1Database, normalizedDomain: string): Promise<FeaturedDomainDetail | null> {
@@ -97,7 +97,7 @@ export async function loadFeaturedDomainDetail(db: D1Database, normalizedDomain:
     registrar_name: row.registrar_name,
     updated_at: row.updated_at,
     character_count: characterCount,
-    type: categories[0] ?? row.category ?? "精品域名",
+    type: categories[0] ?? row.category ?? "Featured",
   };
   const settings = settingsResult.results[0] as { site_name?: string; site_description?: string; logo_url?: string | null; favicon_url?: string | null } | undefined;
 
@@ -107,7 +107,7 @@ export async function loadFeaturedDomainDetail(db: D1Database, normalizedDomain:
     same_length: (sameLengthResult.results as unknown as RecommendationRow[]).map(serializeRecommendation),
     site: {
       name: settings?.site_name || "UnUseDomain",
-      description: settings?.site_description || "精选域名资产展示",
+      description: settings?.site_description || "Featured domain gallery",
       logo_url: settings?.logo_url ?? null,
       favicon_url: settings?.favicon_url ?? null,
     },
@@ -129,7 +129,7 @@ function detailRecommendationMarkup(title: string, items: FeaturedDomainRecommen
     const href = item.is_featured
       ? `/d/${encodeURIComponent(item.domain)}`
       : `/domains?q=${encodeURIComponent(item.domain)}`;
-    return `<a class="featured-related-card" href="${href}"><span>${escapeHtml(item.domain)}</span><small>${item.is_featured ? "查看详情" : "目录搜索"} →</small></a>`;
+    return `<a class="featured-related-card" href="${href}"><span>${escapeHtml(item.domain)}</span><small>${item.is_featured ? "View details" : "Search catalog"} →</small></a>`;
   }).join("");
   return `<section class="featured-related-group"><h3>${escapeHtml(title)}</h3><div class="featured-related-grid">${cards}</div></section>`;
 }
@@ -138,7 +138,7 @@ export function renderFeaturedDomainSsr(detail: FeaturedDomainDetail): string {
   const domain = detail.domain;
   const keywords = domain.categories;
   const keywordMarkup = keywords.length
-    ? `<div class="featured-detail-tags" aria-label="${escapeHtml(domain.domain)} 分类">${keywords.map((keyword) => `<span>${escapeHtml(keyword)}</span>`).join("")}</div>`
+    ? `<div class="featured-detail-tags" aria-label="${escapeHtml(domain.domain)} categories">${keywords.map((keyword) => `<span>${escapeHtml(keyword)}</span>`).join("")}</div>`
     : "";
   const descriptionMarkup = domain.description
     ? `<p class="featured-detail-description">${escapeHtml(domain.description)}</p>`
@@ -147,32 +147,32 @@ export function renderFeaturedDomainSsr(detail: FeaturedDomainDetail): string {
 
   return `<div class="featured-detail-shell" data-featured-detail-ssr>
     <header class="featured-detail-header">
-      <a class="brand" href="/" aria-label="${escapeHtml(detail.site.name)}首页"><img src="${escapeHtml(detail.site.logo_url || "/unusedomain-logo.png")}" alt="" decoding="async" /><span>${escapeHtml(detail.site.name)}</span></a>
-      <nav aria-label="详情页导航"><a href="/">首页</a><a href="/domains">域名目录</a></nav>
-      <a class="featured-detail-browse" href="/domains">浏览全部域名</a>
+      <a class="brand" href="/" aria-label="${escapeHtml(detail.site.name)} home"><img src="${escapeHtml(detail.site.logo_url || "/unusedomain-logo.png")}" alt="" decoding="async" /><span>${escapeHtml(detail.site.name)}</span></a>
+      <nav aria-label="Detail navigation"><a href="/">Home</a><a href="/domains">Catalog</a></nav>
+      <a class="featured-detail-browse" href="/domains">Browse all domains</a>
     </header>
     <main class="featured-detail-main">
-      <a class="featured-detail-back" href="/domains">← 返回域名目录</a>
+      <a class="featured-detail-back" href="/domains">← Back to catalog</a>
       <section class="featured-detail-hero">
-        <span class="featured-detail-kicker">★ 精品域名</span>
+        <span class="featured-detail-kicker">★ Featured</span>
         <h1>${escapeHtml(domain.domain)}</h1>
         ${keywordMarkup}
         ${descriptionMarkup}
         <dl class="featured-detail-meta">
-          <div><dt>后缀</dt><dd>.${escapeHtml(domain.tld)}</dd></div>
-          <div><dt>字符数</dt><dd>${domain.character_count}</dd></div>
-          <div><dt>类型</dt><dd>${escapeHtml(domain.type)}</dd></div>
-          <div><dt>注册商</dt><dd>${escapeHtml(domain.registrar_name ?? "—")}</dd></div>
-          <div><dt>更新时间</dt><dd>${escapeHtml(formattedDate)}</dd></div>
+          <div><dt>TLD</dt><dd>.${escapeHtml(domain.tld)}</dd></div>
+          <div><dt>Characters</dt><dd>${domain.character_count}</dd></div>
+          <div><dt>Type</dt><dd>${escapeHtml(domain.type)}</dd></div>
+          <div><dt>Registrar</dt><dd>${escapeHtml(domain.registrar_name ?? "—")}</dd></div>
+          <div><dt>Updated</dt><dd>${escapeHtml(formattedDate)}</dd></div>
         </dl>
-        <a class="featured-detail-visit" href="https://${encodeURI(domain.domain)}" target="_blank" rel="noopener noreferrer nofollow">访问该域名 →</a>
+        <a class="featured-detail-visit" href="https://${encodeURI(domain.domain)}" target="_blank" rel="noopener noreferrer nofollow">Visit this domain →</a>
       </section>
       <section class="featured-related" aria-labelledby="featured-related-title">
-        <div class="featured-related-heading"><h2 id="featured-related-title">相似域名推荐</h2></div>
-        ${detailRecommendationMarkup(`同后缀 .${domain.tld}`, detail.same_tld)}
-        ${detailRecommendationMarkup(`同为 ${domain.character_count} 字符`, detail.same_length)}
+        <div class="featured-related-heading"><h2 id="featured-related-title">Similar domains</h2></div>
+        ${detailRecommendationMarkup(`Same TLD .${domain.tld}`, detail.same_tld)}
+        ${detailRecommendationMarkup(`Same length: ${domain.character_count} chars`, detail.same_length)}
       </section>
     </main>
-    <footer class="featured-detail-footer"><span>${escapeHtml(detail.site.name)} · 精选域名资产</span><a href="/">unusedomain.com</a></footer>
+    <footer class="featured-detail-footer"><span>${escapeHtml(detail.site.name)} · Featured domains</span><a href="/">unusedomain.com</a></footer>
   </div>`;
 }

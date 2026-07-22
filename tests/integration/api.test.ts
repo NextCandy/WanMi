@@ -113,8 +113,8 @@ describe.sequential("UnUseDomain API 集成", () => {
     const html = renderFeaturedDomainSsr(detail!);
     expect(html).toContain('data-featured-detail-ssr');
     expect(html).toContain("<h1>mx.ooo</h1>");
-    expect(html).toContain("访问该域名 →");
-    expect(html).toContain("相似域名推荐");
+    expect(html).toContain("Visit this domain →");
+    expect(html).toContain("Similar domains");
   });
 
   it("普通或不存在的域名详情链接仍重定向到目录搜索", async () => {

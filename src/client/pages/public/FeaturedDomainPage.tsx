@@ -1,5 +1,6 @@
 import type { FeaturedDomainDetail, FeaturedDomainRecommendation } from "../../../shared/types/api";
 import { useTracker } from "../../hooks/useTracker";
+import { categoryLabel } from "../../lib/category-label";
 
 function readFeaturedDomainDetail(): FeaturedDomainDetail | null {
   const element = document.getElementById("featured-domain-data");
@@ -26,7 +27,7 @@ function RecommendationGroup({ title, items }: { title: string; items: FeaturedD
         {items.map((item) => (
           <a className="featured-related-card" href={recommendationHref(item)} key={item.id}>
             <span>{item.domain}</span>
-            <small>{item.is_featured ? "查看详情" : "目录搜索"} →</small>
+            <small>{item.is_featured ? "View details" : "Search catalog"} →</small>
           </a>
         ))}
       </div>
@@ -39,7 +40,7 @@ export function FeaturedDomainPage() {
   useTracker(window.location.pathname);
 
   if (!detail) {
-    return <div className="app-loading"><img className="brand-mark-img" src="/unusedomain-logo.png" alt="UnUseDomain" /><p>正在打开精选域名…</p></div>;
+    return <div className="app-loading"><img className="brand-mark-img" src="/unusedomain-logo.png" alt="UnUseDomain" /><p>Opening featured domain…</p></div>;
   }
 
   const domain = detail.domain;
@@ -49,33 +50,33 @@ export function FeaturedDomainPage() {
   return (
     <div className="featured-detail-shell">
       <header className="featured-detail-header">
-        <a className="brand" href="/" aria-label={`${detail.site.name}首页`}>{detail.site.logo_url ? <img src={detail.site.logo_url} alt="" decoding="async" /> : <img className="brand-mark-img" src="/unusedomain-logo.png" alt="" decoding="async" />}<span>{detail.site.name}</span></a>
-        <nav aria-label="详情页导航"><a href="/">首页</a><a href="/domains">域名目录</a></nav>
-        <a className="featured-detail-browse" href="/domains">浏览全部域名</a>
+        <a className="brand" href="/" aria-label={`${detail.site.name} home`}>{detail.site.logo_url ? <img src={detail.site.logo_url} alt="" decoding="async" /> : <img className="brand-mark-img" src="/unusedomain-logo.png" alt="" decoding="async" />}<span>{detail.site.name}</span></a>
+        <nav aria-label="Detail navigation"><a href="/">Home</a><a href="/domains">Catalog</a></nav>
+        <a className="featured-detail-browse" href="/domains">Browse all domains</a>
       </header>
       <main className="featured-detail-main">
-        <a className="featured-detail-back" href="/domains">← 返回域名目录</a>
+        <a className="featured-detail-back" href="/domains">← Back to catalog</a>
         <section className="featured-detail-hero">
-          <span className="featured-detail-kicker">★ 精品域名</span>
+          <span className="featured-detail-kicker">★ Featured</span>
           <h1>{domain.domain}</h1>
-          {categories.length > 0 && <div className="featured-detail-tags" aria-label={`${domain.domain} 分类`}>{categories.map((category) => <span key={category}>{category}</span>)}</div>}
+          {categories.length > 0 && <div className="featured-detail-tags" aria-label={`${domain.domain} categories`}>{categories.map((category) => <span key={category}>{categoryLabel(category)}</span>)}</div>}
           {domain.description && <p className="featured-detail-description">{domain.description}</p>}
           <dl className="featured-detail-meta">
-            <div><dt>后缀</dt><dd>.{domain.tld}</dd></div>
-            <div><dt>字符数</dt><dd>{domain.character_count}</dd></div>
-            <div><dt>类型</dt><dd>{domain.type}</dd></div>
-            <div><dt>注册商</dt><dd>{domain.registrar_name ?? "—"}</dd></div>
-            <div><dt>更新时间</dt><dd>{updatedAt}</dd></div>
+            <div><dt>TLD</dt><dd>.{domain.tld}</dd></div>
+            <div><dt>Characters</dt><dd>{domain.character_count}</dd></div>
+            <div><dt>Type</dt><dd>{domain.type}</dd></div>
+            <div><dt>Registrar</dt><dd>{domain.registrar_name ?? "—"}</dd></div>
+            <div><dt>Updated</dt><dd>{updatedAt}</dd></div>
           </dl>
-          <a className="featured-detail-visit" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow">访问该域名 →</a>
+          <a className="featured-detail-visit" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer nofollow">Visit this domain →</a>
         </section>
         <section className="featured-related" aria-labelledby="featured-related-title">
-          <div className="featured-related-heading"><h2 id="featured-related-title">相似域名推荐</h2></div>
-          <RecommendationGroup title={`同后缀 .${domain.tld}`} items={detail.same_tld} />
-          <RecommendationGroup title={`同为 ${domain.character_count} 字符`} items={detail.same_length} />
+          <div className="featured-related-heading"><h2 id="featured-related-title">Similar domains</h2></div>
+          <RecommendationGroup title={`Same TLD .${domain.tld}`} items={detail.same_tld} />
+          <RecommendationGroup title={`Same length: ${domain.character_count} chars`} items={detail.same_length} />
         </section>
       </main>
-      <footer className="featured-detail-footer"><span>{detail.site.name} · 精选域名资产</span><a href="/">unusedomain.com</a></footer>
+      <footer className="featured-detail-footer"><span>{detail.site.name} · Featured domains</span><a href="/">unusedomain.com</a></footer>
     </div>
   );
 }

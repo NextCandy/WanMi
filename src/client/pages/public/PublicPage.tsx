@@ -10,6 +10,7 @@ import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { useTracker } from "../../hooks/useTracker";
 import { applyAccentColor } from "../../lib/accent-color";
 import { api } from "../../lib/api";
+import { categoryLabel } from "../../lib/category-label";
 import { clearCatalogueCache, loadCatalogue } from "../../lib/catalogue-cache";
 import { copyText } from "../../lib/clipboard";
 import type { FriendLink, Paginated, PublicDomain, PublicHomeData } from "../../../shared/types/api";
@@ -42,9 +43,9 @@ type GroupKey = "all" | "featured";
 type ExpiryKey = "" | "7d" | "30d" | "expired";
 
 const EXPIRY_OPTIONS: Array<[ExpiryKey, string]> = [
-  ["7d", "7 天内到期"],
-  ["30d", "30 天内到期"],
-  ["expired", "已过期"],
+  ["7d", "Expiring in 7 days"],
+  ["30d", "Expiring in 30 days"],
+  ["expired", "Expired"],
 ];
 
 /* 高级筛选面板已移除；minLength/maxLength 仍由位数下拉驱动，
@@ -68,12 +69,12 @@ const EMPTY_ADVANCED_FILTERS: AdvancedFilterValue = {
 };
 
 const SORTS: Array<[SortKey, string]> = [
-  ["default", "排序"],
-  ["added_desc", "最新加入"],
-  ["length_asc", "字符数升序"],
-  ["length_desc", "字符数降序"],
-  ["tld_asc", "后缀字母序"],
-  ["random", "随机"],
+  ["default", "Sort"],
+  ["added_desc", "Newest"],
+  ["length_asc", "Shortest"],
+  ["length_desc", "Longest"],
+  ["tld_asc", "TLD A-Z"],
+  ["random", "Random"],
 ];
 
 interface Filters {
@@ -227,14 +228,14 @@ export function PublicPage() {
       if (settingsResult.status === "fulfilled") {
         setSettings(settingsResult.value);
         applyAccentColor(settingsResult.value.accent_color);
-        document.title = `${settingsResult.value.site_name} · 域名展示`;
+        document.title = `${settingsResult.value.site_name} · Domain Gallery`;
         const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
         description?.setAttribute("content", settingsResult.value.site_description);
         if (settingsResult.value.favicon_url) {
           document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.setAttribute("href", settingsResult.value.favicon_url);
         }
       } else {
-        setError(settingsResult.reason instanceof Error ? settingsResult.reason.message : "站点设置加载失败");
+        setError(settingsResult.reason instanceof Error ? settingsResult.reason.message : "Failed to load site settings");
       }
       setFacets(facetsResult.status === "fulfilled" ? facetsResult.value : null);
     });
@@ -264,7 +265,7 @@ export function PublicPage() {
         setPageData(result);
       })
       .catch((reason: unknown) => {
-        if (sequence === requestSequence.current) setError(reason instanceof Error ? reason.message : "域名加载失败");
+        if (sequence === requestSequence.current) setError(reason instanceof Error ? reason.message : "Failed to load domains");
       })
       .finally(() => {
         if (sequence === requestSequence.current) setLoading(false);
@@ -301,8 +302,8 @@ export function PublicPage() {
 
   const hasActiveFilter = Boolean(filters.q || filters.tld || filters.category || filters.group !== "all" || filters.expiry || filters.sort !== "default" || hasAdvancedFilters(filters.advanced));
   const categories = useMemo(() => [
-    { value: "", label: "全部", count: facets?.total_domains ?? 0 },
-    { value: "__featured", label: "精品", count: facets?.total_featured ?? 0 },
+    { value: "", label: "All", count: facets?.total_domains ?? 0 },
+    { value: "__featured", label: "Featured", count: facets?.total_featured ?? 0 },
     ...(facets?.categories ?? []).map((category) => ({ value: category, label: category, count: facets?.categoryCounts[category] ?? 0 })),
   ], [facets]);
   const catalogueItems = pageData?.items ?? [];
@@ -341,27 +342,27 @@ export function PublicPage() {
   const effectiveViewMode = isMobileCatalogue ? "compact" : "cards";
 
   const copyDomain = useCallback(async (domain: string) => {
-    if (await copyText(domain)) notify(`已复制 ${domain}`);
-    else notify("复制失败，请手动复制", "error");
+    if (await copyText(domain)) notify(`Copied ${domain}`);
+    else notify("Copy failed, please copy manually", "error");
   }, [notify]);
 
   return (
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
       <header className="public-header">
         <div className="public-header-inner">
-          <a className="brand" href="/" aria-label={`${settings?.site_name ?? "UnUseDomain"}首页`}>
+          <a className="brand" href="/" aria-label={`${settings?.site_name ?? "UnUseDomain"} home`}>
             <img className="brand-icon" src={settings?.logo_url || "/unusedomain-logo.png"} alt="" decoding="async" fetchPriority="high" />
             <span className="brand-title">{settings?.site_name ?? "UnUseDomain"}</span>
           </a>
           <div className="header-actions">
-            <span className="domain-total-pill" aria-label="域名总数">{facets ? facets.total_domains.toLocaleString("zh-CN") : "—"} 个域名</span>
-            {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin" aria-label="后台"><Settings aria-hidden="true" /></a>}
+            <span className="domain-total-pill" aria-label="Total domains">{facets ? facets.total_domains.toLocaleString("en-US") : "—"} domains</span>
+            {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin" aria-label="Admin"><Settings aria-hidden="true" /></a>}
           </div>
         </div>
       </header>
 
       <main className="catalogue-layout">
-        <section className="domain-section" id="domains" aria-label="全部资产">
+        <section className="domain-section" id="domains" aria-label="All domains">
           <h1 className="visually-hidden">{settings?.site_name ?? "UnUseDomain"}</h1>
           <div className="catalogue-toolbar">
             <div className="toolbar-controls">
@@ -373,37 +374,37 @@ export function PublicPage() {
                 }}
               >
                 <form className="filter-search" onSubmit={submitSearch}>
-                  <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="输入域名或关键词，例如 unusedomain" aria-label="搜索域名" autoComplete="off" />
-                  {draftSearch && <button className="search-clear" type="button" aria-label="清空搜索" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
-                  <button className="search-submit" type="submit">搜索</button>
+                  <SearchIcon /><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="Search a domain or keyword, e.g. unusedomain" aria-label="Search domains" autoComplete="off" />
+                  {draftSearch && <button className="search-clear" type="button" aria-label="Clear search" onClick={() => { setDraftSearch(""); setFilters((current) => ({ ...current, q: "", page: 1 })); }}>×</button>}
+                  <button className="search-submit" type="submit">Search</button>
                 </form>
-                {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="最近搜索"><header><strong>最近搜索</strong><button type="button" className="clear-search-history" aria-label="清除搜索历史" title="清除搜索历史" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`删除搜索记录 ${item}`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
+                {historyFocused && history.items.length > 0 && <div className="search-history" role="region" aria-label="Recent searches"><header><strong>Recent searches</strong><button type="button" className="clear-search-history" aria-label="Clear search history" title="Clear search history" onClick={history.clear}><TrashIcon /></button></header>{history.items.map((item) => <div key={item}><button type="button" onClick={() => applySearch(item)}>{item}</button><button type="button" aria-label={`Remove ${item} from history`} onClick={() => history.remove(item)}>×</button></div>)}</div>}
               </div>
               <div className="toolbar-filters">
-                <label className="category-control"><select aria-label="分类筛选" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.value ? option.label : "分类"}</option>)}</select></label>
-                <label><select aria-label="后缀筛选" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">后缀</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
-                <label><select aria-label="位数筛选" value={lengthPickOf(filters.advanced)} onChange={(event) => {
+                <label className="category-control"><select aria-label="Category filter" value={filters.category} onChange={(event) => selectCategory(event.target.value)}>{categories.filter((option) => option.value !== "__featured").map((option) => <option key={option.value || "all"} value={option.value}>{option.value ? categoryLabel(option.label) : "Category"}</option>)}</select></label>
+                <label><select aria-label="TLD filter" value={filters.tld} onChange={(event) => { setFilters((current) => ({ ...current, tld: event.target.value, page: 1 })); }}><option value="">TLD</option>{(facets?.tlds ?? []).map((tld) => <option key={tld} value={tld}>.{tld}</option>)}</select></label>
+                <label><select aria-label="Length filter" value={lengthPickOf(filters.advanced)} onChange={(event) => {
                   const pick = event.target.value;
                   const range = pick === "all" ? { minLength: "", maxLength: "" } : pick === "10plus" ? { minLength: "10", maxLength: "" } : { minLength: pick, maxLength: pick };
                   setFilters((current) => ({ ...current, advanced: { ...current.advanced, ...range }, page: 1 }));
                 }}>
-                  <option value="all">位数</option>
-                  {lengthPickOf(filters.advanced) === "custom" && <option value="custom" disabled>自定义区间</option>}
-                  {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} 位</option>)}
-                  <option value="10plus">10 位以上</option>
+                  <option value="all">Length</option>
+                  {lengthPickOf(filters.advanced) === "custom" && <option value="custom" disabled>Custom range</option>}
+                  {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((value) => <option key={value} value={value}>{value} chars</option>)}
+                  <option value="10plus">10+ chars</option>
                 </select></label>
-                <label className="sort-control"><select aria-label="排序方式" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
+                <label className="sort-control"><select aria-label="Sort by" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
               </div>
             </div>
-            {hasActiveFilter && <div className="toolbar-summary"><button type="button" className="clear-filter" onClick={resetFilters}>清除筛选</button></div>}
+            {hasActiveFilter && <div className="toolbar-summary"><button type="button" className="clear-filter" onClick={resetFilters}>Clear filters</button></div>}
           </div>
 
-          {error && <div className="state-panel error-panel"><strong>加载失败</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>重试</button></div>}
+          {error && <div className="state-panel error-panel"><strong>Failed to load</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>Retry</button></div>}
           {loading && <div className="domain-list skeleton-list">{Array.from({ length: 8 }, (_, index) => <div className="domain-card skeleton" key={index} />)}</div>}
           {!loading && !error && pageData?.items.length === 0 && <section className="empty-results" aria-labelledby="empty-results-title">
-            <div className="state-panel"><h3 id="empty-results-title">未找到匹配的域名</h3><span>换一个关键词，或清除筛选后再试。</span><button type="button" onClick={resetFilters}>清除筛选</button></div>
-            {emptyBrowseCategories.length > 0 && <div className="empty-category-browse" aria-labelledby="empty-category-title"><h3 id="empty-category-title">按分类浏览</h3><div>{emptyBrowseCategories.map((item) => <button type="button" key={item.category} onClick={() => selectCategory(item.category)}><span>{item.category}</span><em>{item.count.toLocaleString("zh-CN")}</em></button>)}</div></div>}
-            {emptyRecommendations.length > 0 && <div className="empty-recommendations"><header><span>为你推荐</span><h3>试试这些精选域名</h3></header><div className="domain-list card-view">{emptyRecommendations.map((domain) => <DomainCard key={domain.id} domain={domain} onCopy={copyDomain} onQuickView={setSelectedDomain} />)}</div></div>}
+            <div className="state-panel"><h3 id="empty-results-title">No domains found</h3><span>Try another keyword, or clear the filters.</span><button type="button" onClick={resetFilters}>Clear filters</button></div>
+            {emptyBrowseCategories.length > 0 && <div className="empty-category-browse" aria-labelledby="empty-category-title"><h3 id="empty-category-title">Browse by category</h3><div>{emptyBrowseCategories.map((item) => <button type="button" key={item.category} onClick={() => selectCategory(item.category)}><span>{item.category}</span><em>{item.count.toLocaleString("zh-CN")}</em></button>)}</div></div>}
+            {emptyRecommendations.length > 0 && <div className="empty-recommendations"><header><span>Recommended</span><h3>Try these featured domains</h3></header><div className="domain-list card-view">{emptyRecommendations.map((domain) => <DomainCard key={domain.id} domain={domain} onCopy={copyDomain} onQuickView={setSelectedDomain} />)}</div></div>}
           </section>}
           {displayedItems.length > 0 && !loading && <div className={`domain-list ${effectiveViewMode === "compact" ? "compact-view" : "card-view"}`}>
             {displayedItems.map((domain) => <DomainCard
@@ -414,7 +415,7 @@ export function PublicPage() {
             />)}
           </div>}
 
-          {pageData && pageData.totalPages > 1 && <nav className="pagination" aria-label="域名分页"><button type="button" disabled={pageData.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}>上一页</button><div>{pageItems(pageData.page, pageData.totalPages).map((item) => typeof item === "number" ? <button type="button" key={item} className={pageData.page === item ? "active" : ""} aria-current={pageData.page === item ? "page" : undefined} onClick={() => setFilters((current) => ({ ...current, page: item }))}>{item}</button> : <span key={item} aria-hidden="true">…</span>)}</div><button type="button" disabled={pageData.page >= pageData.totalPages} onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}>下一页</button></nav>}
+          {pageData && pageData.totalPages > 1 && <nav className="pagination" aria-label="Pagination"><button type="button" disabled={pageData.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}>Previous</button><div>{pageItems(pageData.page, pageData.totalPages).map((item) => typeof item === "number" ? <button type="button" key={item} className={pageData.page === item ? "active" : ""} aria-current={pageData.page === item ? "page" : undefined} onClick={() => setFilters((current) => ({ ...current, page: item }))}>{item}</button> : <span key={item} aria-hidden="true">…</span>)}</div><button type="button" disabled={pageData.page >= pageData.totalPages} onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}>Next</button></nav>}
         </section>
       </main>
 

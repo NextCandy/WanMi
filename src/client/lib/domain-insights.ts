@@ -63,7 +63,7 @@ export const TLD_REGISTRY_URLS: Readonly<Record<string, string>> = {
 
 export interface DomainCharacterProfile {
   count: number;
-  composition: "纯字母" | "纯数字" | "字母数字" | "含连接符" | "混合字符";
+  composition: "Letters" | "Digits" | "Alphanumeric" | "Hyphenated" | "Mixed";
   hasRepeatedCharacter: boolean;
 }
 
@@ -73,11 +73,11 @@ function normalizeTld(tld: string): string {
 
 export function getDomainCharacterProfile(name: string): DomainCharacterProfile {
   const characters = Array.from(name);
-  let composition: DomainCharacterProfile["composition"] = "混合字符";
-  if (/^[a-z]+$/i.test(name)) composition = "纯字母";
-  else if (/^\d+$/.test(name)) composition = "纯数字";
-  else if (/^[a-z\d]+$/i.test(name)) composition = "字母数字";
-  else if (/^[a-z\d-]+$/i.test(name)) composition = "含连接符";
+  let composition: DomainCharacterProfile["composition"] = "Mixed";
+  if (/^[a-z]+$/i.test(name)) composition = "Letters";
+  else if (/^\d+$/.test(name)) composition = "Digits";
+  else if (/^[a-z\d]+$/i.test(name)) composition = "Alphanumeric";
+  else if (/^[a-z\d-]+$/i.test(name)) composition = "Hyphenated";
 
   return {
     count: characters.length,
@@ -86,12 +86,12 @@ export function getDomainCharacterProfile(name: string): DomainCharacterProfile 
   };
 }
 
-export function getTldHeat(tld: string): "热门" | "特色" | "新兴" | "小众" {
+export function getTldHeat(tld: string): "Popular" | "Niche" | "Emerging" | "Rare" {
   const normalized = normalizeTld(tld);
-  if (POPULAR_TLDS.has(normalized)) return "热门";
-  if (FEATURED_TLDS.has(normalized)) return "特色";
-  if (EMERGING_TLDS.has(normalized)) return "新兴";
-  return "小众";
+  if (POPULAR_TLDS.has(normalized)) return "Popular";
+  if (FEATURED_TLDS.has(normalized)) return "Niche";
+  if (EMERGING_TLDS.has(normalized)) return "Emerging";
+  return "Rare";
 }
 
 export function getTldRegistryUrl(tld: string): string {

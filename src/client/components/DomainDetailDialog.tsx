@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { PublicDomain } from "../../shared/types/api";
 import { getSimilarDomainGroups } from "../lib/domain-discovery";
+import { categoryLabel } from "../lib/category-label";
 import { getDomainCharacterProfile, getPinyinMeaning, getTldHeat, getTldRegistryUrl } from "../lib/domain-insights";
 
 interface DomainDetailDialogProps {
@@ -15,7 +16,7 @@ interface DomainDetailDialogProps {
 function formatDate(value: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("zh-CN");
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-CA");
 }
 
 export function DomainDetailDialog({ domain, candidates, onClose, onCopy, onSelect }: DomainDetailDialogProps) {
@@ -55,61 +56,61 @@ export function DomainDetailDialog({ domain, candidates, onClose, onCopy, onSele
   return (
     <dialog ref={dialogRef} className="domain-detail-dialog" aria-labelledby="quick-domain-title" onClose={onClose} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section>
-        <button type="button" className="modal-close" onClick={onClose} aria-label="关闭域名速览" autoFocus>×</button>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close quick view" autoFocus>×</button>
         <h2 id="quick-domain-title">{domain.name}<span>.{domain.tld}</span></h2>
-        <div className="detail-badges">{domain.is_featured && <span className="chip chip-featured">精品域名</span>}{categories.map((category) => <span className="chip" key={category}>{category}</span>)}</div>
+        <div className="detail-badges">{domain.is_featured && <span className="chip chip-featured">Featured</span>}{categories.map((category) => <span className="chip" key={category}>{categoryLabel(category)}</span>)}</div>
         {domain.description && <p className="detail-description">{domain.description}</p>}
         <dl className="quick-detail-grid">
-          <div><dt>完整域名</dt><dd>{domain.domain}</dd></div>
-          <div><dt>主体长度</dt><dd>{domain.name.length} 字符</dd></div>
-          <div><dt>后缀</dt><dd>.{domain.tld}</dd></div>
-          <div><dt>注册日期</dt><dd>{formatDate(domain.registered_at)}</dd></div>
-          <div><dt>到期日期</dt><dd>{formatDate(domain.expires_at)}</dd></div>
+          <div><dt>Domain</dt><dd>{domain.domain}</dd></div>
+          <div><dt>Length</dt><dd>{domain.name.length} chars</dd></div>
+          <div><dt>TLD</dt><dd>.{domain.tld}</dd></div>
+          <div><dt>Registered</dt><dd>{formatDate(domain.registered_at)}</dd></div>
+          <div><dt>Expires</dt><dd>{formatDate(domain.expires_at)}</dd></div>
         </dl>
         <section className="quick-value-section" aria-labelledby="quick-value-title">
-          <h3 id="quick-value-title">域名价值维度</h3>
+          <h3 id="quick-value-title">Domain profile</h3>
           <div className="quick-value-grid">
-            <article><span>字符数</span><strong>{characterProfile.count}</strong><small>主体字符</small></article>
-            <article><span>字符构成</span><strong>{characterProfile.composition}</strong><small>{characterProfile.hasRepeatedCharacter ? "含叠字" : "无叠字"}</small></article>
-            <article><span>后缀热度</span><strong>{getTldHeat(domain.tld)}</strong><small>.{domain.tld}</small></article>
-            <article className="quick-value-pinyin"><span>拼音含义</span><strong>{pinyinMeaning ?? "暂无明确拆解"}</strong><small>{pinyinMeaning ? "按常见中文含义拆解" : "未匹配常见拼音"}</small></article>
+            <article><span>Characters</span><strong>{characterProfile.count}</strong><small>in name</small></article>
+            <article><span>Composition</span><strong>{characterProfile.composition}</strong><small>{characterProfile.hasRepeatedCharacter ? "Has repeats" : "No repeats"}</small></article>
+            <article><span>TLD heat</span><strong>{getTldHeat(domain.tld)}</strong><small>.{domain.tld}</small></article>
+            <article className="quick-value-pinyin"><span>Pinyin</span><strong>{pinyinMeaning ?? "No clear reading"}</strong><small>{pinyinMeaning ? "Common Chinese reading" : "No common match"}</small></article>
           </div>
         </section>
         <div className="quick-resource-grid">
           <section className="quick-qr-section" aria-labelledby="quick-qr-title">
             <div className="quick-section-heading">
-              <div><h3 id="quick-qr-title">访问二维码</h3><p>https://{domain.domain}</p></div>
-              {currentQrCode && <a className="quick-qr-download" href={currentQrCode} download={`${domain.domain}-qrcode.png`}>下载 PNG</a>}
+              <div><h3 id="quick-qr-title">QR code</h3><p>https://{domain.domain}</p></div>
+              {currentQrCode && <a className="quick-qr-download" href={currentQrCode} download={`${domain.domain}-qrcode.png`}>Download PNG</a>}
             </div>
             <div className="quick-qr-frame" aria-live="polite">
               {currentQrCode
-                ? <img src={currentQrCode} width="128" height="128" alt={`${domain.domain} 访问二维码`} />
-                : <span>正在生成二维码…</span>}
+                ? <img src={currentQrCode} width="128" height="128" alt={`QR code for ${domain.domain}`} />
+                : <span>Generating QR code…</span>}
             </div>
           </section>
           <section className="quick-external-section" aria-labelledby="quick-external-title">
-            <div className="quick-section-heading"><div><h3 id="quick-external-title">外部查询</h3><p>在可信来源中核对域名公开信息</p></div></div>
+            <div className="quick-section-heading"><div><h3 id="quick-external-title">External lookup</h3><p>Verify public records with trusted sources</p></div></div>
             <div className="quick-external-links">
-              <a href={`https://whois.com/whois/${encodeURIComponent(domain.domain)}`} target="_blank" rel="noopener noreferrer"><span>WHOIS 查询</span><b>↗</b></a>
-              <a href={`https://web.archive.org/web/*/${encodeURIComponent(domain.domain)}`} target="_blank" rel="noopener noreferrer"><span>历史存档</span><b>↗</b></a>
-              <a href={getTldRegistryUrl(domain.tld)} target="_blank" rel="noopener noreferrer"><span>后缀信息</span><b>↗</b></a>
+              <a href={`https://whois.com/whois/${encodeURIComponent(domain.domain)}`} target="_blank" rel="noopener noreferrer"><span>WHOIS</span><b>↗</b></a>
+              <a href={`https://web.archive.org/web/*/${encodeURIComponent(domain.domain)}`} target="_blank" rel="noopener noreferrer"><span>Web archive</span><b>↗</b></a>
+              <a href={getTldRegistryUrl(domain.tld)} target="_blank" rel="noopener noreferrer"><span>TLD registry</span><b>↗</b></a>
             </div>
           </section>
         </div>
         <div className="quick-detail-actions">
-          <button type="button" className="secondary-button" onClick={() => onCopy(domain.domain)}>复制域名</button>
-          <a className="secondary-button" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer">访问域名 ↗</a>
-          {domain.is_featured && <a className="detail-page-link" href={`/d/${encodeURIComponent(domain.domain)}`}>查看详情页 →</a>}
+          <button type="button" className="secondary-button" onClick={() => onCopy(domain.domain)}>Copy domain</button>
+          <a className="secondary-button" href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer">Visit domain ↗</a>
+          {domain.is_featured && <a className="detail-page-link" href={`/d/${encodeURIComponent(domain.domain)}`}>View details →</a>}
         </div>
         {hasSimilar && <section className="quick-similar" aria-labelledby="quick-similar-title">
-          <h3 id="quick-similar-title">相似域名</h3>
+          <h3 id="quick-similar-title">Similar domains</h3>
           {similar.sameTld.length > 0 && <div className="quick-similar-group">
-            <strong>同后缀</strong>
+            <strong>Same TLD</strong>
             <div className="quick-similar-scroll">{similar.sameTld.map((item) => <button type="button" key={item.id} onClick={() => onSelect(item)}><span>{item.domain}</span><small>.{item.tld}</small></button>)}</div>
           </div>}
           {similar.sameLength.length > 0 && <div className="quick-similar-group">
-            <strong>同长度</strong>
-            <div className="quick-similar-scroll">{similar.sameLength.map((item) => <button type="button" key={item.id} onClick={() => onSelect(item)}><span>{item.domain}</span><small>{item.name.length} 字符</small></button>)}</div>
+            <strong>Same length</strong>
+            <div className="quick-similar-scroll">{similar.sameLength.map((item) => <button type="button" key={item.id} onClick={() => onSelect(item)}><span>{item.domain}</span><small>{item.name.length} chars</small></button>)}</div>
           </div>}
         </section>}
       </section>

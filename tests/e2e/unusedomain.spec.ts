@@ -34,10 +34,10 @@ test.describe.serial("UnUseDomain 生产流程", () => {
 
   test("精品详情页、OG、sitemap 与速览入口形成完整公开链路", async ({ page, request }) => {
     await page.goto("/d/mx.ooo", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveTitle(/mx\.ooo · .+精选域名/);
+    await expect(page).toHaveTitle(/mx\.ooo · .+[Ff]eatured/);
     await expect(page.getByRole("heading", { name: "mx.ooo", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "访问该域名 →" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "相似域名推荐" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Visit this domain →" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Similar domains" })).toBeVisible();
     const seo = await page.evaluate(() => ({
       ogImage: document.querySelector('meta[property="og:image"]')?.getAttribute("content"),
       product: [...document.querySelectorAll('script[type="application/ld+json"]')]
@@ -64,8 +64,8 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     expect(xml).toContain("/d/mx.ooo</loc>");
 
     await page.goto("/?q=mx.ooo", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "查看 mx.ooo" }).click();
-    await expect(page.getByRole("dialog").getByRole("link", { name: "查看详情页 →" })).toHaveAttribute("href", "/d/mx.ooo");
+    await page.getByRole("button", { name: "View mx.ooo" }).click();
+    await expect(page.getByRole("dialog").getByRole("link", { name: "View details →" })).toHaveAttribute("href", "/d/mx.ooo");
   });
 
   test("前台读取 D1、搜索和分类、后缀筛选", async ({ page }) => {
@@ -75,9 +75,9 @@ test.describe.serial("UnUseDomain 生产流程", () => {
       await route.fulfill({ response, json: { ...body, data: { ...body.data, contact_email: "955555@gmail.com", contact_x: "iWangGang", contact_qq: "307203" } } });
     });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveTitle("UnUseDomain · 域名展示");
+    await expect(page).toHaveTitle("UnUseDomain · Domain Gallery");
     await expect(page.locator('meta[name="unusedomain-build"]')).toHaveAttribute("content", "unusedomain-2026-07-20-v1");
-    await expect(page.locator(".domain-total-pill")).toHaveText("859 个域名");
+    await expect(page.locator(".domain-total-pill")).toHaveText("859 domains");
     await expect(page.locator(".public-header .brand-title")).toHaveText("UnUseDomain");
     await expect(page.locator(".public-header .brand-title")).toBeVisible();
     await expect(page.getByRole("heading", { name: "UnUseDomain", exact: true })).toHaveCount(1);
@@ -85,9 +85,9 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     await expect(page.getByRole("group", { name: "状态筛选" })).toHaveCount(0);
     await expect(page.getByText("DOMAIN ASSET GALLERY", { exact: true })).toHaveCount(0);
     await expect(page.getByText(/为你的下一个项目找到合适的域名/)).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "后台" })).toHaveText("");
-    await expect(page.getByRole("link", { name: "后台" }).locator("svg")).toHaveCount(1);
-    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
+    await expect(page.getByRole("link", { name: "Admin" })).toHaveText("");
+    await expect(page.getByRole("link", { name: "Admin" }).locator("svg")).toHaveCount(1);
+    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["Category", "TLD", "Length", "Sort"]);
     await expect(page.locator(".domain-card:not(.skeleton)")).toHaveCount(36);
     await expect(page.locator(".view-switch")).toHaveCount(0);
     await expect(page.locator(".domain-list.card-view")).toBeVisible();
@@ -95,8 +95,8 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     /* 首卡因排序打分随库数据浮动，且首屏卡未必有注册日期：
        这里只断言两种合法形态；完整日期区间格式由 mx.ooo 链路用例守护。 */
     const firstCatalogueCard = page.locator(".domain-card:not(.skeleton)").first();
-    await expect(firstCatalogueCard.locator(".registration-range")).toHaveText(/^(\d{4}\.\d{2}\.\d{2}-\d{4}\.\d{2}\.\d{2}|\d{4}\.\d{2}\.\d{2}|日期待补充)$/);
-    await expect(firstCatalogueCard.locator(".remaining-days")).toHaveText(/^(余\d+天|已过期\d+天|有效期未知)$/);
+    await expect(firstCatalogueCard.locator(".registration-range")).toHaveText(/^(\d{4}\.\d{2}\.\d{2}-\d{4}\.\d{2}\.\d{2}|\d{4}\.\d{2}\.\d{2}|Date pending)$/);
+    await expect(firstCatalogueCard.locator(".remaining-days")).toHaveText(/^(\d+ Days|Expired \d+ Days|Unknown)$/);
     const cardGeometry = await firstCatalogueCard.evaluate((card) => {
       const rect = (selector: string) => card.querySelector(selector)!.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
@@ -116,35 +116,35 @@ test.describe.serial("UnUseDomain 生产流程", () => {
       };
     });
     expect(cardGeometry).toEqual({ actionsAtTopRight: true, contentOrder: true, remainingAtBottomRight: true });
+    // 分类徽章已从卡片移除，徽章行只剩后缀 + 精品星标 + 域龄
     const badgeGeometry = await page.evaluate(() => {
       const firstCard = document.querySelector(".domain-card:not(.skeleton)")!;
       const tld = firstCard.querySelector(".tld-badge")!.getBoundingClientRect();
-      const categoryElement = firstCard.querySelector<HTMLElement>(".category-badge")!;
-      const category = categoryElement.getBoundingClientRect();
       const actions = firstCard.querySelector(".domain-actions")!.getBoundingClientRect();
+      const star = firstCard.querySelector(".featured-star")?.getBoundingClientRect() ?? null;
       return {
-        categoryWidth: category.width,
-        categoryContentWidth: categoryElement.scrollWidth,
+        categoryBadges: document.querySelectorAll(".category-badge").length,
         tldWidth: tld.width,
-        categoryLeavesFlexibleSpace: actions.left - category.right,
+        starAfterTld: star ? star.left >= tld.right - 1 : true,
+        badgesLeaveFlexibleSpace: actions.left - (star ?? tld).right,
       };
     });
-    expect(badgeGeometry.categoryWidth).toBeLessThan(120);
-    expect(Math.abs(badgeGeometry.categoryWidth - badgeGeometry.categoryContentWidth)).toBeLessThanOrEqual(2);
+    expect(badgeGeometry.categoryBadges).toBe(0);
     expect(badgeGeometry.tldWidth).toBeLessThan(90);
-    expect(badgeGeometry.categoryLeavesFlexibleSpace).toBeGreaterThan(12);
+    expect(badgeGeometry.starAfterTld).toBe(true);
+    expect(badgeGeometry.badgesLeaveFlexibleSpace).toBeGreaterThan(12);
     const badgeStyle = async () => page.locator(".tld-badge").first().evaluate((element) => {
       const style = getComputedStyle(element);
       return { color: style.color, background: style.backgroundColor, border: style.borderColor };
     });
     const comBadgeStyle = await badgeStyle();
-    await page.getByLabel("后缀筛选").selectOption("cn");
+    await page.getByLabel("TLD filter").selectOption("cn");
     await expect(page.locator(".tld-badge").first()).toHaveText(".cn");
     expect(await badgeStyle()).toEqual(comBadgeStyle);
-    await page.getByLabel("后缀筛选").selectOption("ooo");
+    await page.getByLabel("TLD filter").selectOption("ooo");
     await expect(page.locator(".tld-badge").first()).toHaveText(".ooo");
     expect(await badgeStyle()).toEqual(comBadgeStyle);
-    await page.getByLabel("后缀筛选").selectOption("");
+    await page.getByLabel("TLD filter").selectOption("");
     const searchGeometry = await page.evaluate(() => {
       const form = document.querySelector(".filter-search")!.getBoundingClientRect();
       const button = document.querySelector(".search-submit")!.getBoundingClientRect();
@@ -213,10 +213,10 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     // 页脚从居中胶囊改为三栏铺开，只约束行高不再贴着中栏宽度
     expect(footerGeometry.footerHeight - footerGeometry.logoHeight).toBeLessThanOrEqual(24);
     expect(footerGeometry.footerWidth).toBeGreaterThan(footerGeometry.contentWidth);
-    const search = page.getByRole("textbox", { name: "搜索域名" });
+    const search = page.getByRole("textbox", { name: "Search domains" });
     await search.fill("wanmi.org");
-    await page.getByRole("button", { name: "搜索", exact: true }).click();
-    await expect(page.getByTitle("复制 wanmi.org")).toBeVisible();
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByTitle("Copy wanmi.org")).toBeVisible();
     const resultCard = page.locator(".domain-card:not(.skeleton)");
     await expect(resultCard).toHaveCount(1);
     // 卡片右上角只保留复制与查看两枚图标。
@@ -225,21 +225,21 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     expect(await actionButtons.allInnerTexts()).toEqual(["", ""]);
     await expect(page.getByText("我想要", { exact: true })).toHaveCount(0);
     await search.fill("02cloud.com");
-    await page.getByRole("button", { name: "搜索", exact: true }).click();
-    await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
-    await page.getByRole("button", { name: "清除筛选" }).click();
-    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
-    await expect(page.getByLabel("分类筛选")).toBeVisible();
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByTitle("Copy 02cloud.com")).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["Category", "TLD", "Length", "Sort"]);
+    await expect(page.getByLabel("Category filter")).toBeVisible();
     const orgOption = page.getByRole("option", { name: ".org", exact: true });
     await expect(orgOption).toBeAttached();
-    await page.getByLabel("后缀筛选").selectOption("org");
+    await page.getByLabel("TLD filter").selectOption("org");
     await expect(page.locator(".tld-badge").first()).toHaveText(".org");
-    await expect(page.locator(".domain-total-pill")).toHaveText("859 个域名");
-    await expect(page.getByLabel("排序方式").locator("option")).toHaveCount(6);
-    expect(await page.getByLabel("排序方式").locator("option").allInnerTexts()).toEqual([
-      "排序", "最新加入", "字符数升序", "字符数降序", "后缀字母序", "随机",
+    await expect(page.locator(".domain-total-pill")).toHaveText("859 domains");
+    await expect(page.getByLabel("Sort by").locator("option")).toHaveCount(6);
+    expect(await page.getByLabel("Sort by").locator("option").allInnerTexts()).toEqual([
+      "Sort", "Newest", "Shortest", "Longest", "TLD A-Z", "Random",
     ]);
-    await page.getByLabel("排序方式").selectOption("length_desc");
+    await page.getByLabel("Sort by").selectOption("length_desc");
     await expect(page).toHaveURL(/sort=length_desc/);
   });
 
@@ -257,7 +257,7 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     await expect(page.locator(".domain-list.card-view")).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "移动端快捷导航" })).toHaveCount(0);
     await expect(page.locator(".footer-copyright")).toHaveText("© 2026 UnUseDomain");
-    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["分类", "后缀", "位数", "排序"]);
+    expect(await page.locator(".toolbar-filters option:checked").allInnerTexts()).toEqual(["Category", "TLD", "Length", "Sort"]);
     const metrics = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
@@ -277,28 +277,28 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    const search = page.getByRole("textbox", { name: "搜索域名" });
+    const search = page.getByRole("textbox", { name: "Search domains" });
     await search.focus();
     const history = page.locator(".search-history");
     await expect(history.locator(":scope > div")).toHaveCount(5);
     await history.getByRole("button", { name: "wanmi.org", exact: true }).click();
     await expect(page).toHaveURL(/q=wanmi\.org/);
-    await expect(page.getByTitle("复制 wanmi.org")).toBeVisible();
+    await expect(page.getByTitle("Copy wanmi.org")).toBeVisible();
 
     await search.fill("definitely-no-such-unusedomain-domain");
-    await page.getByRole("button", { name: "搜索", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "未找到匹配的域名" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "试试这些精选域名" })).toBeVisible();
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "No domains found" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Try these featured domains" })).toBeVisible();
     await expect(page.locator(".empty-recommendations .domain-card")).toHaveCount(3);
-    // 精品星标随分类保留在卡片左上，日期行只负责日期范围和剩余有效期。
-    await expect(page.locator(".empty-recommendations .category-badge svg")).toHaveCount(3);
+    // 精品语义现在只由独立星标承担（分类徽章已从卡片移除）
+    await expect(page.locator(".empty-recommendations .featured-star svg")).toHaveCount(3);
 
-    await page.locator(".empty-results").getByRole("button", { name: "清除筛选" }).click();
+    await page.locator(".empty-results").getByRole("button", { name: "Clear filters" }).click();
     await expect(page).toHaveURL(/sort=default/);
     await expect(page.locator(".domain-card:not(.skeleton)")).toHaveCount(36);
 
     await search.focus();
-    await page.getByRole("button", { name: "清除搜索历史" }).click();
+    await page.getByRole("button", { name: "Clear search history" }).click();
     await expect(page.locator(".search-history")).toHaveCount(0);
     expect(await page.evaluate(() => window.localStorage.getItem("unusedomain-search-history"))).toBe('{"version":1,"items":[]}');
   });
@@ -306,31 +306,31 @@ test.describe.serial("UnUseDomain 生产流程", () => {
   test("前台位数筛选、搜索历史与域名速览", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     // 高级筛选面板已移除；位数下拉驱动同一 minLength/maxLength 状态
-    await page.getByLabel("位数筛选").selectOption("7");
+    await page.getByLabel("Length filter").selectOption("7");
     await expect(page).toHaveURL(/minLength=7/);
-    await expect(page.getByTitle("复制 02cloud.com")).toBeVisible();
+    await expect(page.getByTitle("Copy 02cloud.com")).toBeVisible();
     await expect(page.getByRole("button", { name: "高级筛选" })).toHaveCount(0);
 
-    const search = page.getByRole("textbox", { name: "搜索域名" });
+    const search = page.getByRole("textbox", { name: "Search domains" });
     await search.fill("02cloud.com");
-    await page.getByRole("button", { name: "搜索", exact: true }).click();
-    await page.getByRole("button", { name: "查看 02cloud.com" }).click();
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "View 02cloud.com" }).click();
     const dialog = page.getByRole("dialog", { name: /02cloud\.com/ });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("完整域名")).toBeVisible();
-    await expect(dialog.getByRole("heading", { name: "域名价值维度" })).toBeVisible();
-    await expect(dialog.getByText("字母数字", { exact: true })).toBeVisible();
-    await expect(dialog.getByText("热门", { exact: true })).toBeVisible();
-    await expect(dialog.getByRole("img", { name: "02cloud.com 访问二维码" })).toHaveAttribute("width", "128");
-    await expect(dialog.getByRole("link", { name: "下载 PNG" })).toHaveAttribute("download", "02cloud.com-qrcode.png");
-    for (const label of ["WHOIS 查询", "历史存档", "后缀信息"]) {
+    await expect(dialog.getByText("Domain", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Domain profile" })).toBeVisible();
+    await expect(dialog.getByText("Alphanumeric", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Popular", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("img", { name: "QR code for 02cloud.com" })).toHaveAttribute("width", "128");
+    await expect(dialog.getByRole("link", { name: "Download PNG" })).toHaveAttribute("download", "02cloud.com-qrcode.png");
+    for (const label of ["WHOIS", "Web archive", "TLD registry"]) {
       const link = dialog.getByRole("link", { name: label });
       await expect(link).toHaveAttribute("target", "_blank");
       await expect(link).toHaveAttribute("rel", "noopener noreferrer");
     }
-    await dialog.getByRole("button", { name: "关闭域名速览" }).click();
+    await dialog.getByRole("button", { name: "Close quick view" }).click();
 
-    await page.getByRole("button", { name: "清空搜索" }).click();
+    await page.getByRole("button", { name: "Clear search" }).click();
     await search.focus();
     await expect(page.locator(".search-history").getByRole("button", { name: "02cloud.com", exact: true })).toBeVisible();
   });
@@ -383,14 +383,14 @@ test.describe.serial("UnUseDomain 生产流程", () => {
 
     const publicPage = await context.newPage();
     await publicPage.goto("/?q=02cloud.com", { waitUntil: "domcontentloaded" });
-    await expect(publicPage.getByText("未找到匹配的域名")).toBeVisible();
+    await expect(publicPage.getByText("No domains found")).toBeVisible();
     await publicPage.close();
 
     await row.locator("button.switch").nth(1).click();
     await expect(page.getByText("已恢复展示")).toBeVisible();
     const restoredPage = await context.newPage();
     await restoredPage.goto("/?q=02cloud.com", { waitUntil: "domcontentloaded" });
-    await expect(restoredPage.getByTitle("复制 02cloud.com")).toBeVisible();
+    await expect(restoredPage.getByTitle("Copy 02cloud.com")).toBeVisible();
     await restoredPage.close();
 
     await row.locator('input[type="checkbox"]').check();
@@ -495,10 +495,10 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     await publicPage.goto("/?q=02cloud.com", { waitUntil: "domcontentloaded" });
     const publicDomainCard = publicPage.locator(".domain-list .domain-card").filter({ hasText: "02cloud.com" });
     await expect(publicDomainCard).toHaveClass(/featured/);
-    await publicPage.getByRole("button", { name: "查看 02cloud.com" }).click();
+    await publicPage.getByRole("button", { name: "View 02cloud.com" }).click();
     const quickView = publicPage.getByRole("dialog", { name: /02cloud\.com/ });
     await expect(quickView.getByText("E2E 手动简介", { exact: true })).toBeVisible();
-    await quickView.getByRole("button", { name: "关闭域名速览" }).click();
+    await quickView.getByRole("button", { name: "Close quick view" }).click();
 
     await row.getByRole("button", { name: "编辑", exact: true }).click();
     await editDialog.getByLabel(/^简介/).fill("");
@@ -533,8 +533,8 @@ test.describe.serial("UnUseDomain 生产流程", () => {
     // 「随机发现」已在 cc742dd 移除；改用首张卡片的速览验证手机端对话框可用
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.locator(".domain-actions button[aria-label^='查看']").first().click();
+    await page.locator(".domain-actions button[aria-label^='View']").first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByRole("button", { name: "关闭域名速览" }).click();
+    await page.getByRole("button", { name: "Close quick view" }).click();
   });
 });

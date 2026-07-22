@@ -2796,11 +2796,11 @@ svg.lucide {
   .friend-link-logo { height: 20px; max-width: 76px; }
 }
 
+
 /* ============================================================
-   2026-07-22 · 流光效果与紧凑卡片（参考 dog.do，配色改用本站墨绿 + 香槟金）
-   - 站名与精品域名走文字流光；卡片边框走 conic-gradient 旋转
-   - 卡片压缩：去掉空简介占位行，收紧内边距与行距
-   动效一律在 prefers-reduced-motion 下停到静止渐变，不做无限动画。
+   2026-07-22 · 站名流光 + 紧凑卡片
+   流光只留在站名（页首品牌名与页脚版权）；域名卡片不做流光——
+   金色域名在旋转边框上读不清，精品改为深墨绿加重，靠星标区分。
    ============================================================ */
 
 @keyframes wm-text-shimmer {
@@ -2808,11 +2808,6 @@ svg.lucide {
   100% { background-position: 200% 50%; }
 }
 
-@keyframes wm-border-spin {
-  to { transform: rotate(1turn); }
-}
-
-/* 站名：页首品牌名与页脚版权同一条流光 */
 .public-shell .brand-title,
 .public-shell .public-footer > .footer-copyright > span {
   background: linear-gradient(
@@ -2833,76 +2828,13 @@ svg.lucide {
   animation: wm-text-shimmer 4.5s linear infinite;
 }
 
-/* ---- 域名卡片：旋转流光边框 + 紧凑排布 ---- */
+/* ---- 紧凑卡片 ---- */
 .public-shell .domain-list.card-view .domain-card {
-  /* 浅色底上流光要够实才看得见，不能照搬深色站的低透明度 */
-  --shimmer-1: color-mix(in oklab, var(--brand-primary) 55%, transparent);
-  --shimmer-2: var(--brand-primary-hover);
-  --shimmer-3: var(--gold);
   min-height: 0;
   padding: 13px 14px 11px;
   gap: 7px;
-  overflow: hidden;
-  border-color: transparent;
-  contain-intrinsic-size: 0 150px;
-}
-
-/* 精品卡：整条流光都走金，和精品标记呼应 */
-.public-shell .domain-list.card-view .domain-card.featured {
-  --shimmer-1: color-mix(in oklab, var(--gold-deep) 62%, transparent);
-  --shimmer-2: var(--gold);
-  --shimmer-3: var(--gold-bright);
-  border-color: transparent;
-}
-
-/* 旋转的 conic 渐变铺满卡片外接圆，::after 再盖住中心只留一圈边 */
-.public-shell .domain-list.card-view .domain-card::before {
-  content: "";
-  position: absolute;
-  inset: -80%;
-  width: auto;
-  opacity: 1;
-  border-radius: 0;
-  /* 两道亮弧对角扫过；透明段留得比深色站短，否则浅底上大半圈都是"没有边框" */
-  background: conic-gradient(
-    var(--border) 0%,
-    var(--shimmer-1) 6%,
-    var(--shimmer-2) 11%,
-    var(--shimmer-3) 15%,
-    var(--shimmer-2) 19%,
-    var(--shimmer-1) 24%,
-    var(--border) 34%,
-    var(--border) 56%,
-    var(--shimmer-1) 62%,
-    var(--shimmer-2) 67%,
-    var(--shimmer-3) 71%,
-    var(--shimmer-2) 75%,
-    var(--shimmer-1) 80%,
-    var(--border) 90%,
-    var(--border) 100%
-  );
-  animation: wm-border-spin 6s linear infinite;
-  will-change: transform;
-  z-index: 0;
-}
-
-.public-shell .domain-list.card-view .domain-card::after {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border-radius: inherit;
-  background: var(--surface);
-  z-index: 1;
-}
-
-/* 内容压在两层装饰之上 */
-.public-shell .domain-list.card-view .domain-card > * {
-  position: relative;
-  z-index: 2;
-}
-
-/* 简介为空时这一行不再占高，是卡片能收到 150px 的关键 */
-.public-shell .domain-list.card-view .domain-card {
+  contain-intrinsic-size: 0 140px;
+  /* 简介为空时整段不渲染，这一行不再占高 */
   grid-template-rows: auto auto auto auto;
 }
 
@@ -2911,22 +2843,13 @@ svg.lucide {
   line-height: 1.16;
 }
 
-/* 精品域名走金色流光，普通域名保持墨绿实色 */
+/* 精品：深墨绿加重，不用金色 */
 .public-shell .domain-list.card-view .domain-card.featured .domain-name strong {
-  background: linear-gradient(
-    90deg,
-    var(--gold-deep) 0%,
-    var(--gold-bright) 25%,
-    var(--gold-soft) 50%,
-    var(--gold-bright) 75%,
-    var(--gold-deep) 100%
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  animation: wm-text-shimmer 3.5s linear infinite;
+  color: var(--brand-primary-ink);
+  font-weight: 800;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  animation: none;
 }
 
 .public-shell .domain-list.card-view .card-expiry-row {
@@ -2934,7 +2857,7 @@ svg.lucide {
   font-size: 10.5px;
 }
 
-/* 域龄徽章：与后缀、分类同处徽章行 */
+/* 域龄徽章 */
 .public-shell .age-badge {
   display: inline-flex;
   align-items: center;
@@ -2950,29 +2873,46 @@ svg.lucide {
   white-space: nowrap;
 }
 
-/* 十年以上转金，一眼能挑出老域名 */
 .public-shell .age-badge.is-aged {
   border-color: var(--gold-border);
   background: var(--gold-bg);
   color: var(--gold-text);
 }
 
+/* 精品星标独立于分类徽章存在 */
+.public-shell .featured-star {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--gold-bg);
+  color: var(--gold-text);
+}
+.public-shell .featured-star svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  stroke: none;
+}
+
+/* 徽章行：后缀 + 星标 + 域龄，分类徽章已从卡片移除 */
 .public-shell .domain-list.card-view .card-badge-row {
   grid-template-columns: max-content max-content minmax(0, 1fr) max-content;
   gap: 6px;
   align-items: center;
 }
+.public-shell .domain-list.card-view .card-badge-row .featured-star { justify-self: start; }
 .public-shell .domain-list.card-view .card-badge-row .age-badge { justify-self: start; }
 .public-shell .domain-list.card-view .card-badge-row .domain-actions { grid-column: 4; }
 
-.public-shell .domain-list.compact-view .age-badge { display: none; }
+.public-shell .domain-list.compact-view .age-badge,
+.public-shell .domain-list.compact-view .featured-star { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .public-shell .brand-title,
-  .public-shell .public-footer > .footer-copyright > span,
-  .public-shell .domain-list.card-view .domain-card.featured .domain-name strong {
+  .public-shell .public-footer > .footer-copyright > span {
     animation: none;
     background-position: 50% 50%;
   }
-  .public-shell .domain-list.card-view .domain-card::before { animation: none; }
 }

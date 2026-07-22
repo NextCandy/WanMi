@@ -95,9 +95,11 @@
   --cream-fg-soft: rgba(31, 42, 36, 0.62);
   --cream-rule: rgba(31, 42, 36, 0.14);
 
-  /* Typography */
-  --font-display: "Cormorant Garamond", "Songti SC", "Noto Serif SC", ui-serif, Georgia, serif;
-  --font-ui: "Manrope", "Noto Sans SC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  /* Typography
+     英文走 Averia Serif Libre Light，中文走仓耳华新体：两者都自托管，
+     中文子集按 unicode-range 限定，前台已全英文时浏览器不会去下载它。 */
+  --font-display: "Averia Serif Libre", "Tsanger HuaXin", "Cormorant Garamond", "Songti SC", ui-serif, Georgia, serif;
+  --font-ui: "Averia Serif Libre", "Tsanger HuaXin", "Manrope", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Radius */

@@ -99,8 +99,8 @@ app.get("/", async (c) => {
     c.env.DB.prepare("SELECT COUNT(*) AS total FROM domains WHERE is_listed = 1").first<{ total: number }>(),
   ]);
   const site = settings?.site_name ?? "UnUseDomain";
-  const title = `${site} · 域名展示`;
-  const description = settings?.site_description || "精选域名资产展示";
+  const title = `${site} · Domain Gallery`;
+  const description = settings?.site_description || "Featured domain gallery";
   const canonical = `${url.origin}/`;
   const image = settings?.logo_url ? absoluteAsset(settings.logo_url, url.origin) : `${url.origin}/unusedomain-logo.png`;
   const favicon = settings?.favicon_url || null;
@@ -173,7 +173,7 @@ app.get("/d/:name", async (c) => {
 
   const shell = await c.env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: c.req.raw.headers }));
   const domain = detail.domain;
-  const title = `${domain.domain} · ${detail.site.name}精选域名`;
+  const title = `${domain.domain} · ${detail.site.name} Featured Domain`;
   const description = featuredDomainDescription(domain);
   const canonical = `${url.origin}/d/${encodeURIComponent(domain.domain)}`;
   const image = `${url.origin}/api/public/og/${encodeURIComponent(domain.domain)}`;

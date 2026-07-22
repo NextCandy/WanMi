@@ -49,8 +49,9 @@ UnUseDomain 是部署在 Cloudflare Workers 上的中文域名展示与管理系
 - 页脚为三栏：左侧友情链接、中间品牌 Logo 与版权、右侧联系方式小图标（原先在页首右上角，已整体下移）。三栏的列号写死为 1/2/3，左右两列同为 `1fr`，因此没有友情链接时中栏仍落在页脚正中、联系方式仍靠右，不会因为少一个子元素而顺次前移。窄屏（≤900px）沿用同一套列模板，靠压缩内容让位：带 LOGO 的友链收成纯图标、中间只留品牌 Logo 不显示版权文字，联系图标保持一排。
 - 搜索按钮固定为右侧 72px 紧凑按钮，不再拉伸占据工具栏。
 - 每张域名卡片底部仅保留收藏、复制、速览三枚图标；无可见中文按钮文字，也没有“我想要”。
-- 站名（页首品牌名与页脚版权）和精品域名走文字流光：`background-clip: text` + 墨绿→香槟金→墨绿的渐变横向循环；域名卡片外沿是 conic-gradient 旋转出的流光边框（`::before` 铺满外接圆、`::after` 盖住中心只留 2px 边），精品卡整条走金、普通卡以墨绿为主。浅色底需要比深色站更实的颜色与更短的透明段才看得见。实测 36 张卡同时旋转仍是 60FPS、零掉帧（`transform` 走 GPU 合成，`content-visibility` 让屏外卡片不参与），`prefers-reduced-motion` 下全部停到静止渐变。
-- 卡片高约 150px：简介为空时整段不渲染（不再留占位行），内边距与行距同步收紧；徽章行为「后缀 + 分类 + 域龄」，域龄由 `registered_at` 折算整年，满 10 年转金色。
+- **前台界面文案全部为英文**（搜索、筛选、分页、速览弹窗、精品详情页与 SSR、页面标题与 OG 描述）；分类值仍以中文存库、后台照常中文管理，前台由 `src/client/lib/category-label.ts` 做展示层映射（纯字母→Letters、三拼→3 Pinyin…），未覆盖的新分类原样透出。拼音含义模块保留汉字释义——那是内容而非界面语言。
+- 站名（页首品牌名与页脚版权）走文字流光：`background-clip: text` + 墨绿→香槟金→墨绿的渐变横向循环，`prefers-reduced-motion` 下停到静止渐变。域名卡片不做流光。
+- 卡片高约 150px：简介为空时整段不渲染（不再留占位行），内边距与行距同步收紧；徽章行为「后缀 + 精品星标 + 域龄」，分类徽章已移除，精品仅由星标表达、域名文字用深墨绿加重（不再用金色，在浅底上更稳）。域龄由 `registered_at` 折算整年，显示为 `Age N Years`，满 10 年转金色；剩余有效期显示为 `N Days`。
 - 点击域名名称直接在新标签页访问对应域名；站内保留原生 `dialog` 速览，精品域名速览额外提供独立详情页入口。
 - 收藏和最近搜索仅保存在当前浏览器的版本化 `localStorage` 中。
 - 单一黑金主题、随机发现、相似域名、桌面/平板/手机响应式布局与无障碍标签。
@@ -61,7 +62,10 @@ UnUseDomain 是部署在 Cloudflare Workers 上的中文域名展示与管理系
 ## 性能策略
 
 - 样式按域拆分：`app.css` 为前台与共享层，`admin.css` 为后台专属层，随已懒加载的 `AdminApp` 按需加载，不进前台首屏（前台 CSS 135.93KB → 108.66KB，gzip 23.54 → 19.19KB）。
-- Manrope（域名与 UI）与 IBM Plex Mono（元数据）已自托管 latin/latin-ext 子集（`public/fonts/`，`src/client/styles/fonts.css` 由 `pnpm fonts:fetch` 生成）：Google Fonts 在中国大陆不可达，外链会让国内用户完全拿不到这两族字体。Manrope 为变量字体，单文件覆盖 400-800，浏览器按 unicode-range 只下载命中的子集。中文 Noto Sans SC 体积过大仍走 Google Fonts，不可达时按 `tokens.css` 回退系统中文字体。
+- 全部字体自托管，Google Fonts 在中国大陆不可达，外链会让国内用户完全拿不到。分两组：
+  - `src/client/styles/fonts.css` 由 `pnpm fonts:fetch` 生成（Manrope、IBM Plex Mono 等 OFL 字体的 latin/latin-ext 子集），**不要手改**。
+  - `src/client/styles/brand-fonts.css` 是品牌字体：英文 Averia Serif Libre Light（OFL，37KB），中文仓耳华新体（仓耳字库商业授权，站点所有者已确认取得网页嵌入授权；原始 TTF 不入库）。由 `pnpm fonts:brand -- --cjk <中文TTF> --latin <拉丁TTF>` 生成。
+- 中文字体必须子集化：全字库 28565 字、17MB，按「源码里出现的汉字 + GB2312 一级字库 3755 常用字 + 常用标点」裁到约 800KB。`@font-face` 的 unicode-range 限定在 CJK 区——前台文案已全部英文化，浏览器只有在页面真的出现汉字时（后台）才会去下载它，前台首屏不受影响。子集外的生僻字按 `tokens.css` 的字体栈回退系统中文字体，不会缺字。
 - 拆分依据是真实页面的 DOM 探测而非命名前缀：只有「前台完全不匹配、仅后台匹配」的选择器才进 `admin.css`。实测前后台共享选择器仅 19 个（`html`/`body`/`button`/`.brand`/`.secondary-button`/`.pagination` 等），全部留在 `app.css`；两个文件选择器不重叠，因此 `admin.css` 的加载顺序不影响前台层叠。注意 `.admin-link` 是前台页脚的管理入口，不可按前缀误判为后台样式。
 - 后台域名列表每页 100 条服务端分页，滚动到底自动累积下一页；桌面按视口虚拟化渲染，行高由首行实测得出。
 - 720px 以下表格切换为卡片式布局、行高不定，此时关闭虚拟化直接整段渲染；宽表格只在自身容器内横向滚动，页面本身不横向滚动。
