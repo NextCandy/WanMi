@@ -19,6 +19,7 @@ interface PublicDomainRow {
   manual_category: string | null;
   auto_categories: string | null;
   is_featured: number;
+  registrar_name: string | null;
   registered_at: string | null;
   expires_at: string | null;
 }
@@ -49,7 +50,7 @@ const PUBLIC_SELECT = `SELECT d.id, d.full_domain AS domain, d.name, d.tld, d.de
   NULLIF(d.category, '') AS manual_category,
   COALESCE(NULLIF(d.category, ''), d.auto_category) AS category,
   (SELECT GROUP_CONCAT(dac.category, '|') FROM domain_auto_categories dac WHERE dac.domain_id = d.id) AS auto_categories,
-  d.is_featured, d.registered_at, d.expires_at FROM domains d`;
+  d.is_featured, d.registrar_name, d.registered_at, d.expires_at FROM domains d`;
 
 function serializePublic(row: PublicDomainRow): PublicDomain & Record<string, unknown> {
   return {
@@ -63,6 +64,7 @@ function serializePublic(row: PublicDomainRow): PublicDomain & Record<string, un
       ? [row.manual_category]
       : (row.auto_categories?.split("|").filter(Boolean) ?? (row.category ? [row.category] : [])),
     is_featured: row.is_featured === 1,
+    registrar_name: row.registrar_name,
     registered_at: row.registered_at,
     expires_at: row.expires_at,
   };
