@@ -9,12 +9,11 @@ interface DomainCardProps {
   onQuickView: (domain: PublicDomain) => void;
 }
 
-type HandNoteKind = "tld" | "description" | "registrar" | "remaining";
+type HandNoteKind = "tld" | "description" | "remaining";
 
 interface HandNoteProps {
   kind: HandNoteKind;
   label: string;
-  value?: string | null;
 }
 
 const HAND_NOTE_PATHS: Record<HandNoteKind, { curve: string; head: string }> = {
@@ -26,22 +25,17 @@ const HAND_NOTE_PATHS: Record<HandNoteKind, { curve: string; head: string }> = {
     curve: "M58 8 C41 8 27 14 8 28",
     head: "M15 26 L8 28 L11 21",
   },
-  registrar: {
-    curve: "M6 7 C20 8 35 15 56 29",
-    head: "M49 29 L56 29 L53 22",
-  },
   remaining: {
-    curve: "M6 7 C23 8 38 15 57 28",
-    head: "M50 28 L57 28 L54 21",
+    curve: "M6 20 C20 15 34 17 54 23",
+    head: "M46 19 L55 23 L46 28",
   },
 };
 
-function HandNote({ kind, label, value }: HandNoteProps) {
+function HandNote({ kind, label }: HandNoteProps) {
   const path = HAND_NOTE_PATHS[kind];
   return (
     <span className={`hand-note hand-note-${kind}`}>
       <span className="hand-note-label">{label}</span>
-      {value ? <span className="hand-note-value">{value}</span> : null}
       <svg viewBox="0 0 64 36" aria-hidden="true" focusable="false">
         <path pathLength="1" d={path.curve} />
         <path pathLength="1" d={path.head} />
@@ -80,14 +74,12 @@ function DomainCardComponent({ domain, onCopy, onQuickView }: DomainCardProps) {
   const urgent = remaining !== null && remaining >= 0 && remaining <= URGENT_DAYS;
   const warning = remaining !== null && remaining > URGENT_DAYS && remaining <= WARNING_DAYS;
   const category = domain.categories[0] ?? domain.category;
-  const registrar = domain.registrar_name?.trim() || null;
 
   return (
     <article id={`domain-card-${domain.id}`} className={`domain-card${domain.is_featured ? " featured" : ""}`} aria-labelledby={`domain-${domain.id}`}>
       <div className="domain-annotation-layer" aria-hidden="true">
         <HandNote kind="tld" label="后缀" />
-        <HandNote kind="description" label="简介" />
-        {registrar ? <HandNote kind="registrar" label="注册商" value={registrar} /> : null}
+        {domain.description ? <HandNote kind="description" label="简介" /> : null}
         <HandNote kind="remaining" label="剩余时间" />
       </div>
       <div className="card-badge-row">

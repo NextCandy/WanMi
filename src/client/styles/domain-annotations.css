@@ -62,19 +62,6 @@
     background: linear-gradient(transparent 45%, var(--note-bg) 45% 88%, transparent 88%);
   }
 
-  .hand-note-value {
-    display: inline-block;
-    max-width: 112px;
-    overflow: hidden;
-    color: var(--fg-2);
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 0;
-    text-overflow: ellipsis;
-    vertical-align: baseline;
-  }
-
   .hand-note svg {
     position: absolute;
     width: 64px;
@@ -119,34 +106,21 @@
     right: calc(100% - 8px);
   }
 
-  .hand-note-registrar {
-    --note-color: var(--brand);
-    --note-bg: var(--brand-bg);
-    --note-tilt: -2deg;
-    bottom: 35px;
-    left: 10px;
-  }
-
-  .hand-note-registrar svg {
-    right: -48px;
-    bottom: 2px;
-    transform: rotate(176deg) scale(.82);
-    transform-origin: center;
-  }
-
+  /* 卡片 overflow:hidden，简介与到期行之间只有 12px 空隙，标注放上下都会被压住或裁切。
+     到期行左半段（日期与「余 N 天」之间）是唯一够宽的空白，标注落在那里，箭头向右指。 */
   .hand-note-remaining {
     --note-color: var(--warning);
     --note-bg: var(--warning-bg);
-    --note-tilt: 3deg;
-    right: 10px;
-    bottom: 8px;
+    --note-tilt: -2deg;
+    right: 104px;
+    bottom: 20px;
   }
 
   .hand-note-remaining svg {
-    right: calc(100% - 8px);
-    bottom: 7px;
-    transform: rotate(178deg) scale(.82);
-    transform-origin: center;
+    top: -9px;
+    left: calc(100% - 4px);
+    transform: scale(.72);
+    transform-origin: left center;
   }
 
   .tld-badge,
@@ -174,14 +148,9 @@
     transition-delay: 35ms;
   }
 
-  .domain-card:hover .hand-note-registrar,
-  .domain-card:focus-within .hand-note-registrar {
-    transition-delay: 70ms;
-  }
-
   .domain-card:hover .hand-note-remaining,
   .domain-card:focus-within .hand-note-remaining {
-    transition-delay: 105ms;
+    transition-delay: 70ms;
   }
 
   .domain-card:hover .tld-badge,
