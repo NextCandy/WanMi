@@ -1,6 +1,20 @@
+<div align="center">
+
+<img src="public/icon-512.png" alt="UnUseDomain" width="120" height="120">
+
 # UnUseDomain
 
-UnUseDomain 是部署在 Cloudflare Workers 上的中文域名展示与管理系统。公开站点用于检索、收藏、速览和访问已上架域名；管理后台负责域名、分类、CSV、站点设置、到期提醒、通知、安全与审计日志。前端、Worker API、Cloudflare D1 与 R2 同源部署。
+**部署在 Cloudflare Workers 上的域名展示与管理系统**
+
+[![线上站点](https://img.shields.io/badge/线上-unusedomain.com-133429?style=flat-square)](https://unusedomain.com)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?style=flat-square&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Hono](https://img.shields.io/badge/Hono-4-E36002?style=flat-square&logo=hono&logoColor=white)](https://hono.dev/)
+
+</div>
+
+公开站点用于检索、筛选、速览和访问已上架域名；管理后台负责域名、分类、CSV、站点设置、到期提醒、通知、安全与审计日志。前端、Worker API、Cloudflare D1 与 R2 同源部署。
 
 ## 线上环境
 
@@ -49,16 +63,17 @@ UnUseDomain 是部署在 Cloudflare Workers 上的中文域名展示与管理系
 - 首页无 Hero：页首（品牌 Logo + 右侧域名总数与「后台」入口）之下直接是搜索与域名列表；无独立精选区块、无分类 pills 行、无「全部资产」标题行；精品域名以主列表卡片上的精品标记区分。页脚不再有管理入口。
 - 页脚为三栏：左侧友情链接、中间品牌 Logo 与版权、右侧联系方式小图标（原先在页首右上角，已整体下移）。三栏的列号写死为 1/2/3，左右两列同为 `1fr`，因此没有友情链接时中栏仍落在页脚正中、联系方式仍靠右，不会因为少一个子元素而顺次前移。窄屏（≤900px）沿用同一套列模板，靠压缩内容让位：带 LOGO 的友链收成纯图标、中间只留品牌 Logo 不显示版权文字，联系图标保持一排。
 - 搜索按钮固定为右侧 72px 紧凑按钮，不再拉伸占据工具栏。
-- 每张域名卡片底部仅保留收藏、复制、速览三枚图标；无可见中文按钮文字，也没有“我想要”。
+- 电脑版域名卡片徽章行右侧仅保留复制、速览两枚图标；无可见中文按钮文字，也没有“我想要”。
 - **前台界面文案全部为英文**（搜索、筛选、分页、速览弹窗、精品详情页与 SSR、页面标题与 OG 描述）；分类值仍以中文存库、后台照常中文管理，前台由 `src/client/lib/category-label.ts` 做展示层映射（纯字母→Letters、三拼→3 Pinyin…），未覆盖的新分类原样透出。拼音含义模块保留汉字释义——那是内容而非界面语言。
 - 站名（页首品牌名与页脚版权）走文字流光：`background-clip: text` + 墨绿→香槟金→墨绿的渐变横向循环，`prefers-reduced-motion` 下停到静止渐变。域名卡片不做流光。
-- 卡片高约 150px：简介为空时整段不渲染（不再留占位行），内边距与行距同步收紧；徽章行为「精品星标 + 后缀 + 域龄」，分类徽章已移除，精品仅由星标表达、域名文字用深墨绿加重（不再用金色，在浅底上更稳）。域龄由 `registered_at` 折算整年，显示为 `Age17Years`（不留空格），满 10 年转金色；剩余有效期显示为 `N Days`。
+- 卡片高约 150px：简介为空时整段不渲染（不再留占位行），内边距与行距同步收紧；徽章行为「精品星标 + 后缀 + 域龄」，分类徽章已移除，精品仅由星标表达、域名文字用深墨绿加重（不再用金色，在浅底上更稳）。域龄由 `registered_at` 折算整年，显示为 `17 Years`（数字与单位之间留一个空格，不带 `Age` 前缀），满 10 年转金色；剩余有效期显示为 `N Days`。
+- 手机（≤720px）走紧凑列表，一条域名条只有域名、单行简介和查看按钮：后缀徽章、剩余天数与复制按钮全部收起，查看按钮贴右侧并与域名齐平。简介为空时不撑第二行、也不留占位，条高从约 98px 收到 44px（带简介约 66px）。实现上靠徽章行 `display: contents` 把查看按钮直接提到域名同一行，第二行只在 `:has(.domain-description)` 命中时才出现。
 - 点击域名名称直接在新标签页访问对应域名；站内保留原生 `dialog` 速览，精品域名速览额外提供独立详情页入口。
-- 收藏和最近搜索仅保存在当前浏览器的版本化 `localStorage` 中。
-- 单一黑金主题、随机发现、相似域名、桌面/平板/手机响应式布局与无障碍标签。
+- 最近搜索仅保存在当前浏览器的版本化 `localStorage` 中；收藏功能已下线。
+- 单一雅致绿金主题、随机发现、相似域名、桌面/平板/手机响应式布局与无障碍标签。
 - Worker 为首页注入 canonical、Open Graph 和真实域名 `ItemList` JSON-LD。
 - 87 个精品域名拥有 Worker SSR 独立页 `/d/:domain`，包含完整资料、同后缀/同长度推荐、Open Graph 与 Product JSON-LD；普通域名访问该路径时重定向到 `/domains?q=域名`。
-- `/api/public/og/:domain` 为精品域名生成 1200×630 黑底金字 PNG；`sitemap.xml` 从 D1 动态输出首页和全部 87 个精品详情页。
+- `/api/public/og/:domain` 为精品域名生成 1200×630 墨绿底香槟金字 PNG；`sitemap.xml` 从 D1 动态输出首页和全部 87 个精品详情页。
 
 ## 性能策略
 
