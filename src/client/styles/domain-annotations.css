@@ -149,7 +149,9 @@
     transform-origin: center;
   }
 
-  [data-annotation-target] {
+  .tld-badge,
+  .domain-description,
+  .remaining-days {
     transition:
       box-shadow var(--dur-2) var(--ease),
       background-color var(--dur-2) var(--ease),
@@ -182,18 +184,18 @@
     transition-delay: 105ms;
   }
 
-  .domain-card:hover [data-annotation-target="tld"],
-  .domain-card:focus-within [data-annotation-target="tld"] {
+  .domain-card:hover .tld-badge,
+  .domain-card:focus-within .tld-badge {
     box-shadow: inset 0 -.7em 0 var(--info-bg);
   }
 
-  .domain-card:hover [data-annotation-target="description"],
-  .domain-card:focus-within [data-annotation-target="description"] {
+  .domain-card:hover .domain-description,
+  .domain-card:focus-within .domain-description {
     box-shadow: inset 0 -1.05em 0 var(--success-bg);
   }
 
-  .domain-card:hover [data-annotation-target="remaining"],
-  .domain-card:focus-within [data-annotation-target="remaining"] {
+  .domain-card:hover .remaining-days,
+  .domain-card:focus-within .remaining-days {
     box-shadow: inset 0 -.8em 0 var(--warning-bg);
   }
 }
@@ -201,7 +203,9 @@
 @media (prefers-reduced-motion: reduce) {
   .hand-note,
   .hand-note path,
-  [data-annotation-target] {
+  .tld-badge,
+  .domain-description,
+  .remaining-days {
     transition: none !important;
   }
 }
