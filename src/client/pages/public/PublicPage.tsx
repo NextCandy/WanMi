@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Settings } from "lucide-react";
+import { Moon, Settings, Sun } from "lucide-react";
 
 import { ContactLinks } from "../../components/ContactIcons";
 import { DomainCard } from "../../components/DomainCard";
@@ -7,6 +7,7 @@ import { FriendLinks } from "../../components/FriendLinks";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
 import { Toast, type ToastMessage } from "../../components/Toast";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
+import { useTheme } from "../../hooks/useTheme";
 import { useTracker } from "../../hooks/useTracker";
 import { applyAccentColor } from "../../lib/accent-color";
 import { api } from "../../lib/api";
@@ -191,6 +192,7 @@ function pickRandomDomains(domains: PublicDomain[], count: number): PublicDomain
 
 export function PublicPage() {
   useTracker("/");
+  const { theme, toggle: toggleTheme } = useTheme();
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [facets, setFacets] = useState<PublicHomeData | null>(null);
   const [pageData, setPageData] = useState<Paginated<PublicDomain> | null>(null);
@@ -356,6 +358,15 @@ export function PublicPage() {
           </a>
           <div className="header-actions">
             <span className="domain-total-pill" aria-label="Total domains">{facets ? facets.total_domains.toLocaleString("en-US") : "—"} domains</span>
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            >
+              {theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+            </button>
             {settings?.show_admin_link_in_footer && <a className="admin-link" href="/admin" aria-label="Admin"><Settings aria-hidden="true" /></a>}
           </div>
         </div>

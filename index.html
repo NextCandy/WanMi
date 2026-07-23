@@ -25,6 +25,25 @@
          直到连接超时（国内用户白屏 20 秒以上）。中文依赖系统字体栈（PingFang SC / 微软雅黑）。 -->
     <link rel="preload" href="/fonts/manrope-latin-400-800.woff2" as="font" type="font/woff2" crossorigin />
     <title>UnUseDomain · Domain Gallery</title>
+    <!-- 主题必须在首帧之前定下来：放到 React 里读 localStorage 会先按浅色画一帧再翻深色，
+         深色用户每次进站都闪一下白。这段同步脚本在样式应用前就把 data-theme 落到 <html>，
+         同时把 theme-color 对齐，避免移动端地址栏留在浅色。
+         没有存过偏好就跟随系统；脚本始终写出显式值，CSS 只需 :root 与 [data-theme="dark"] 两个分支。 -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("unusedomain-theme");
+          var theme = stored === "light" || stored === "dark"
+            ? stored
+            : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          document.documentElement.setAttribute("data-theme", theme);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", theme === "dark" ? "#12201b" : "#f6f5f0");
+        } catch (error) {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

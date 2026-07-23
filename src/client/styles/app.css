@@ -2265,7 +2265,7 @@ svg.lucide {
 /* 卡片本体：奶油拟物卡（白高光面 + 暖棕投影）；紧凑视图沿用旧结构 */
 .public-shell .domain-list.card-view .domain-card {
   gap: 12px; min-height: 196px; padding: 18px;
-  background: linear-gradient(175deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.15)), var(--surface);
+  background: var(--card-sheen), var(--surface);
   border-color: var(--border);
 }
 .public-shell .domain-list.compact-view .card-badge-row .category-badge { display: none; }
@@ -2959,4 +2959,47 @@ svg.lucide {
     animation: none;
     background-position: 50% 50%;
   }
+}
+
+/* ============================================================
+   2026-07-22 · 主题切换按钮
+   与页首其余图标按钮同尺寸；focus-visible 走统一的 ring 令牌。
+   ============================================================ */
+
+.public-shell .theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    background var(--dur-1) var(--ease);
+}
+.public-shell .theme-toggle svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.public-shell .theme-toggle:hover {
+  color: var(--brand-primary-hover);
+  border-color: var(--brand-border);
+  background: var(--brand-bg);
+}
+
+/* 全站统一的键盘焦点环 */
+.public-shell :is(a, button, input, select, summary, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  border-radius: var(--radius-sm);
 }

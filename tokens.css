@@ -1,108 +1,154 @@
 /* ============================================================
    UnUseDomain Design Tokens · Elegant Green Gold 雅致绿金
-   —— v4.0（2026-07-20）：墨绿为主（品牌/主按钮/激活态）、暖白米白为底、
-      香槟金点缀（仅精品与重点资产，占比 ≤2%）
+   —— v5.0（2026-07-22）：色值全面改用 oklch；新增深色主题
    —— 前台 / 详情 / 后台 / 登录共用这一套令牌
    —— 组件内禁止硬编码色值，一律引用这里的变量
-   —— 单一浅色主题：不提供暗色模式，不读取系统深浅色偏好
    —— teal / accent / cream 令牌为历史各轮遗留的兼容别名，禁止新用
+
+   主题切换：
+   - `:root` 为浅色（默认），`:root[data-theme="dark"]` 为深色。
+   - index.html 顶部的内联脚本在首帧前就把 data-theme 写到 <html> 上，
+     因此 CSS 只需两个分支，也不会出现「先亮后暗」的闪烁。
+   - 深色值全部为语义覆盖：结构、间距、圆角、动效不随主题变化。
+
+   色值为什么用 oklch：感知均匀，调明度不串色相；同一色相下派生 hover/bg/border
+   只需动 L 与 C，比 hex 手调可预测。注释里的 hex 是浅色主题迁移前的原值，
+   两者视觉等价，便于回溯。
    ============================================================ */
 
 :root {
   color-scheme: light;
 
   /* Background —— 暖白纸感 */
-  --background: #f6f5f0;
-  --background-soft: #f1efe8;
+  --background: oklch(0.9695 0.0067 97.35);        /* #f6f5f0 */
+  --background-soft: oklch(0.9517 0.0096 93.57);   /* #f1efe8 */
 
   /* Surface —— 奶油白卡片分层（弹窗/下拉必须不透底） */
-  --surface: #fefdfa;
-  --surface-secondary: #f4f2ec;
-  --surface-elevated: #ffffff;
-  --surface-hover: #efede6;
+  --surface: oklch(0.994 0.0041 91.45);            /* #fefdfa */
+  --surface-secondary: oklch(0.961 0.0083 91.48);  /* #f4f2ec */
+  --surface-elevated: oklch(1 0 0);                /* #ffffff */
+  --surface-hover: oklch(0.9457 0.0096 93.57);     /* #efede6 */
 
   /* Border —— 极浅绿灰边框，靠透明度分级 */
-  --border-subtle: rgba(31, 42, 36, 0.06);
-  --border: rgba(31, 42, 36, 0.10);
-  --border-strong: rgba(31, 42, 36, 0.17);
+  --border-subtle: oklch(0.2725 0.0189 160.99 / 0.06);
+  --border: oklch(0.2725 0.0189 160.99 / 0.10);
+  --border-strong: oklch(0.2725 0.0189 160.99 / 0.17);
 
   /* Brand Green —— 深墨绿品牌主色
      浅底上前景/背景双达标：作前景 12.8:1，作实底配白字 12.8:1 */
-  --brand-primary: #133429;
-  --brand-primary-strong: #0f3c32;
-  --brand-primary-hover: #1e6b59;
-  --brand-secondary: #2d4f40;
+  --brand-primary: oklch(0.2965 0.044 168.8);        /* #133429 */
+  --brand-primary-strong: oklch(0.3226 0.0517 175.17); /* #0f3c32 */
+  --brand-primary-hover: oklch(0.4765 0.0793 173.83);  /* #1e6b59 */
+  --brand-secondary: oklch(0.3966 0.0476 164.3);       /* #2d4f40 */
   /* main 侧 Warm Craft 组件引用的派生名，映射到绿金等价色 */
-  --brand-primary-light: #1e6b59;  /* 渐变亮端 / hover */
-  --brand-primary-deep: #0b2b23;   /* 按压态 / 渐变暗端 */
-  --brand-primary-ink: #10241c;    /* 近黑绿：正文级最强 */
-  --brand-bg: rgba(19, 52, 41, 0.08);
-  --brand-bg-strong: rgba(19, 52, 41, 0.14);
-  --brand-border: rgba(19, 52, 41, 0.26);
-  --brand-ring: rgba(30, 107, 89, 0.20);
+  --brand-primary-light: oklch(0.4765 0.0793 173.83); /* 渐变亮端 / hover */
+  --brand-primary-deep: oklch(0.2627 0.0404 173.71);  /* 按压态 / 渐变暗端 */
+  --brand-primary-ink: oklch(0.2404 0.0306 166.16);   /* 近黑绿：正文级最强 */
+  --brand-bg: oklch(0.2965 0.044 168.8 / 0.08);
+  --brand-bg-strong: oklch(0.2965 0.044 168.8 / 0.14);
+  --brand-border: oklch(0.2965 0.044 168.8 / 0.26);
+  --brand-ring: oklch(0.4765 0.0793 173.83 / 0.20);
 
   /* Accent —— 品牌 logo 点缀位：雅致绿金下用香槟金取代珊瑚红；
      仅限 logo 与极小品牌点缀，UI 强调一律用品牌绿/语义色 */
-  --accent: #c89848;
-  --accent-light: #d8b66f;
-  --accent-bg: rgba(200, 152, 72, 0.12);
+  --accent: oklch(0.7096 0.1129 77.91);              /* #c89848 */
+  --accent-light: oklch(0.7907 0.098 84.65);         /* #d8b66f */
+  --accent-bg: oklch(0.7096 0.1129 77.91 / 0.12);
 
   /* Teal —— v1 深色遗留，仅兼容保留，禁止新用（映射品牌绿系） */
-  --teal: #1e6b59;
-  --teal-bright: #2d8a72;
-  --teal-deep: #133429;
-  --teal-dim: #2d4f40;
-  --teal-bg: rgba(30, 107, 89, 0.10);
-  --teal-bg-strong: rgba(30, 107, 89, 0.16);
-  --teal-border: rgba(30, 107, 89, 0.28);
+  --teal: oklch(0.4765 0.0793 173.83);
+  --teal-bright: oklch(0.5724 0.0944 172.33);
+  --teal-deep: oklch(0.2965 0.044 168.8);
+  --teal-dim: oklch(0.3966 0.0476 164.3);
+  --teal-bg: oklch(0.4765 0.0793 173.83 / 0.10);
+  --teal-bg-strong: oklch(0.4765 0.0793 173.83 / 0.16);
+  --teal-border: oklch(0.4765 0.0793 173.83 / 0.28);
 
   /* Champagne Gold —— 只用于精品域名、重点资产、重要数值与极小面积装饰；
      禁止用于普通正文、普通筛选、TLD 标签、大面积背景与菜单激活态。 */
-  --gold: #c89848;
-  --gold-deep: #b88038;
-  --gold-bright: #d8b66f;
-  --gold-soft: #e8d8b8;
-  --gold-muted: #9a8850;
+  --gold: oklch(0.7096 0.1129 77.91);          /* #c89848 */
+  --gold-deep: oklch(0.643 0.1116 70.09);      /* #b88038 */
+  --gold-bright: oklch(0.7907 0.098 84.65);    /* #d8b66f */
+  --gold-soft: oklch(0.887 0.046 84.56);       /* #e8d8b8 */
+  --gold-muted: oklch(0.6301 0.0782 92.16);    /* #9a8850 */
   /* 浅底金色文字（≥4.5:1）；gold/gold-bright 仅作渐变与装饰，禁止直接作浅底文字色 */
-  --gold-text: #79551f;
-  --gold-bg: rgba(200, 152, 72, 0.11);
-  --gold-bg-strong: rgba(200, 152, 72, 0.18);
-  --gold-border: rgba(184, 128, 56, 0.38);
-  --gold-divider: rgba(184, 128, 56, 0.30);
+  --gold-text: oklch(0.4776 0.0841 73.95);     /* #79551f */
+  --gold-bg: oklch(0.7096 0.1129 77.91 / 0.11);
+  --gold-bg-strong: oklch(0.7096 0.1129 77.91 / 0.18);
+  --gold-border: oklch(0.643 0.1116 70.09 / 0.38);
+  --gold-divider: oklch(0.643 0.1116 70.09 / 0.30);
 
   /* Text —— 深绿墨色系 */
-  --text-primary: #1f2a24;
-  --text-secondary: #5d675f;
-  --text-tertiary: #7e877f;
-  --text-inverse: #ffffff;
-  --text-on-brand: #ffffff;
+  --text-primary: oklch(0.2725 0.0189 160.99);   /* #1f2a24 */
+  --text-secondary: oklch(0.5026 0.0175 151.47); /* #5d675f */
+  --text-tertiary: oklch(0.6135 0.0159 148.65);  /* #7e877f */
+  --text-inverse: oklch(1 0 0);
+  --text-on-brand: oklch(1 0 0);
 
   /* Semantic —— 浅底加深（全部 ≥4.5:1） */
-  --success: #34745a;
-  --warning: #a76b22;
-  --danger: #b95343;
-  --info: #4e7469;
+  --success: oklch(0.509 0.0786 164.45);  /* #34745a */
+  --warning: oklch(0.5799 0.1141 66.48);  /* #a76b22 */
+  --danger: oklch(0.5682 0.1356 30.8);    /* #b95343 */
+  --info: oklch(0.527 0.0465 174.42);     /* #4e7469 */
 
-  --success-bg: rgba(52, 116, 90, 0.10);
-  --warning-bg: rgba(167, 107, 34, 0.10);
-  --danger-bg: rgba(185, 83, 67, 0.10);
-  --info-bg: rgba(78, 116, 105, 0.10);
+  --success-bg: oklch(0.509 0.0786 164.45 / 0.10);
+  --warning-bg: oklch(0.5799 0.1141 66.48 / 0.10);
+  --danger-bg: oklch(0.5682 0.1356 30.8 / 0.10);
+  --info-bg: oklch(0.527 0.0465 174.42 / 0.10);
 
   /* 高亮卡：暖白高光层（沿用 cream 令牌名，避免全量替换引用） */
-  --cream-a: #fefdfa;
-  --cream-b: #f4f2ec;
-  --cream-fg: #1f2a24;
-  --cream-fg-soft: rgba(31, 42, 36, 0.62);
-  --cream-rule: rgba(31, 42, 36, 0.14);
+  --cream-a: oklch(0.994 0.0041 91.45);
+  --cream-b: oklch(0.961 0.0083 91.48);
+  --cream-fg: oklch(0.2725 0.0189 160.99);
+  --cream-fg-soft: oklch(0.2725 0.0189 160.99 / 0.62);
+  --cream-rule: oklch(0.2725 0.0189 160.99 / 0.14);
+
+  /* —— 语义别名：与既有令牌同值，供新组件按通用命名引用 —— */
+  --foreground: var(--text-primary);
+  --card: var(--surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-elevated);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--brand-primary);
+  --primary-foreground: var(--text-on-brand);
+  --secondary: var(--surface-secondary);
+  --secondary-foreground: var(--text-primary);
+  --accent-foreground: var(--gold-text);
+  /* 注意：--muted 与 --sidebar-muted 由 app.css 的别名层定义（语义是「次级文字色」，
+     非 shadcn 那种「静音表面」），这里不再重名定义，避免两套主题下解析到不同含义。 */
+  --muted-foreground: var(--text-secondary);
+  --destructive: var(--danger);
+  --destructive-foreground: oklch(1 0 0);
+  --input: var(--border);
+  --ring: var(--brand-primary-hover);
+
+  /* 图表色阶：墨绿→金的同族推进，保证同图多系列可区分且不跳出品牌色 */
+  --chart-1: oklch(0.4765 0.0793 173.83);
+  --chart-2: oklch(0.7096 0.1129 77.91);
+  --chart-3: oklch(0.5724 0.0944 172.33);
+  --chart-4: oklch(0.643 0.1116 70.09);
+  --chart-5: oklch(0.3966 0.0476 164.3);
+
+  /* 后台侧栏：深绿实底 */
+  --sidebar: oklch(0.2404 0.0306 166.16);
+  --sidebar-foreground: oklch(0.93 0.012 150);
+  --sidebar-primary: oklch(0.7096 0.1129 77.91);
+  --sidebar-primary-foreground: oklch(0.2404 0.0306 166.16);
+  --sidebar-accent: oklch(1 0 0 / 0.08);
+  --sidebar-accent-foreground: oklch(0.98 0.006 150);
+  --sidebar-border: oklch(1 0 0 / 0.10);
+  --sidebar-ring: oklch(0.7096 0.1129 77.91 / 0.45);
 
   /* Typography
-     英文走 Averia Serif Libre Light，中文走仓耳华新体：两者都自托管，
-     中文子集按 unicode-range 限定，前台已全英文时浏览器不会去下载它。 */
+     英文走 Averia Serif Libre Light；中文仓耳华新体的 @font-face 只在 admin.css，
+     前台不加载（前台文案与库内简介均为英文）。 */
   --font-display: "Averia Serif Libre", "Tsanger HuaXin", "Cormorant Garamond", "Songti SC", ui-serif, Georgia, serif;
   --font-ui: "Averia Serif Libre", "Tsanger HuaXin", "Manrope", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Radius */
+  /* Radius
+     基准 --radius 由 app.css 定义为 --radius-md(14px) 并被全站引用；
+     这里不再重名定义，避免出现一个被覆盖的死令牌。 */
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 18px;
@@ -125,15 +171,27 @@
   --space-2xl: 64px;
 
   /* Elevation —— 带绿色倾向的低透明度阴影，禁止纯黑阴影 */
-  --shadow-card: 0 1px 2px rgba(17, 38, 30, 0.035), 0 7px 20px rgba(17, 38, 30, 0.055);
-  --shadow-card-hover: 0 2px 5px rgba(17, 38, 30, 0.055), 0 16px 34px rgba(17, 38, 30, 0.10);
-  --shadow-panel: 0 12px 34px rgba(17, 38, 30, 0.075);
-  --shadow-modal: 0 24px 64px rgba(15, 45, 36, 0.18);
-  --glow-gold: 0 0 18px rgba(200, 152, 72, 0.16);
-  --glow-teal: 0 0 18px rgba(30, 107, 89, 0.10); /* 兼容保留 */
-  --glow-brand: 0 0 18px rgba(19, 52, 41, 0.14);
+  --shadow-card: 0 1px 2px oklch(0.2404 0.0306 166.16 / 0.035), 0 7px 20px oklch(0.2404 0.0306 166.16 / 0.055);
+  --shadow-card-hover: 0 2px 5px oklch(0.2404 0.0306 166.16 / 0.055), 0 16px 34px oklch(0.2404 0.0306 166.16 / 0.10);
+  --shadow-panel: 0 12px 34px oklch(0.2404 0.0306 166.16 / 0.075);
+  --shadow-modal: 0 24px 64px oklch(0.2965 0.044 168.8 / 0.18);
+  /* 精品画廊的抬升阴影：近距柔光 + 远距扩散，hover 时与边框同时过渡 */
+  --shadow-elegant:
+    0 1px 2px oklch(0.2404 0.0306 166.16 / 0.05),
+    0 8px 18px oklch(0.2404 0.0306 166.16 / 0.08),
+    0 22px 44px oklch(0.2404 0.0306 166.16 / 0.07);
+  --glow-gold: 0 0 18px oklch(0.7096 0.1129 77.91 / 0.16);
+  --glow-teal: 0 0 18px oklch(0.4765 0.0793 173.83 / 0.10); /* 兼容保留 */
+  --glow-brand: 0 0 18px oklch(0.2965 0.044 168.8 / 0.14);
   /* 拟物卡顶部内高光：叠加在 box-shadow 首位使用 */
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  --glass-highlight: inset 0 1px 0 oklch(1 0 0 / 0.76);
+
+  /* 金色渐变：精品星标、重点数值的装饰底 */
+  --gradient-gold: linear-gradient(135deg, oklch(0.643 0.1116 70.09), oklch(0.7907 0.098 84.65) 52%, oklch(0.7096 0.1129 77.91));
+
+  /* 卡片自上而下的高光层：浅色下是纸面反光，深色下必须几乎收掉，
+     否则白色叠加会把深色卡冲成灰白 */
+  --card-sheen: linear-gradient(175deg, oklch(1 0 0 / 0.55), oklch(1 0 0 / 0.15));
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -144,4 +202,130 @@
 
   /* 移动端底部导航高度：正文用它预留滚动空间 */
   --bottom-nav-h: 76px;
+}
+
+/* ============================================================
+   深色主题
+   只覆盖语义色，不动结构/间距/圆角/动效。
+   要点：
+   - 品牌绿在深底上必须提亮，否则按钮与深背景糊在一起；但仍保持能承载白字的
+     明度（--text-on-brand 继续是白色，无需逐处改前景）。
+   - --brand-primary-ink 在浅色下是「最深的绿」，深色下语义反转为「最亮的绿」，
+     否则精品域名名会看不见。
+   - 边框与内高光由「深色低透明度」翻成「白色低透明度」。
+   ============================================================ */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: oklch(0.16 0.02 150);
+  --background-soft: oklch(0.185 0.021 152);
+
+  --surface: oklch(0.205 0.022 154);
+  --surface-secondary: oklch(0.235 0.023 154);
+  --surface-elevated: oklch(0.252 0.024 154);
+  --surface-hover: oklch(0.275 0.025 154);
+
+  --border-subtle: oklch(0.95 0.01 150 / 0.07);
+  --border: oklch(0.95 0.01 150 / 0.13);
+  --border-strong: oklch(0.95 0.01 150 / 0.22);
+
+  --brand-primary: oklch(0.5 0.085 172);
+  --brand-primary-strong: oklch(0.44 0.075 172);
+  --brand-primary-hover: oklch(0.6 0.098 172);
+  --brand-secondary: oklch(0.46 0.06 165);
+  --brand-primary-light: oklch(0.63 0.1 172);
+  --brand-primary-deep: oklch(0.38 0.065 172);
+  --brand-primary-ink: oklch(0.9 0.055 165);
+  --brand-bg: oklch(0.63 0.1 172 / 0.14);
+  --brand-bg-strong: oklch(0.63 0.1 172 / 0.22);
+  --brand-border: oklch(0.63 0.1 172 / 0.34);
+  --brand-ring: oklch(0.63 0.1 172 / 0.34);
+
+  --accent: oklch(0.78 0.108 80);
+  --accent-light: oklch(0.85 0.088 85);
+  --accent-bg: oklch(0.78 0.108 80 / 0.16);
+
+  --teal: oklch(0.6 0.098 172);
+  --teal-bright: oklch(0.68 0.105 172);
+  --teal-deep: oklch(0.5 0.085 172);
+  --teal-dim: oklch(0.46 0.06 165);
+  --teal-bg: oklch(0.6 0.098 172 / 0.14);
+  --teal-bg-strong: oklch(0.6 0.098 172 / 0.22);
+  --teal-border: oklch(0.6 0.098 172 / 0.34);
+
+  --gold: oklch(0.78 0.108 80);
+  --gold-deep: oklch(0.71 0.112 74);
+  --gold-bright: oklch(0.86 0.09 85);
+  --gold-soft: oklch(0.9 0.05 85);
+  --gold-muted: oklch(0.68 0.07 90);
+  /* 深底上的金色文字：提亮到 ≥4.5:1 */
+  --gold-text: oklch(0.85 0.095 84);
+  --gold-bg: oklch(0.78 0.108 80 / 0.14);
+  --gold-bg-strong: oklch(0.78 0.108 80 / 0.22);
+  --gold-border: oklch(0.78 0.108 80 / 0.4);
+  --gold-divider: oklch(0.78 0.108 80 / 0.32);
+
+  --text-primary: oklch(0.95 0.008 140);
+  --text-secondary: oklch(0.79 0.012 145);
+  --text-tertiary: oklch(0.66 0.014 148);
+  --text-inverse: oklch(0.16 0.02 150);
+  --text-on-brand: oklch(1 0 0);
+
+  --success: oklch(0.72 0.1 164);
+  --warning: oklch(0.78 0.11 72);
+  --danger: oklch(0.68 0.14 28);
+  --info: oklch(0.74 0.055 174);
+
+  --success-bg: oklch(0.72 0.1 164 / 0.16);
+  --warning-bg: oklch(0.78 0.11 72 / 0.16);
+  --danger-bg: oklch(0.68 0.14 28 / 0.16);
+  --info-bg: oklch(0.74 0.055 174 / 0.16);
+
+  --cream-a: oklch(0.235 0.023 154);
+  --cream-b: oklch(0.205 0.022 154);
+  --cream-fg: oklch(0.95 0.008 140);
+  --cream-fg-soft: oklch(0.95 0.008 140 / 0.66);
+  --cream-rule: oklch(0.95 0.01 150 / 0.16);
+
+  --destructive-foreground: oklch(0.16 0.02 150);
+  --ring: oklch(0.63 0.1 172);
+
+  /* 深底上把图表色整体提亮，同时拉开相邻两色的明度差 */
+  --chart-1: oklch(0.66 0.1 172);
+  --chart-2: oklch(0.79 0.108 80);
+  --chart-3: oklch(0.55 0.085 176);
+  --chart-4: oklch(0.7 0.112 66);
+  --chart-5: oklch(0.83 0.05 150);
+
+  /* 侧栏在深色下比页面背景更深，保持层次。
+     app.css 的 --sidebar-bg-a/b 由 --brand 派生，深色下 --brand 提亮后侧栏会跟着变浅，
+     这里显式压回去（本块选择器带属性，优先级高于 app.css 的 :root，无关先后顺序）。 */
+  --sidebar: oklch(0.128 0.018 152);
+  --sidebar-bg-a: oklch(0.145 0.019 152);
+  --sidebar-bg-b: oklch(0.115 0.016 152);
+  --sidebar-foreground: oklch(0.92 0.012 150);
+  --sidebar-primary: oklch(0.78 0.108 80);
+  --sidebar-primary-foreground: oklch(0.128 0.018 152);
+  --sidebar-accent: oklch(1 0 0 / 0.07);
+  --sidebar-accent-foreground: oklch(0.97 0.008 150);
+  --sidebar-border: oklch(1 0 0 / 0.09);
+  --sidebar-ring: oklch(0.78 0.108 80 / 0.5);
+
+  /* 深色下阴影靠「更黑更扩散」建立层次，内高光减到几乎不可见 */
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4), 0 7px 20px oklch(0 0 0 / 0.32);
+  --shadow-card-hover: 0 2px 5px oklch(0 0 0 / 0.45), 0 16px 34px oklch(0 0 0 / 0.42);
+  --shadow-panel: 0 12px 34px oklch(0 0 0 / 0.4);
+  --shadow-modal: 0 24px 64px oklch(0 0 0 / 0.6);
+  --shadow-elegant:
+    0 1px 2px oklch(0 0 0 / 0.4),
+    0 8px 18px oklch(0 0 0 / 0.38),
+    0 22px 44px oklch(0 0 0 / 0.34);
+  --glow-gold: 0 0 18px oklch(0.78 0.108 80 / 0.22);
+  --glow-teal: 0 0 18px oklch(0.6 0.098 172 / 0.18);
+  --glow-brand: 0 0 18px oklch(0.63 0.1 172 / 0.2);
+  --glass-highlight: inset 0 1px 0 oklch(1 0 0 / 0.06);
+
+  --gradient-gold: linear-gradient(135deg, oklch(0.71 0.112 74), oklch(0.86 0.09 85) 52%, oklch(0.78 0.108 80));
+  --card-sheen: linear-gradient(175deg, oklch(1 0 0 / 0.045), oklch(1 0 0 / 0.012));
 }
