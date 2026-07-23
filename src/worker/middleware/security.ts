@@ -17,6 +17,11 @@ export const securityHeaders = createMiddleware<AppBindings>(async (c, next) => 
   const allowDevelopmentPreamble = ["localhost", "127.0.0.1"].includes(new URL(c.req.url).hostname)
     ? " 'unsafe-inline'"
     : "";
+  // index.html 里定主题的同步脚本必须在首帧前跑，只能内联；用哈希放行而不是
+  // 'unsafe-inline'，后者会把整份文档的内联脚本全部打开。
+  // 脚本内容一改哈希就失效，届时主题会静默退回浅色——security.test.ts 会重算
+  // index.html 的哈希并比对这里的常量，改坏了测试直接红。
+  const THEME_INIT_HASH = "'sha256-lRESmU3m6e9jU2JXSTaN++F1+mb5Ik55XpXASnHI2Jk='";
   // 页面文档放行 https: 图片：友情链接的 LOGO 由站长填写对方站点的地址，
   // 收在 'self' 时必然破图。图片不执行脚本，放宽仅限 img-src，其余指令不动；
   // 友情链接的 <img> 带 referrerpolicy="no-referrer"，不把访客来源交给对方站点。
@@ -24,7 +29,7 @@ export const securityHeaders = createMiddleware<AppBindings>(async (c, next) => 
   c.header(
     "Content-Security-Policy",
     isHtmlDocument
-      ? `default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'${allowDevelopmentPreamble} https://challenges.cloudflare.com https://static.cloudflareinsights.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com https://cloudflareinsights.com ws: wss:`
+      ? `default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'${allowDevelopmentPreamble} ${THEME_INIT_HASH} https://challenges.cloudflare.com https://static.cloudflareinsights.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com https://cloudflareinsights.com ws: wss:`
       : "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'",
   );
   if (c.req.path.startsWith("/api/admin/") || c.req.path.startsWith("/api/auth/")) {
