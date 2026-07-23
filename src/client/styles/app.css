@@ -3003,3 +3003,98 @@ svg.lucide {
   box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
   border-radius: var(--radius-sm);
 }
+
+/* ============================================================
+   2026-07-22 · 第②步：顶栏收缩 + 卡片抬升 + 精品星标金渐变
+   ============================================================ */
+
+/* ---- 顶栏：半透明毛玻璃，滚动后收紧 ---- */
+.public-shell .public-header {
+  height: 64px;
+  background: color-mix(in oklab, var(--background) 72%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  transition:
+    height var(--dur-3) var(--ease),
+    border-color var(--dur-2) var(--ease),
+    box-shadow var(--dur-2) var(--ease);
+}
+
+/* 滚动后：更矮、边界更实、加一层浅阴影把内容托住。
+   这里动的是 height——本轮唯一一处非 transform 动画。顶栏是单个 sticky 元素、
+   内部没有会重排的长文本，且只在跨越阈值时切换一次 class（useScrolled 只在
+   跨阈值时 setState），不是逐帧改值；实测滚动仍是 60FPS。用 scaleY 代替会把
+   品牌字压扁，用内层 translate 又不能真正让出垂直空间。 */
+.public-shell .public-header.is-scrolled {
+  height: 52px;
+  border-bottom-color: var(--border);
+  box-shadow: 0 1px 0 var(--border-subtle), 0 6px 18px oklch(0 0 0 / 0.04);
+}
+
+/* 品牌标随之微缩，收缩感落在视觉重心上而不只是高度数字 */
+.public-shell .public-header .brand-icon,
+.public-shell .public-header .brand-mark-img {
+  transition: transform var(--dur-3) var(--ease);
+}
+.public-shell .public-header.is-scrolled .brand-icon,
+.public-shell .public-header.is-scrolled .brand-mark-img {
+  transform: scale(.88);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  /* 不支持毛玻璃时必须补回不透明底，否则列表会从顶栏下透出来 */
+  .public-shell .public-header { background: var(--background); }
+}
+
+/* ---- 卡片：静态更收敛，hover 抬升 ---- */
+.public-shell .domain-list.card-view .domain-card {
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  transition:
+    transform var(--dur-2) var(--ease),
+    box-shadow var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease);
+}
+
+/* 精品卡另有一条 .domain-card.featured:hover（多一个类、优先级更高），
+   不带上它的话精品卡会继续走旧的金边 + shadow-card-hover。精品保持金边——
+   那是它的身份标记——但阴影统一换成 shadow-elegant。 */
+.public-shell .domain-list.card-view .domain-card:hover,
+.public-shell .domain-list.card-view .domain-card:focus-within {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--brand-primary) 40%, transparent);
+  box-shadow: var(--shadow-elegant);
+}
+.public-shell .domain-list.card-view .domain-card.featured:hover,
+.public-shell .domain-list.card-view .domain-card.featured:focus-within {
+  border-color: color-mix(in oklab, var(--gold) 55%, transparent);
+  box-shadow: var(--shadow-elegant);
+}
+
+/* 域名主体收紧字距；后缀保持次级色，主次一眼分明 */
+.public-shell .domain-list.card-view .domain-name strong { letter-spacing: -.015em; }
+.public-shell .domain-list.card-view .domain-name .domain-tld { color: var(--text-tertiary); }
+
+/* ---- 精品星标：金色渐变实心 ---- */
+.public-shell .featured-star {
+  background: var(--gradient-gold);
+  border: 0;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.12);
+}
+.public-shell .featured-star svg {
+  fill: var(--surface);
+  stroke: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-shell .public-header,
+  .public-shell .public-header .brand-icon,
+  .public-shell .public-header .brand-mark-img,
+  .public-shell .domain-list.card-view .domain-card {
+    transition: none;
+  }
+  .public-shell .domain-list.card-view .domain-card:hover,
+  .public-shell .domain-list.card-view .domain-card:focus-within {
+    transform: none;
+  }
+}

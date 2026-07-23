@@ -6,6 +6,7 @@ import { DomainCard } from "../../components/DomainCard";
 import { FriendLinks } from "../../components/FriendLinks";
 import { DomainDetailDialog } from "../../components/DomainDetailDialog";
 import { Toast, type ToastMessage } from "../../components/Toast";
+import { useScrolled } from "../../hooks/useScrolled";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { useTheme } from "../../hooks/useTheme";
 import { useTracker } from "../../hooks/useTracker";
@@ -193,6 +194,7 @@ function pickRandomDomains(domains: PublicDomain[], count: number): PublicDomain
 export function PublicPage() {
   useTracker("/");
   const { theme, toggle: toggleTheme } = useTheme();
+  const scrolled = useScrolled();
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [facets, setFacets] = useState<PublicHomeData | null>(null);
   const [pageData, setPageData] = useState<Paginated<PublicDomain> | null>(null);
@@ -350,7 +352,7 @@ export function PublicPage() {
 
   return (
     <div className={`public-shell density-${settings?.display_density ?? "comfortable"}`}>
-      <header className="public-header">
+      <header className={`public-header${scrolled ? " is-scrolled" : ""}`}>
         <div className="public-header-inner">
           <a className="brand" href="/" aria-label={`${settings?.site_name ?? "UnUseDomain"} home`}>
             <img className="brand-icon" src={settings?.logo_url || "/unusedomain-logo.png"} alt="" decoding="async" fetchPriority="high" />
