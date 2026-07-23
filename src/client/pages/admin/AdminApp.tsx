@@ -17,6 +17,7 @@ import { Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAx
 import { Toast, type ToastMessage } from "../../components/Toast";
 // 后台专属样式：AdminApp 本身是懒加载的，样式随 admin chunk 一起按需加载，不进前台首屏
 import "../../styles/admin.css";
+import { useCountUp } from "../../hooks/useCountUp";
 import { useIsCompactLayout, useVirtualRows } from "../../hooks/useVirtualRows";
 import { ApiError, api, download } from "../../lib/api";
 import { formatExact, formatRelative } from "../../lib/format-time";
@@ -215,7 +216,7 @@ function OverviewView({ onTldClick, onDomainClick, onNavigate, notify }: { onTld
     catch (reason) { notify(reason instanceof Error ? reason.message : "CSV 导出失败", "error"); }
   }
   return <div className="admin-stack">
-    <div className="stat-grid">{cards.map(([label, value, tone]) => <div className={`stat-card ${tone}`} key={label}><span>{label}</span><strong>{Number(value).toLocaleString("zh-CN")}</strong></div>)}</div>
+    <div className="stat-grid">{cards.map(([label, value, tone]) => <StatCard key={label} label={String(label)} value={Number(value)} tone={String(tone)} />)}</div>
     <div className="quick-actions" role="group" aria-label="快捷操作">
       <button type="button" onClick={() => onNavigate("domains")}><Globe aria-hidden="true" />添加域名</button>
       <button type="button" onClick={() => onNavigate("domains")}><LayoutDashboard aria-hidden="true" />批量 CSV 导入</button>
@@ -880,6 +881,18 @@ function FriendLinksPanel({ notify }: { notify: (text: string, tone?: "success" 
       </form>
     </div>}
   </Panel>;
+}
+
+/** KPI 卡：数字滚动到位，卡顶留一条品牌色装饰线（由 CSS 画） */
+function StatCard({ label, value, tone }: { label: string; value: number; tone: string }) {
+  const shown = useCountUp(value);
+  return (
+    <div className={`stat-card ${tone}`}>
+      <span>{label}</span>
+      {/* tabular-nums 由 CSS 给：滚动过程中每帧位数不同，不定宽会让整卡左右抖 */}
+      <strong>{shown.toLocaleString("zh-CN")}</strong>
+    </div>
+  );
 }
 
 type NotificationChannelKey = "email" | "telegram" | "bark" | "serverchan" | "wecom" | "feishu" | "discord";

@@ -192,6 +192,8 @@
   /* 卡片自上而下的高光层：浅色下是纸面反光，深色下必须几乎收掉，
      否则白色叠加会把深色卡冲成灰白 */
   --card-sheen: linear-gradient(175deg, oklch(1 0 0 / 0.55), oklch(1 0 0 / 0.15));
+  /* KPI 卡右上角高光 */
+  --stat-glow: oklch(1 0 0 / 0.55);
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -328,4 +330,5 @@
 
   --gradient-gold: linear-gradient(135deg, oklch(0.71 0.112 74), oklch(0.86 0.09 85) 52%, oklch(0.78 0.108 80));
   --card-sheen: linear-gradient(175deg, oklch(1 0 0 / 0.045), oklch(1 0 0 / 0.012));
+  --stat-glow: oklch(1 0 0 / 0.05);
 }

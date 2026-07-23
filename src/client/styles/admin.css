@@ -526,9 +526,9 @@ svg.lucide {
 .stat-card.tone-c { background: linear-gradient(160deg, color-mix(in oklab, var(--gold) 12%, var(--surface)), var(--surface)); border-color: var(--gold-border); }
 .stat-card::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, 0.55), transparent 55%);
+  background: radial-gradient(120% 90% at 100% 0%, var(--stat-glow), transparent 55%);
 }
-.stat-card.tone-c::after { background: radial-gradient(120% 90% at 100% 0%, rgba(200, 152, 72, 0.18), transparent 55%); }
+.stat-card.tone-c::after { background: radial-gradient(120% 90% at 100% 0%, var(--gold-bg-strong), transparent 55%); }
 .stat-card span { color: var(--text-secondary); font-weight: 600; }
 .stat-card strong { color: var(--text-primary); }
 .stat-card.tone-c strong { color: var(--gold-text); }
@@ -538,12 +538,12 @@ svg.lucide {
 .quick-actions button {
   display: inline-flex; align-items: center; justify-content: flex-start; gap: 10px;
   padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: linear-gradient(175deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.20)), var(--surface);
+  background: var(--card-sheen), var(--surface);
   color: var(--text-primary); font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: var(--glass-highlight), 0 2px 8px rgba(17, 38, 30, 0.10);
+  box-shadow: var(--glass-highlight), var(--shadow-card);
   transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
-.quick-actions button:hover { border-color: var(--brand-border); background: linear-gradient(175deg, rgba(19, 52, 41, 0.07), rgba(19, 52, 41, 0.02)), var(--surface); }
+.quick-actions button:hover { border-color: var(--brand-border); background: var(--brand-bg), var(--surface); }
 .quick-actions button:active { transform: scale(.98); }
 .quick-actions button svg { width: 17px; height: 17px; color: var(--brand); }
 
@@ -722,3 +722,67 @@ svg.lucide {
   .friend-link-row { grid-template-columns: minmax(0, 1fr); }
   .friend-link-actions { grid-auto-flow: column; justify-content: start; }
 }
+
+/* ============================================================
+   2026-07-22 · 第④步：侧栏激活态、账户卡、KPI 卡
+   ============================================================ */
+
+/* ---- 侧栏：金色左边条加粗到 4px，图标微放大 ---- */
+.admin-sidebar nav button {
+  position: relative;
+  transition:
+    background var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+.admin-sidebar nav button > svg {
+  transition: transform var(--dur-2) var(--ease);
+}
+.admin-sidebar nav button.active::before {
+  inset: 8px auto 8px 0;
+  width: 4px;
+  background: var(--gradient-gold);
+  border-radius: 0 3px 3px 0;
+}
+.admin-sidebar nav button.active > svg {
+  transform: scale(1.14);
+}
+
+/* ---- 侧栏底部账户卡：头像 + 邮箱 + 角色 ---- */
+.sidebar-user summary {
+  padding: 8px 6px;
+  border-radius: 10px;
+  transition: background var(--dur-1) var(--ease);
+}
+.sidebar-user summary:hover {
+  background: color-mix(in oklab, oklch(100% 0 0) 7%, transparent);
+}
+/* 头像与角色沿用既有的 .user-avatar / summary 内 small，只换观感，不动 DOM */
+.sidebar-user .user-avatar {
+  background: var(--gradient-gold);
+  color: var(--brand-primary-ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, oklch(100% 0 0) 30%, transparent);
+}
+.sidebar-user summary small {
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+
+/* ---- KPI 卡：顶边 1px 品牌色装饰 + 数字等宽 ---- */
+/* 顶边装饰线用既有的 .stat-card::before（3px 品牌渐变），这里只把它收细到 1px
+   并让尾端过渡到金——不要另起 ::after，那样会盖掉原有的右上角高光，而且
+   .stat-card.tone-c::after 优先级更高，精品卡反而拿不到线。 */
+.stat-card::before {
+  height: 1px;
+  opacity: 1;
+  background: linear-gradient(90deg, var(--brand-primary), color-mix(in oklab, var(--gold) 70%, transparent) 55%, transparent);
+}
+.stat-card.tone-c::before {
+  background: var(--gradient-gold);
+}
+/* strong 的 tabular-nums 原本就有；count-up 每帧位数不同，靠它避免整卡左右抖 */
