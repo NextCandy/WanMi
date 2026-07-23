@@ -3158,3 +3158,70 @@ svg.lucide {
 .public-shell .catalogue-toolbar .toolbar-summary.active-filters .clear-filter {
   margin-left: auto;
 }
+
+/* ============================================================
+   2026-07-22 · 速览由居中模态改为右侧 Drawer
+   仍然是原生 <dialog> + showModal()：焦点陷阱、Esc 关闭、背景 inert 都由浏览器
+   负责，换成 div 自己实现这些反而更容易漏。这里只改定位与进出场。
+   手机保持底部抽屉——390px 宽度上侧边抽屉会挤掉正文，底部弹出才是对的。
+   ============================================================ */
+
+@media (min-width: 721px) {
+  .public-shell ~ .domain-detail-dialog,
+  .domain-detail-dialog {
+    width: min(480px, calc(100vw - 48px));
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    /* margin 决定 <dialog> 停在哪：靠右贴边、纵向撑满 */
+    margin: 0 0 0 auto;
+    border: 0;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+    box-shadow: var(--shadow-modal);
+  }
+
+  /* 进场：从右侧滑入。@starting-style 提供初态，allow-discrete 让退场也能播完
+     ——否则 dialog.close() 会让元素立刻 display:none，只有进场有动画。 */
+  .domain-detail-dialog[open] {
+    opacity: 1;
+    transform: translateX(0);
+    transition:
+      opacity var(--dur-2) var(--ease),
+      transform 320ms var(--ease),
+      overlay 320ms var(--ease) allow-discrete,
+      display 320ms var(--ease) allow-discrete;
+  }
+  @starting-style {
+    .domain-detail-dialog[open] { opacity: 0; transform: translateX(100%); }
+  }
+  .domain-detail-dialog:not([open]) { opacity: 0; transform: translateX(100%); }
+
+  .domain-detail-dialog > section { padding: 26px 24px 28px; }
+  /* 抽屉窄了，原本按 760px 排的多列信息要退回单列/双列 */
+  .domain-detail-dialog .quick-detail-grid { grid-template-columns: 1fr 1fr; }
+  .domain-detail-dialog .quick-value-grid { grid-template-columns: 1fr 1fr; }
+  .domain-detail-dialog .quick-resource-grid { grid-template-columns: 1fr; }
+}
+
+.domain-detail-dialog::backdrop {
+  background: oklch(0.16 0.02 150 / 0.42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 1;
+  transition: opacity var(--dur-2) var(--ease), display var(--dur-2) var(--ease) allow-discrete;
+}
+@starting-style {
+  .domain-detail-dialog[open]::backdrop { opacity: 0; }
+}
+.domain-detail-dialog:not([open])::backdrop { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .domain-detail-dialog[open],
+  .domain-detail-dialog::backdrop { transition: none; }
+  @media (min-width: 721px) {
+    @starting-style {
+      .domain-detail-dialog[open] { opacity: 1; transform: translateX(0); }
+    }
+  }
+}
