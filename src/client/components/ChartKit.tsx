@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
+import { DURATION, prefersReducedMotion } from "../lib/motion";
+
 /**
  * 后台图表的共用件。四张图原先各写各的 Tooltip 与配色，改版时容易漏掉一张；
  * 收到这里之后新增图表默认就是同一套观感。
@@ -81,8 +83,8 @@ export function GradientAreaChart({ data, series, xKey, height = 200, unit = "",
             strokeWidth={2.5}
             fill={`url(#area-${item.dataKey})`}
             // 首绘 600ms，之后数据更新不再重播，避免轮询时图表一直动
-            isAnimationActive
-            animationDuration={600}
+            isAnimationActive={!prefersReducedMotion()}
+            animationDuration={DURATION.chart}
             dot={false}
             activeDot={{ r: 4, strokeWidth: 0 }}
           />

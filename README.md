@@ -57,7 +57,9 @@
 - 暖白背景 `#f6f5f0`、奶油白卡片 `#fefdfa`，品牌主色为深墨绿 `#133429`（hover `#1e6b59`），香槟金 `#c89848` 仅表达精品与重点资产（占比 ≤2%），浅底金色小字一律 `--gold-text #79551f`。
 - 主、次、三级文字依次使用 `#1f2a24`、`#5d675f`、`#7e877f`；卡片阴影统一为绿倾向低透明度令牌，禁止纯黑阴影。
 - 站点设置 `accent_color` 由 `applyAccentColor` 整套派生（主色/hover/bg/border/ring 同步），历史默认值视为未定制。
-- 保留 `prefers-reduced-motion` 与 `prefers-reduced-transparency` 退化；完整规范见 [`DESIGN.md`](DESIGN.md)。
+- 动效常量单一来源：CSS 读 `tokens.css` 的 `--dur-*`/`--ease`，JS 驱动的动画（KPI count-up、图表首绘）读 `src/client/lib/motion.ts` 的同名常量，两边数值一一对应。不引入 framer-motion——本项目的动画都能用 CSS transform/opacity 表达，为此多打 40KB gzip 不划算。
+- `prefers-reduced-motion` 除各处具名规则外，`app.css` 末尾另有一条覆盖全部元素与伪元素的兜底（`animation-duration: 0.01ms` 而非 `none`，保证动画终态仍被应用）。逐个补规则漏一个不会有任何报错，只有相关用户能感觉到。
+- 保留 `prefers-reduced-transparency` 退化；完整规范见 [`DESIGN.md`](DESIGN.md)。
 
 ## 公开站点
 

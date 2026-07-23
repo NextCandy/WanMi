@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { DURATION, prefersReducedMotion } from "../lib/motion";
+
 /**
  * KPI 数字从 0 滚到目标值。
  *
@@ -8,13 +10,13 @@ import { useEffect, useRef, useState } from "react";
  *
  * prefers-reduced-motion 下直接给终值，不做任何插值。
  */
-export function useCountUp(target: number, duration = 800): number {
-  const [value, setValue] = useState(() => (prefersReduced() ? target : 0));
+export function useCountUp(target: number, duration: number = DURATION.countUp): number {
+  const [value, setValue] = useState(() => (prefersReducedMotion() ? target : 0));
   const fromRef = useRef(0);
   const frameRef = useRef(0);
 
   useEffect(() => {
-    if (prefersReduced()) {
+    if (prefersReducedMotion()) {
       setValue(target);
       return;
     }
@@ -38,8 +40,4 @@ export function useCountUp(target: number, duration = 800): number {
   }, [target, duration]);
 
   return value;
-}
-
-function prefersReduced(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

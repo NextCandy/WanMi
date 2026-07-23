@@ -3225,3 +3225,25 @@ svg.lucide {
     }
   }
 }
+
+/* ============================================================
+   2026-07-22 · 第⑦步：减弱动效的全局兜底
+   本文件已有 9 处 prefers-reduced-motion、admin.css 还有 2 处，都是按当时新增的
+   动画逐个补的——这种写法漏一个不会有任何报错，只有相关用户能感觉到。
+   这里加一条覆盖全部元素与伪元素的兜底，放在文件末尾，优先级最高。
+   之前那些具名块保留：它们表达的是「这个动画在减弱模式下应当怎样」，比一刀切
+   更精确，兜底只负责接住将来漏掉的。
+
+   用 0.01ms 而不是 none：动画的终态仍会被应用（0 时长跑完一轮），
+   写 animation: none 会让依赖动画落位的元素停在初始状态。
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
