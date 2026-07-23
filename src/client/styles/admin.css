@@ -827,3 +827,80 @@ svg.lucide {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* ============================================================
+   2026-07-22 · 第⑥步：表头吸顶、行 hover、批量条底部滑入
+   ============================================================ */
+
+/* 表头吸顶只在「表格不需要横向滚动」时开启。
+   .admin-table-wrap 用 overflow-x: auto 承担横向滚动，而 CSS 规定一轴非 visible
+   时另一轴的 visible 会被算成 auto——于是它同时成了纵向滚动容器，sticky 会粘在
+   容器内而非页面上，表现为根本不吸顶。overflow-y: clip 也不行，实测计算值仍是
+   hidden，一样建立滚动容器。这两者在「页面级纵向滚动」下无法共存。
+
+   取舍：视口够宽（表格 min-width 980px 放得下）时让容器 overflow: visible，
+   吸顶生效；窄屏保留横向滚动、不吸顶。虚拟滚动跟随页面滚动，不受影响。 */
+.admin-table thead th {
+  background: var(--surface-secondary);
+}
+
+@media (min-width: 1320px) {
+  .admin-table-wrap { overflow: visible; }
+  .admin-table thead th {
+    position: sticky;
+    /* 后台页首是 76px 的 sticky，表头要停在它下面而不是被盖住 */
+    top: 76px;
+    z-index: 10;
+    /* 必须不透底：行会从半透明表头后透出来 */
+    background: var(--surface-secondary);
+    box-shadow: inset 0 -1px 0 var(--border);
+  }
+}
+
+.admin-table tbody tr {
+  transition: background var(--dur-1) var(--ease);
+}
+.admin-table tbody tr:hover {
+  background: var(--brand-bg);
+}
+
+/* ---- 批量操作条：底部悬浮，从下滑入 ---- */
+@keyframes bulk-bar-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.bulk-bar {
+  position: fixed;
+  /* 侧栏 228px：按内容区中心对齐，而不是视口中心 */
+  left: calc(228px + (100vw - 228px) / 2);
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 30;
+  width: max-content;
+  max-width: min(1080px, calc(100vw - 268px));
+  margin-bottom: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-modal);
+  animation: bulk-bar-in var(--dur-3) var(--ease);
+}
+
+@media (max-width: 900px) {
+  .bulk-bar {
+    /* 手机侧栏变成底部横条（68px 高），批量条要让开 */
+    left: 50%;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 20px);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .bulk-bar::-webkit-scrollbar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bulk-bar { animation: none; }
+  .admin-table tbody tr { transition: none; }
+}
