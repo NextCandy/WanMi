@@ -144,6 +144,15 @@ function hasAdvancedFilters(advanced: AdvancedFilterValue): boolean {
   return Boolean(advanced.minLength || advanced.maxLength || advanced.contains || advanced.excludes || advanced.kind);
 }
 
+/** 位数筛选在 chip 上的说法；contains/excludes/kind 只能由 URL 直传，统一叫 Filtered */
+function lengthChipLabel(advanced: AdvancedFilterValue): string {
+  const pick = lengthPickOf(advanced);
+  if (pick === "10plus") return "10+ chars";
+  if (pick !== "custom" && pick !== "all") return `${pick} chars`;
+  if (advanced.minLength || advanced.maxLength) return `${advanced.minLength || "1"}-${advanced.maxLength || "∞"} chars`;
+  return "Filtered";
+}
+
 function catalogueUrl(filters: Filters, page = filters.page): string {
   const params = new URLSearchParams({
     ...(filters.q ? { q: filters.q } : {}),
@@ -343,6 +352,47 @@ export function PublicPage() {
       : { ...current, category: value, group: "all", page: 1 });
   }
 
+  /* 已选筛选项 chip：每条自带撤销动作，只清自己那一维。
+     与 hasActiveFilter 读的是同一份 filters，不会出现「有 chip 却没有清除条」
+     或反过来的情况。位数是 minLength/maxLength 两个字段合成的一维，整体清。 */
+  const activeChips: Array<{ key: string; label: string; clear: () => void }> = [
+    ...(filters.q ? [{
+      key: "q",
+      label: `“${filters.q}”`,
+      clear: () => { setDraftSearch(""); setFilters((c) => ({ ...c, q: "", page: 1 })); },
+    }] : []),
+    ...(filters.group === "featured" ? [{
+      key: "featured",
+      label: "Featured",
+      clear: () => setFilters((c) => ({ ...c, group: "all", page: 1 })),
+    }] : []),
+    ...(filters.category ? [{
+      key: "category",
+      label: categoryLabel(filters.category),
+      clear: () => setFilters((c) => ({ ...c, category: "", page: 1 })),
+    }] : []),
+    ...(filters.tld ? [{
+      key: "tld",
+      label: `.${filters.tld}`,
+      clear: () => setFilters((c) => ({ ...c, tld: "", page: 1 })),
+    }] : []),
+    ...(hasAdvancedFilters(filters.advanced) ? [{
+      key: "length",
+      label: lengthChipLabel(filters.advanced),
+      clear: () => setFilters((c) => ({ ...c, advanced: EMPTY_ADVANCED_FILTERS, page: 1 })),
+    }] : []),
+    ...(filters.expiry ? [{
+      key: "expiry",
+      label: EXPIRY_OPTIONS.find(([key]) => key === filters.expiry)?.[1] ?? filters.expiry,
+      clear: () => setFilters((c) => ({ ...c, expiry: "", page: 1 })),
+    }] : []),
+    ...(filters.sort !== "default" ? [{
+      key: "sort",
+      label: SORTS.find(([key]) => key === filters.sort)?.[1] ?? filters.sort,
+      clear: () => setFilters((c) => ({ ...c, sort: "default", page: 1 })),
+    }] : []),
+  ];
+
   const effectiveViewMode = isMobileCatalogue ? "compact" : "cards";
 
   const copyDomain = useCallback(async (domain: string) => {
@@ -409,7 +459,15 @@ export function PublicPage() {
                 <label className="sort-control"><select aria-label="Sort by" value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as SortKey, page: 1 })); }}>{SORTS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
               </div>
             </div>
-            {hasActiveFilter && <div className="toolbar-summary"><button type="button" className="clear-filter" onClick={resetFilters}>Clear filters</button></div>}
+            {hasActiveFilter && <div className="toolbar-summary active-filters" aria-label="Active filters">
+              {activeChips.map((chip) => (
+                <button type="button" className="filter-chip" key={chip.key} onClick={chip.clear} aria-label={`Remove filter ${chip.label}`}>
+                  <span>{chip.label}</span>
+                  <b aria-hidden="true">×</b>
+                </button>
+              ))}
+              <button type="button" className="clear-filter" onClick={resetFilters}>Clear filters</button>
+            </div>}
           </div>
 
           {error && <div className="state-panel error-panel"><strong>Failed to load</strong><span>{error}</span><button type="button" onClick={() => { clearCatalogueCache(); setFilters((current) => ({ ...current })); }}>Retry</button></div>}

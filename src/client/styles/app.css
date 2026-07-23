@@ -3098,3 +3098,63 @@ svg.lucide {
     transform: none;
   }
 }
+
+/* ---- 已选筛选项 chip 行 ---- */
+.public-shell .toolbar-summary.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.public-shell .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  min-height: 26px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-pill);
+  background: var(--brand-bg);
+  color: var(--brand-primary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+.public-shell .filter-chip > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.public-shell .filter-chip > b {
+  flex: 0 0 auto;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-tertiary);
+}
+.public-shell .filter-chip:hover {
+  border-color: var(--brand-primary);
+  background: var(--brand-bg-strong);
+}
+.public-shell .filter-chip:hover > b { color: var(--danger); }
+
+@media (max-width: 720px) {
+  .public-shell .toolbar-summary.active-filters { justify-content: flex-start; }
+}
+
+/* chip 行独占一行：早先 .toolbar-summary 被钉在第 2 列，与筛选下拉挤在同一行，
+   多挂两个条件就把工具栏撑得很长。改为跨列换行，并与上方留出分隔。 */
+.public-shell .catalogue-toolbar .toolbar-summary.active-filters {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  padding-top: 9px;
+  border-top: 1px solid var(--border-subtle);
+}
+.public-shell .catalogue-toolbar .toolbar-summary.active-filters .clear-filter {
+  margin-left: auto;
+}
